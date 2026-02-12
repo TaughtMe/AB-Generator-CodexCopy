@@ -1,0 +1,22 @@
+import React from 'react';
+import type { MathTask } from '../../types/worksheet';
+import { useWorksheetStore } from '../../store/worksheetStore';
+import { MathInput } from './MathInput';
+
+/* ══════════════════════════════════════════════════
+   MathTaskEditor – Connects MathInput to the Task System
+   ══════════════════════════════════════════════════ */
+
+interface MathTaskEditorProps {
+    task: MathTask;
+}
+
+export const MathTaskEditor: React.FC<MathTaskEditorProps> = ({ task }) => {
+    const updateTask = useWorksheetStore((s) => s.updateTask);
+
+    const handleChange = (content: string) => {
+        updateTask(task.id, { content });
+    };
+
+    return <MathInput value={task.content} onChange={handleChange} />;
+};

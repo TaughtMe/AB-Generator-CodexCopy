@@ -1,0 +1,113 @@
+/* ══════════════════════════════════════════════════
+   PrintStyles.css – @media print for A4 export
+   Ensures the browser print dialog reproduces the
+   A4 page exactly without scaling artifacts.
+   ══════════════════════════════════════════════════ */
+
+@media print {
+
+    /* ── Page setup ── */
+    @page {
+        size: A4;
+        margin: 0;
+    }
+
+    /* ── Hide everything except the A4 page ── */
+    body {
+        margin: 0;
+        padding: 0;
+        background: white !important;
+    }
+
+    /* Hide desk background and toolbar */
+    .a4-desk,
+    .a4-desk-multi {
+        background: none !important;
+        padding: 0 !important;
+        min-height: auto !important;
+        gap: 0 !important;
+    }
+
+    /* The A4 page itself */
+    .a4-page {
+        box-shadow: none !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        width: 210mm !important;
+        min-height: 297mm !important;
+        padding: 20mm !important;
+
+        /* Ensure backgrounds (lineatur grids) print */
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* ── Hide non-printable UI elements ── */
+    .no-print,
+    .no-print * {
+        display: none !important;
+    }
+
+    /* ── Hide TaskCard editor chrome (drag handles, action buttons) ── */
+    .task-card-header {
+        display: none !important;
+    }
+
+    /* ── Prevent page breaks inside tasks ── */
+    .task-card {
+        break-inside: avoid;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+
+    /* ── AI Chat hidden in print ── */
+    .no-print {
+        display: none !important;
+    }
+
+    /* ── Multiple-Choice: Student mode print ── */
+    /* Hide the interactive toggle button in print */
+    .mc-correct-marker {
+        display: none !important;
+    }
+
+    /* Show the print-only checkbox instead */
+    .mc-print-checkbox {
+        display: inline-block !important;
+    }
+
+    /* Teacher mode: green checkmark for correct answers */
+    .mc-print-checkbox[data-teacher="true"][data-correct="true"] {
+        background-color: #16a34a !important;
+        border-color: #16a34a !important;
+        position: relative;
+    }
+
+    .mc-print-checkbox[data-teacher="true"][data-correct="true"]::after {
+        content: '✓';
+        color: white;
+        font-size: 12px;
+        font-weight: bold;
+        position: absolute;
+        top: -1px;
+        left: 2px;
+    }
+
+    /* ── Hide form controls in print (inputs show as text) ── */
+    textarea,
+    select {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        resize: none !important;
+    }
+
+    input[type="text"] {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+    }
+}
