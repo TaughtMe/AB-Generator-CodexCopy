@@ -20,7 +20,7 @@ const PX_PER_MM = DPI / 25.4;
 /** A4 inner width (210 mm − 2 × 20 mm margins) */
 const INNER_WIDTH_MM = 170;
 
-/** Default lineatur height in mm (≈ 8 rows of 10mm) */
+/** Default lineatur height in mm */
 const DEFAULT_HEIGHT_MM = 80;
 
 /** Row height per style in mm (must match lineaturStyles.ts) */
@@ -29,7 +29,7 @@ function getRowHeightMM(style: LineStyle): number {
         case 'grid-5mm': return 5;
         case 'grid-10mm': return 10;
         case 'lines-8mm': return 8;
-        case 'primary-4-lines': return 10;
+        case 'primary-4-lines': return 20;
         default: return 8;
     }
 }
@@ -37,12 +37,9 @@ function getRowHeightMM(style: LineStyle): number {
 // ── Color Palette (matches lineaturStyles.ts CSS) ──────────
 
 const LINE_COLOR = 'rgba(0, 0, 0, 0.18)';
-const PRIMARY_LINE_COLOR = 'rgba(0, 0, 0, 0.35)';
-const HELP_LINE_COLOR = 'rgba(0, 0, 0, 0.12)';
-
+const PRIMARY_LINE_COLOR = '#94a3b8';
 /** Line thickness in mm */
 const LINE_THICKNESS_MM = 0.3;
-const HELP_LINE_THICKNESS_MM = 0.2;
 
 // ── Cell sizes per style (in mm) ────────────────────────────
 
@@ -55,7 +52,7 @@ function getCellSizeMM(style: LineStyle): { w: number; h: number } {
         case 'lines-8mm':
             return { w: INNER_WIDTH_MM, h: 8 };
         case 'primary-4-lines':
-            return { w: INNER_WIDTH_MM, h: 10 };
+            return { w: INNER_WIDTH_MM, h: 20 };
         default:
             return { w: 5, h: 5 };
     }
@@ -110,37 +107,50 @@ function drawPrimary4Lines(
     widthPx: number,
     heightPx: number,
 ) {
-    const groupH = mmToPx(10); // 10mm total per group
-    const primaryW = mmToPx(LINE_THICKNESS_MM);
-    const helpW = mmToPx(HELP_LINE_THICKNESS_MM);
+    const roofMM = 4;
+    const middleMM = 4;
+    const basementMM = 4;
+    const blockMM = roofMM + middleMM + basementMM; // 12mm
+    const blockGapMM = 8;
+    const cycleMM = blockMM + blockGapMM; // 20mm
 
-    // ── Draw light gray midband rectangles first (behind lines) ──
-    const midbandTop = mmToPx(2.5);
-    const midbandBottom = mmToPx(5);
-    const midbandHeight = midbandBottom - midbandTop;
-    ctx.fillStyle = '#f1f5f9'; // Light gray – printer-friendly
+    const cyclePx = mmToPx(cycleMM);
+    const roofPx = mmToPx(roofMM);
+    const middlePx = mmToPx(middleMM);
+    const basementPx = mmToPx(basementMM);
+    const lineWidthPx = 1;
 
-    for (let groupY = 0; groupY < heightPx; groupY += groupH) {
-        const y = groupY + midbandTop;
-        if (y > heightPx) break;
-        ctx.fillRect(0, y, widthPx, midbandHeight);
-    }
+    ctx.strokeStyle = PRIMARY_LINE_COLOR;
+    ctx.lineWidth = lineWidthPx;
+    ctx.lineCap = 'butt';
 
-    // ── Draw lines on top of midband ──
-    const offsets = [
-        { mm: 0, color: PRIMARY_LINE_COLOR, w: primaryW },     // Dachzeile
-        { mm: 2.5, color: HELP_LINE_COLOR, w: helpW },         // Mittelband
-        { mm: 5, color: PRIMARY_LINE_COLOR, w: primaryW },     // Grundlinie
-        { mm: 7.5, color: HELP_LINE_COLOR, w: helpW },         // Kellerband
-    ];
+    for (let cycleStart = 0; cycleStart <= heightPx; cycleStart += cyclePx) {
+        // Mittelband (Wohnzimmer) zwischen Linie 2 und Linie 3
+        const middleTop = cycleStart + roofPx;
+        const middleBottom = cycleStart + roofPx + middlePx;
 
-    for (let groupY = 0; groupY < heightPx; groupY += groupH) {
-        for (const line of offsets) {
-            const y = groupY + mmToPx(line.mm);
-            if (y > heightPx) break;
-            ctx.fillStyle = line.color;
-            ctx.fillRect(0, y, widthPx, line.w);
+        if (middleTop < heightPx) {
+            ctx.fillStyle = '#f1f5f9';
+            ctx.fillRect(0, middleTop, widthPx, Math.max(0, Math.min(middleBottom, heightPx) - middleTop));
         }
+
+        const lineYs = [
+            cycleStart,
+            cycleStart + roofPx,
+            cycleStart + roofPx + middlePx,
+            cycleStart + roofPx + middlePx + basementPx,
+        ];
+
+        ctx.beginPath();
+        for (const y of lineYs) {
+            if (y > heightPx) {
+                continue;
+            }
+            const yAligned = y + 0.5;
+            ctx.moveTo(0, yAligned);
+            ctx.lineTo(widthPx, yAligned);
+        }
+        ctx.stroke();
     }
 }
 

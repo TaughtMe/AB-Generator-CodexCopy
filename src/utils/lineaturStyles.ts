@@ -11,7 +11,6 @@ export const A4_INNER_WIDTH_MM = 170;
 export function getLineaturBackground(lineStyle: LineStyle): CSSProperties {
     const lineColor = 'rgba(0, 0, 0, 0.18)';
     const primaryLineColor = 'rgba(0, 0, 0, 0.35)';
-    const helpLineColor = 'rgba(0, 0, 0, 0.12)';
 
     switch (lineStyle) {
         case 'grid-5mm':
@@ -41,28 +40,41 @@ export function getLineaturBackground(lineStyle: LineStyle): CSSProperties {
             };
 
         case 'primary-4-lines': {
-            // Grundschul-Lineatur: 4 Linien pro Zeile
-            // Dachzeile → Mittelband (2.5mm, grau hinterlegt) → Grundlinie → Kellerband (2.5mm) → Grundlinie
-            // Total line height: 10mm (2.5mm + 2.5mm + 2.5mm + 2.5mm gap)
-            const lineHeight = '10mm';
-            const midbandColor = '#f1f5f9'; // Light gray for Mittelband (Wohnzimmer)
+            // Grundschul-Lineatur: Haus-Metapher mit 4mm/4mm/4mm + 8mm Zeilenabstand
+            // 4 Linien bei 0mm, 4mm, 8mm, 12mm; Wiederholung alle 20mm
+            const repeatHeight = '20mm';
+            const lineColor = '#94a3b8'; // Slate-400, dezent für Schreibunterlage
+            const midbandColor = '#f1f5f9'; // Slate-100
+
             return {
                 backgroundImage: `
-                    linear-gradient(to bottom,
-                        ${primaryLineColor} 0.3mm,
-                        transparent 0.3mm,
-                        transparent 2.5mm,
-                        ${helpLineColor} calc(2.5mm + 0.2mm),
-                        ${midbandColor} calc(2.5mm + 0.2mm),
-                        ${midbandColor} 5mm,
-                        ${primaryLineColor} calc(5mm + 0.3mm),
-                        transparent calc(5mm + 0.3mm),
-                        transparent 7.5mm,
-                        ${helpLineColor} calc(7.5mm + 0.2mm),
-                        transparent calc(7.5mm + 0.2mm)
+                    repeating-linear-gradient(to bottom,
+                        ${lineColor} 0,
+                        ${lineColor} 1px,
+
+                        transparent 1px,
+                        transparent 4mm,
+
+                        ${lineColor} 4mm,
+                        ${lineColor} calc(4mm + 1px),
+
+                        ${midbandColor} calc(4mm + 1px),
+                        ${midbandColor} 8mm,
+
+                        ${lineColor} 8mm,
+                        ${lineColor} calc(8mm + 1px),
+
+                        transparent calc(8mm + 1px),
+                        transparent 12mm,
+
+                        ${lineColor} 12mm,
+                        ${lineColor} calc(12mm + 1px),
+
+                        transparent calc(12mm + 1px),
+                        transparent 20mm
                     )
                 `,
-                backgroundSize: `100% ${lineHeight}`,
+                backgroundSize: `100% ${repeatHeight}`,
             };
         }
 
@@ -81,7 +93,7 @@ export function getRowHeightMM(lineStyle: LineStyle): number {
         case 'lines-8mm':
             return 8;
         case 'primary-4-lines':
-            return 10; // 4 lines at 2.5mm spacing
+            return 20; // 12mm Schreibblock + 8mm Abstand
         default:
             return 8;
     }
