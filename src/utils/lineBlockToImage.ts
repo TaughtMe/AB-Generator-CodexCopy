@@ -217,7 +217,15 @@ export async function renderLineBlockToImage(
         });
 
         const arrayBuffer = await blob.arrayBuffer();
-        return new Uint8Array(arrayBuffer);
+        const imageData = new Uint8Array(arrayBuffer);
+
+        // Validate PNG magic bytes
+        if (imageData.length < 8 || imageData[0] !== 0x89 || imageData[1] !== 0x50 || 
+            imageData[2] !== 0x4e || imageData[3] !== 0x47) {
+            throw new Error('Canvas rendering produced invalid PNG data');
+        }
+
+        return imageData;
     } catch (error) {
         console.error('[lineBlockToImage] Rendering failed:', error);
         // Return a minimal 1×1 transparent PNG as fallback

@@ -34,6 +34,9 @@ export const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
     'math': {
         editor: MathTaskEditor,
     },
+    'page-break': {
+        editor: () => null, // Rendered separately – never shown in TaskCard
+    },
 };
 
 export const TaskEditorRenderer: React.FC<{ task: Task }> = ({ task }) => {

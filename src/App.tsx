@@ -21,7 +21,7 @@ import {
   Moon, Sun, Plus, FileDown, GraduationCap, BookOpen,
   Sparkles, Image as ImageIcon, ChevronDown, Type, ListChecks, TextCursorInput,
   ArrowLeft, Printer, Save, Sigma, Palette, Settings,
-  ZoomIn, ZoomOut,
+  ZoomIn, ZoomOut, Scissors, Trash2,
 } from 'lucide-react';
 import { exportToDocx } from './utils/docxExport';
 
@@ -46,6 +46,7 @@ const TASK_OPTIONS = [
   { type: 'cloze' as const, label: 'Lückentext', desc: 'Wörter ergänzen', icon: TextCursorInput },
   { type: 'image-placeholder' as const, label: 'Bild-Platzhalter', desc: 'Bild einfügen', icon: ImageIcon },
   { type: 'math' as const, label: 'Mathematik', desc: 'LaTeX-Formeln einfügen', icon: Sigma },
+  { type: 'page-break' as const, label: 'Seitenumbruch', desc: 'Neue Seite in Word & PDF', icon: Scissors },
 ];
 
 type AppView = 'dashboard' | 'editor';
@@ -348,6 +349,7 @@ function App() {
         }}
       >
         <div
+          className="zoom-container"
           style={{
             transform: `scale(${zoomLevel})`,
             transformOrigin: 'top center',
@@ -367,18 +369,50 @@ function App() {
             >
               <MultiPageContainer fontFamily={fontFamily} brandColor={brandColor}>
                 <WorksheetHeader />
-                {taskIds.map((id, index) => (
-                  <TaskCard
-                    key={id}
-                    id={id}
-                    task={tasksById[id]}
-                    index={index}
-                    onRemove={removeTask}
-                    onDuplicate={duplicateTask}
-                  >
-                    <TaskEditorRenderer task={tasksById[id]} />
-                  </TaskCard>
-                ))}
+                {taskIds.map((id, index) => {
+                  const task = tasksById[id];
+                  if (!task) return null;
+
+                  // Page-break: render a visual divider, not a TaskCard
+                  if (task.type === 'page-break') {
+                    return (
+                      <div
+                        key={id}
+                        className="page-break-task relative my-2"
+                        style={{ breakAfter: 'page' }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 border-t-2 border-dashed border-slate-300 dark:border-slate-600" />
+                          <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 px-2 whitespace-nowrap flex items-center gap-1">
+                            <Scissors size={10} />
+                            Seitenumbruch
+                          </span>
+                          <div className="flex-1 border-t-2 border-dashed border-slate-300 dark:border-slate-600" />
+                          <button
+                            onClick={() => removeTask(id)}
+                            className="p-0.5 text-slate-300 hover:text-red-500 transition-colors cursor-pointer no-print"
+                            title="Seitenumbruch entfernen"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <TaskCard
+                      key={id}
+                      id={id}
+                      task={task}
+                      index={index}
+                      onRemove={removeTask}
+                      onDuplicate={duplicateTask}
+                    >
+                      <TaskEditorRenderer task={task} />
+                    </TaskCard>
+                  );
+                })}
               </MultiPageContainer>
             </SortableContext>
 

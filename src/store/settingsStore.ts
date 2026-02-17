@@ -25,6 +25,7 @@ interface SettingsState {
     // Design Settings
     schoolName: string;
     logoImageId: number | null;
+    logoText: string;
     headerFields: HeaderFields;
     brandColor: string;
     fontFamily: string;
@@ -40,6 +41,7 @@ interface SettingsActions {
     // Design Actions
     setSchoolName: (name: string) => void;
     setLogoImageId: (id: number | null) => void;
+    setLogoText: (text: string) => void;
     setHeaderFields: (fields: Partial<HeaderFields>) => void;
     setBrandColor: (color: string) => void;
     setFontFamily: (font: string) => void;
@@ -69,6 +71,7 @@ export const useSettingsStore = create<SettingsStore>()(
             // Design defaults
             schoolName: '',
             logoImageId: null,
+            logoText: '',
             headerFields: { showName: true, showDate: true, showClass: true },
             brandColor: '#3b82f6',
             fontFamily: 'Inter',
@@ -83,6 +86,7 @@ export const useSettingsStore = create<SettingsStore>()(
             // Design Actions
             setSchoolName: (name) => set({ schoolName: name }),
             setLogoImageId: (id) => set({ logoImageId: id }),
+            setLogoText: (text) => set({ logoText: text.slice(0, 3) }),
             setHeaderFields: (fields) =>
                 set((s) => ({ headerFields: { ...s.headerFields, ...fields } })),
             setBrandColor: (color) => set({ brandColor: color }),

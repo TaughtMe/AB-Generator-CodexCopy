@@ -150,3 +150,13 @@ body {
     align-items: center;
     gap: 32px;
 }
+
+/* ──── Print-only task indices (hidden on screen) ──── */
+.print-task-index {
+    display: none;
+}
+
+/* ──── Page-break marker (visible on screen only) ──── */
+.page-break-marker {
+    /* Shown in editor; hidden via @media print in PrintStyles.css */
+}

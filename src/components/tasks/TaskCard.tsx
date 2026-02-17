@@ -47,6 +47,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, index, children, o
                 isDragging ? "opacity-50 z-50 ring-2 ring-blue-500 scale-[1.01]" : "hover:border-slate-300 dark:hover:border-slate-600"
             )}
         >
+            {/* Print-only task index – visible ONLY in @media print.
+                Lives outside .task-card-header so it survives the print hide. */}
+            <div className="print-task-index" aria-hidden="true">
+                Aufgabe {index + 1}
+            </div>
+
             {/* Header – hidden in print */}
             <div className="task-card-header flex items-center gap-1.5 px-2 py-1 border-b border-slate-100/80 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-800/30">
                 {/* Drag Handle */}

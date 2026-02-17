@@ -1,4 +1,4 @@
-export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math';
+export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break';
 
 export type LineStyle = 'grid-5mm' | 'grid-10mm' | 'lines-8mm' | 'primary-4-lines';
 
@@ -45,7 +45,11 @@ export interface MathTask extends BaseTask {
     content: string; // Raw LaTeX string, e.g. "\frac{1}{2} + \sqrt{x}"
 }
 
-export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask;
+export interface PageBreakTask extends BaseTask {
+    type: 'page-break';
+}
+
+export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask;
 
 export interface Worksheet {
     id: string;

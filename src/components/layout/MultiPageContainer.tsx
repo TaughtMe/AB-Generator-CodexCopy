@@ -44,7 +44,9 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
         let currentHeight = 0;
 
         childNodes.forEach((node, index) => {
-            const height = node.getBoundingClientRect().height;
+            // Use offsetHeight (CSS layout pixels) instead of getBoundingClientRect().height
+            // because getBoundingClientRect is distorted by ancestor CSS transforms (e.g. zoom slider).
+            const height = node.offsetHeight;
             const gap = index > 0 ? GAP_PX : 0;
 
             if (currentHeight + height + gap > PAGE_CONTENT_HEIGHT_PX && currentHeight > 0) {

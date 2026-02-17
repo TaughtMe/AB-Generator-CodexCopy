@@ -2,21 +2,54 @@
    PrintStyles.css – @media print for A4 export
    Ensures the browser print dialog reproduces the
    A4 page exactly without scaling artifacts.
+   All physical margins controlled by @page – NO
+   HTML-level padding/margin on the page container.
    ══════════════════════════════════════════════════ */
 
 @media print {
 
-    /* ── Page setup ── */
+    /* ── Page setup (physical margins – browser controls whitespace) ── */
     @page {
-        size: A4;
-        margin: 0;
+        size: A4 portrait;
+        margin: 20mm 15mm 20mm 15mm; /* Top/Bottom 20mm, Left/Right 15mm */
     }
 
-    /* ── Hide everything except the A4 page ── */
-    body {
-        margin: 0;
-        padding: 0;
+    /* ── Force backgrounds & colors to print (lineatur grids, header) ── */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* ── Hard-reset: body → A4 page fills the printable area entirely ── */
+    html, body, #root {
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
         background: white !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        overflow: visible !important; /* Critical for multi-page printing */
+    }
+
+    /* ── Kill all gray/slate workspace backgrounds ── */
+    .min-h-screen,
+    [class*="bg-slate"],
+    [class*="bg-gray"] {
+        background-color: white !important;
+        background-image: none !important;
+    }
+
+    /* ── Reset the UI zoom transform so print is always at 100% ── */
+    .zoom-container {
+        transform: none !important;
+        position: static !important;
+    }
+
+    /* ── Reset the overflow wrapper around the zoom container ── */
+    .overflow-x-auto {
+        overflow: visible !important;
+        padding-bottom: 0 !important;
     }
 
     /* Hide desk background and toolbar */
@@ -24,22 +57,22 @@
     .a4-desk-multi {
         background: none !important;
         padding: 0 !important;
+        margin: 0 !important;
         min-height: auto !important;
         gap: 0 !important;
     }
 
-    /* The A4 page itself */
+    /* The A4 page itself – margins handled by @page, not by CSS */
     .a4-page {
         box-shadow: none !important;
         margin: 0 !important;
         border-radius: 0 !important;
-        width: 210mm !important;
-        min-height: 297mm !important;
-        padding: 20mm !important;
-
-        /* Ensure backgrounds (lineatur grids) print */
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+        padding: 0 !important;
+        position: static !important;
+        overflow: visible !important;
     }
 
     /* ── Hide non-printable UI elements ── */
@@ -56,14 +89,11 @@
     /* ── Prevent page breaks inside tasks ── */
     .task-card {
         break-inside: avoid;
+        page-break-inside: avoid;
         border: none !important;
         box-shadow: none !important;
         background: transparent !important;
-    }
-
-    /* ── AI Chat hidden in print ── */
-    .no-print {
-        display: none !important;
+        margin-bottom: 2mm;
     }
 
     /* ── Multiple-Choice: Student mode print ── */
@@ -109,5 +139,39 @@
         background: transparent !important;
         box-shadow: none !important;
         padding: 0 !important;
+    }
+
+    /* ── Page-break markers hidden in print ── */
+    .page-break-marker {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* ── Page-break task: force a real CSS page break ── */
+    .page-break-task {
+        break-after: page !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        visibility: hidden !important;
+    }
+
+    /* ── Task index numbers: FORCE visibility in print/PDF ──
+       These live outside .task-card-header and must survive.
+       Aggressive !important rules ensure no cascade can hide them. ── */
+    .print-task-index {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        font-weight: 700 !important;
+        font-size: 11pt !important;
+        color: #000000 !important;
+        margin-bottom: 2mm !important;
+        padding-bottom: 1mm !important;
+        border-bottom: 1px solid #1e293b !important;
     }
 }

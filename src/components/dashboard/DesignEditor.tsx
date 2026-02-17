@@ -32,6 +32,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
     const {
         schoolName, setSchoolName,
         logoImageId, setLogoImageId,
+        logoText, setLogoText,
         headerFields, setHeaderFields,
         brandColor, setBrandColor,
         fontFamily, setFontFamily,
@@ -112,8 +113,10 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                 <ImageIcon size={12} />
                                 Schul-Logo
                             </label>
+
+                            {/* Uploaded image preview */}
                             {logoPreview ? (
-                                <div className="relative inline-block">
+                                <div className="relative inline-block mb-2">
                                     <img
                                         src={logoPreview}
                                         alt="Logo"
@@ -127,13 +130,40 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                     </button>
                                 </div>
                             ) : (
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="flex items-center gap-2 px-3 py-2 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-violet-400 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 transition-all cursor-pointer text-xs text-slate-500"
-                                >
-                                    <Upload size={14} />
-                                    Logo hochladen
-                                </button>
+                                <>
+                                    {/* Text logo input (up to 3 chars) */}
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div
+                                            className="w-14 h-14 rounded-lg flex items-center justify-center text-white font-bold shrink-0 text-lg"
+                                            style={{ backgroundColor: brandColor }}
+                                        >
+                                            {logoText || (schoolName ? schoolName.charAt(0).toUpperCase() : 'S')}
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="block text-[10px] text-slate-400 mb-0.5">
+                                                Kürzel (max. 3 Zeichen)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={logoText}
+                                                maxLength={3}
+                                                onChange={(e) => setLogoText(e.target.value.slice(0, 3))}
+                                                placeholder="z.B. GS"
+                                                className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 font-mono tracking-wider"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mb-2">
+                                        Gib bis zu 3 Buchstaben / Zahlen ein, oder lade ein Bild hoch:
+                                    </p>
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="flex items-center gap-2 px-3 py-2 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-violet-400 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 transition-all cursor-pointer text-xs text-slate-500"
+                                    >
+                                        <Upload size={14} />
+                                        Bild hochladen
+                                    </button>
+                                </>
                             )}
                             <input
                                 ref={fileInputRef}
@@ -281,7 +311,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                         className="w-14 h-14 rounded-lg flex items-center justify-center text-white text-lg font-bold shrink-0"
                                         style={{ backgroundColor: brandColor }}
                                     >
-                                        {schoolName ? schoolName.charAt(0).toUpperCase() : 'S'}
+                                        {logoText || (schoolName ? schoolName.charAt(0).toUpperCase() : 'S')}
                                     </div>
                                 )}
                                 <div className="flex-1">

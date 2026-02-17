@@ -9,7 +9,12 @@
 import katex from 'katex';
 import html2canvas from 'html2canvas';
 
-/** Scale factor for high-res output (~300 DPI at typical screen density) */
+/**
+ * Fixed scale factor for high-res output (~300 DPI).
+ * html2canvas applies this to the element's CSS pixel dimensions,
+ * producing a zoom-independent result (does NOT use devicePixelRatio
+ * when scale is explicitly provided).
+ */
 const CANVAS_SCALE = 4;
 
 /**
@@ -40,7 +45,11 @@ export async function convertMathToImage(latex: string): Promise<Blob> {
     document.body.appendChild(container);
 
     try {
-        // 3. Capture with html2canvas at high scale
+        // 3. Capture with html2canvas at a fixed scale.
+        //    html2canvas uses the explicit scale directly (not multiplied
+        //    by devicePixelRatio), so the output canvas dimensions are
+        //    always elementCSSWidth×4 × elementCSSHeight×4 regardless
+        //    of browser zoom level.
         const canvas = await html2canvas(container, {
             scale: CANVAS_SCALE,
             backgroundColor: '#ffffff',
@@ -49,7 +58,7 @@ export async function convertMathToImage(latex: string): Promise<Blob> {
         });
 
         // 4. Convert canvas to Blob
-        return new Promise<Blob>((resolve, reject) => {
+        const blob = await new Promise<Blob>((resolve, reject) => {
             canvas.toBlob(
                 (blob) => {
                     if (blob) {
@@ -62,15 +71,28 @@ export async function convertMathToImage(latex: string): Promise<Blob> {
                 1.0,
             );
         });
+
+        // 5. Validate PNG data
+        const arrayBuffer = await blob.arrayBuffer();
+        const imageData = new Uint8Array(arrayBuffer);
+        
+        // Check PNG magic bytes
+        if (imageData.length < 8 || imageData[0] !== 0x89 || imageData[1] !== 0x50 || 
+            imageData[2] !== 0x4e || imageData[3] !== 0x47) {
+            throw new Error('Math canvas rendering produced invalid PNG data');
+        }
+
+        return blob;
     } finally {
-        // 5. Clean up DOM
+        // 6. Clean up DOM
         document.body.removeChild(container);
     }
 }
 
 /**
- * Helper: converts a Blob to an ArrayBuffer (needed by docx ImageRun).
+ * Helper: converts a Blob to a Uint8Array (needed by docx ImageRun).
  */
-export async function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
-    return blob.arrayBuffer();
+export async function blobToArrayBuffer(blob: Blob): Promise<Uint8Array> {
+    const arrayBuffer = await blob.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
 }

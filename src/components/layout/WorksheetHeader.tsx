@@ -11,7 +11,7 @@ import { getImageUrl } from '../../store/dexieStore';
    ══════════════════════════════════════════════════ */
 
 export const WorksheetHeader: React.FC = () => {
-    const { schoolName, logoImageId, headerFields, brandColor } = useSettingsStore();
+    const { schoolName, logoImageId, headerFields, brandColor, logoText } = useSettingsStore();
     const showHeader = useWorksheetStore((s) => s.showHeader);
     const title = useWorksheetStore((s) => s.title);
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -39,8 +39,12 @@ export const WorksheetHeader: React.FC = () => {
     }
 
     // showHeader is ON → full design header
-    const hasHeader = schoolName || logoImageId;
+    const hasLogo = logoImageId || logoText;
+    const hasHeader = schoolName || hasLogo;
     const hasFields = headerFields.showName || headerFields.showDate || headerFields.showClass;
+
+    // Resolve the text displayed inside the fallback logo box
+    const logoDisplay = logoText || (schoolName ? schoolName.charAt(0).toUpperCase() : 'S');
 
     return (
         <div className="mb-6 worksheet-header" style={{ fontFamily: 'inherit' }}>
@@ -56,12 +60,12 @@ export const WorksheetHeader: React.FC = () => {
                             alt="Logo"
                             className="h-12 w-auto object-contain"
                         />
-                    ) : schoolName ? (
+                    ) : schoolName || logoText ? (
                         <div
                             className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold shrink-0"
                             style={{ backgroundColor: brandColor }}
                         >
-                            {schoolName.charAt(0).toUpperCase()}
+                            {logoDisplay}
                         </div>
                     ) : null}
                     <div className="flex-1">

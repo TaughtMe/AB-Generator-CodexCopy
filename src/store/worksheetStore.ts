@@ -95,6 +95,13 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
                     content: '',
                 };
                 break;
+            case 'page-break':
+                newTask = {
+                    ...base,
+                    type: 'page-break',
+                    title: 'Seitenumbruch',
+                };
+                break;
             default:
                 throw new Error(`Unsupported task type: ${type}`);
         }
