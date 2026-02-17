@@ -39,6 +39,15 @@ const FONT_FAMILY = 'Calibri';
 const FONT_SIZE_PT = 11;
 const HEADING_SIZE_PT = 13;
 
+const WHITE_TABLE_BORDERS = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+};
+
 // ── Logo Validation ──────────────────────────────────────────
 
 /** Validates that a Uint8Array starts with valid PNG or JPEG magic bytes */
@@ -151,13 +160,6 @@ async function buildHeaderSection(): Promise<(Paragraph | Table)[]> {
                 }),
             ];
 
-            const noBorders = {
-                top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-                bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-                left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-                right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-            };
-
             const headerTable = new Table({
                 rows: [
                     new TableRow({
@@ -166,18 +168,19 @@ async function buildHeaderSection(): Promise<(Paragraph | Table)[]> {
                                 children: logoCellChildren,
                                 width: { size: 20, type: WidthType.PERCENTAGE },
                                 verticalAlign: VerticalAlign.CENTER,
-                                borders: noBorders,
+                                borders: WHITE_TABLE_BORDERS,
                             }),
                             new TableCell({
                                 children: nameCellChildren,
                                 width: { size: 80, type: WidthType.PERCENTAGE },
                                 verticalAlign: VerticalAlign.CENTER,
-                                borders: noBorders,
+                                borders: WHITE_TABLE_BORDERS,
                             }),
                         ],
                     }),
                 ],
                 width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: WHITE_TABLE_BORDERS,
             });
 
             elements.push(headerTable);
@@ -278,6 +281,7 @@ async function buildHeaderSection(): Promise<(Paragraph | Table)[]> {
                         new TableRow({ children: fieldCells }),
                     ],
                     width: { size: 100, type: WidthType.PERCENTAGE },
+                    borders: WHITE_TABLE_BORDERS,
                 });
                 elements.push(fieldsTable);
                 elements.push(new Paragraph({ spacing: { after: 200 }, children: [] }));
