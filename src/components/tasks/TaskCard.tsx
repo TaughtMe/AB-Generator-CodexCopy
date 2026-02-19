@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Copy, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { GripVertical, Trash2, Copy, ChevronDown, ChevronUp, Sparkles, Hash, EyeOff } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Task } from '../../types/worksheet';
 import { TaskAIChat } from '../ai/TaskAIChat';
@@ -9,10 +9,12 @@ import { TaskAIChat } from '../ai/TaskAIChat';
 interface TaskCardProps {
     id: string;
     task: Task;
-    index: number;
+    /** Running task number (1-based) or null when unnumbered */
+    taskNumber: number | null;
     children: React.ReactNode;
     onRemove: (id: string) => void;
     onDuplicate: (id: string) => void;
+    onToggleNumber: (id: string) => void;
 }
 
 /**
@@ -20,7 +22,7 @@ interface TaskCardProps {
  * Minimal chrome so the printed page looks clean.
  * Header and action buttons are hidden in @media print via .task-card-header
  */
-export const TaskCard: React.FC<TaskCardProps> = ({ id, task, index, children, onRemove, onDuplicate }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, children, onRemove, onDuplicate, onToggleNumber }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showAIChat, setShowAIChat] = useState(false);
 
@@ -43,15 +45,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, index, children, o
             ref={setNodeRef}
             style={style}
             className={clsx(
-                "task-card group border border-slate-200/60 dark:border-slate-700/40 rounded-lg transition-all overflow-hidden",
+                "task-card group border border-slate-200/60 dark:border-slate-700/40 rounded-lg transition-all",
                 isDragging ? "opacity-50 z-50 ring-2 ring-blue-500 scale-[1.01]" : "hover:border-slate-300 dark:hover:border-slate-600"
             )}
         >
             {/* Print-only task index – visible ONLY in @media print.
                 Lives outside .task-card-header so it survives the print hide. */}
-            <div className="print-task-index" aria-hidden="true">
-                Aufgabe {index + 1}
-            </div>
+            {taskNumber !== null && (
+                <div className="print-task-index" aria-hidden="true">
+                    Aufgabe {taskNumber}
+                </div>
+            )}
 
             {/* Header – hidden in print */}
             <div className="task-card-header flex items-center gap-1.5 px-2 py-1 border-b border-slate-100/80 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-800/30">
@@ -66,12 +70,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, index, children, o
 
                 {/* Task number + type */}
                 <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 tracking-wider">
-                    <span className="text-blue-500/80 font-bold mr-1">{index + 1}.</span>
+                    {taskNumber !== null && (
+                        <span className="text-blue-500/80 font-bold mr-1">{taskNumber}.</span>
+                    )}
                     <span className="uppercase text-[10px]">{task.type.replace('-', ' ')}</span>
                 </span>
 
                 {/* Action buttons – always visible in editor, hidden by PrintStyles */}
                 <div className="ml-auto flex items-center gap-0.5">
+                    {/* Toggle task numbering */}
+                    <button
+                        onClick={() => onToggleNumber(id)}
+                        className={clsx(
+                            "p-1 rounded transition-colors cursor-pointer",
+                            taskNumber !== null
+                                ? "text-blue-500/70 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                : "text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        )}
+                        title={taskNumber !== null ? 'Nummerierung entfernen' : 'Nummerierung hinzufügen'}
+                    >
+                        {taskNumber !== null ? <Hash size={12} /> : <EyeOff size={12} />}
+                    </button>
+
                     <button
                         onClick={() => setShowAIChat(!showAIChat)}
                         className={clsx(
@@ -114,8 +134,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, index, children, o
             {/* Body – collapsible */}
             <div
                 className={clsx(
-                    "transition-all duration-200 ease-in-out overflow-hidden",
-                    isCollapsed ? "max-h-0" : "max-h-[2000px]"
+                    "transition-all duration-200 ease-in-out",
+                    isCollapsed ? "max-h-0 overflow-hidden" : "max-h-[2000px] overflow-visible"
                 )}
             >
                 <div className="p-2">

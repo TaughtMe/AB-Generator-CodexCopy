@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { getImageUrl } from '../../store/dexieStore';
+import { useImageUpload } from '../../hooks/useImageUpload';
 
 /* ══════════════════════════════════════════════════
    WorksheetHeader – Rendered at the top of the A4 page
@@ -14,15 +15,15 @@ export const WorksheetHeader: React.FC = () => {
     const { schoolName, logoImageId, headerFields, brandColor, logoText } = useSettingsStore();
     const showHeader = useWorksheetStore((s) => s.showHeader);
     const title = useWorksheetStore((s) => s.title);
-    const [logoUrl, setLogoUrl] = useState<string | null>(null);
+    const { previewUrl: logoUrl, setPreviewUrl, clearImage } = useImageUpload();
 
     useEffect(() => {
         if (logoImageId) {
-            getImageUrl(logoImageId).then(setLogoUrl).catch(() => setLogoUrl(null));
+            getImageUrl(logoImageId).then(setPreviewUrl).catch(() => setPreviewUrl(null));
         } else {
-            setLogoUrl(null);
+            clearImage();
         }
-    }, [logoImageId]);
+    }, [logoImageId, setPreviewUrl, clearImage]);
 
     // If showHeader is off, just render the simple title
     if (!showHeader) {
@@ -68,17 +69,12 @@ export const WorksheetHeader: React.FC = () => {
                             {logoDisplay}
                         </div>
                     ) : null}
-                    <div className="flex-1">
-                        <h2
-                            className="text-base font-bold"
-                            style={{ color: brandColor }}
-                        >
-                            {schoolName}
-                        </h2>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                            {title || 'Arbeitsblatt'}
-                        </p>
-                    </div>
+                    <h2
+                        className="text-base font-bold flex-1"
+                        style={{ color: brandColor }}
+                    >
+                        {schoolName}
+                    </h2>
                 </div>
             )}
 

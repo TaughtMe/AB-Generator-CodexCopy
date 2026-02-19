@@ -5,7 +5,7 @@
  * Returns an array of warnings (empty array = everything OK).
  */
 
-import type { Task } from '../types/worksheet';
+import type { Task, ColumnsTask } from '../types/worksheet';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -89,6 +89,56 @@ export function validateForExport(
                     });
                 }
                 break;
+
+            case 'image-placeholder':
+                // No specific validation needed
+                break;
+
+            case 'page-break':
+                // No specific validation needed
+                break;
+
+            case 'columns': {
+                const cols = task as ColumnsTask;
+                // Both slots empty
+                if (!cols.children[0] && !cols.children[1]) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Spalten-Container hat keine Aufgaben zugewiesen.',
+                    });
+                }
+                // Check referential integrity
+                for (let s = 0; s < 2; s++) {
+                    const childId = cols.children[s as 0 | 1];
+                    if (childId && !tasksById[childId]) {
+                        warnings.push({
+                            taskId: id,
+                            taskTitle: task.title,
+                            message: `Spalte ${s + 1} referenziert eine nicht existierende Aufgabe.`,
+                        });
+                    }
+                    // Forbidden child type
+                    if (childId && tasksById[childId]) {
+                        const childType = tasksById[childId].type;
+                        if (childType === 'page-break') {
+                            warnings.push({
+                                taskId: id,
+                                taskTitle: task.title,
+                                message: `Spalte ${s + 1} enthält einen Seitenumbruch – das ist nicht erlaubt.`,
+                            });
+                        }
+                        if (childType === 'columns') {
+                            warnings.push({
+                                taskId: id,
+                                taskTitle: task.title,
+                                message: `Spalte ${s + 1} enthält einen verschachtelten Spalten-Container – das ist nicht erlaubt.`,
+                            });
+                        }
+                    }
+                }
+                break;
+            }
 
             default: {
                 const unknownTask = task as unknown as { title: string; type: string };

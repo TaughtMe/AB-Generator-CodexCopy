@@ -33,7 +33,6 @@ interface SettingsState {
 
 interface SettingsActions {
     setApiKey: (key: string) => void;
-    clearApiKey: () => void;
     setGeminiModel: (model: GeminiModel) => void;
     setSchoolType: (type: string) => void;
     setSubject: (subject: string) => void;
@@ -78,7 +77,6 @@ export const useSettingsStore = create<SettingsStore>()(
 
             // Actions
             setApiKey: (key) => set({ apiKey: key }),
-            clearApiKey: () => set({ apiKey: '' }),
             setGeminiModel: (model) => set({ geminiModel: model }),
             setSchoolType: (type) => set({ schoolType: type }),
             setSubject: (subject) => set({ subject }),

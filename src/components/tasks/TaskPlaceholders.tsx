@@ -7,15 +7,3 @@ export const ClozeEditor: React.FC<{ task: Task }> = ({ task }) => (
         <p className="text-xs text-slate-300 dark:text-slate-600 mt-1">Wird in einer späteren Phase implementiert.</p>
     </div>
 );
-
-export const ClozePreview: React.FC<{ task: Task }> = ({ task }) => (
-    <div className="p-4 bg-white dark:bg-slate-800 shadow-sm rounded">
-        <span className="text-sm text-slate-400">Cloze Preview: {task.title}</span>
-    </div>
-);
-
-export const MultipleChoicePreview: React.FC<{ task: Task }> = ({ task }) => (
-    <div className="p-4 bg-white dark:bg-slate-800 shadow-sm rounded">
-        <span className="text-sm text-slate-400">MC Preview: {task.title}</span>
-    </div>
-);

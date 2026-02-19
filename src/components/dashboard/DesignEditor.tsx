@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, Image as ImageIcon, Trash2, Type, Palette, Eye } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { addImage, getImageUrl } from '../../store/dexieStore';
+import { useImageUpload } from '../../hooks/useImageUpload';
 
 /* ══════════════════════════════════════════════════
    DesignEditor – Arbeitsblatt-Design konfigurieren
@@ -38,32 +39,31 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
         fontFamily, setFontFamily,
     } = useSettingsStore();
 
-    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const {
+        previewUrl: logoPreview,
+        handleImageUpload,
+        setPreviewUrl,
+        clearImage,
+    } = useImageUpload({
+        onUpload: async (file) => {
+            const id = await addImage(file.name, file);
+            setLogoImageId(id as number);
+        },
+    });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Load logo preview
     useEffect(() => {
         if (logoImageId) {
-            getImageUrl(logoImageId).then(setLogoPreview).catch(() => setLogoPreview(null));
+            getImageUrl(logoImageId).then(setPreviewUrl).catch(() => setPreviewUrl(null));
         } else {
-            setLogoPreview(null);
+            clearImage();
         }
-    }, [logoImageId]);
-
-    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !file.type.startsWith('image/')) return;
-        try {
-            const id = await addImage(file.name, file);
-            setLogoImageId(id as number);
-        } catch (err) {
-            console.error('Logo upload failed:', err);
-        }
-    };
+    }, [logoImageId, setPreviewUrl, clearImage]);
 
     const removeLogo = () => {
         setLogoImageId(null);
-        setLogoPreview(null);
+        clearImage();
     };
 
     if (!isOpen) return null;
@@ -169,7 +169,9 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                 ref={fileInputRef}
                                 type="file"
                                 accept="image/*"
-                                onChange={handleLogoUpload}
+                                onChange={(event) => {
+                                    void handleImageUpload(event);
+                                }}
                                 className="hidden"
                             />
                         </div>

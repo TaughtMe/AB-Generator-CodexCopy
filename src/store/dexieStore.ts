@@ -78,18 +78,6 @@ export async function getImage(id: number): Promise<ImageRecord | undefined> {
     return await db.images.get(id);
 }
 
-/** Löscht ein Bild per ID */
-export async function deleteImage(id: number): Promise<void> {
-    await db.images.delete(id);
-}
-
-/** Gibt alle Bilder zurück (ohne Blobs für Performance) */
-export async function getAllImageMeta(): Promise<Pick<ImageRecord, 'id' | 'name' | 'createdAt'>[]> {
-    return await db.images.toArray().then(records =>
-        records.map(({ id, name, createdAt }) => ({ id, name, createdAt }))
-    );
-}
-
 /** Erzeugt eine temporäre Object-URL für ein gespeichertes Bild */
 export async function getImageUrl(id: number): Promise<string | null> {
     const record = await db.images.get(id);
@@ -147,5 +135,3 @@ export async function listRecentWorksheets(limit = 10): Promise<WorksheetMeta[]>
         updatedAt,
     }));
 }
-
-export { db };

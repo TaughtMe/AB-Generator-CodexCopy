@@ -3,6 +3,7 @@ import { Upload, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { addImage, getImageUrl } from '../../store/dexieStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import type { ImagePlaceholderTask } from '../../types/worksheet';
+import { useImageUpload } from '../../hooks/useImageUpload';
 
 /* ══════════════════════════════════════════════════
    ImagePlaceholderEditor – Bild-Platzhalter Task
@@ -15,43 +16,47 @@ interface ImagePlaceholderEditorProps {
 
 export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ task }) => {
     const updateTask = useWorksheetStore((s) => s.updateTask);
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const {
+        previewUrl: imageUrl,
+        handleImageUpload,
+        setPreviewUrl,
+        clearImage,
+    } = useImageUpload({
+        onUpload: async (file) => {
+            const id = await addImage(file.name, file);
+            updateTask(task.id, { imageId: id } as Partial<ImagePlaceholderTask>);
+        },
+    });
     const [isUploading, setIsUploading] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Bestehende Bild-URL laden
     useEffect(() => {
-        let revoked = false;
         if (task.imageId) {
-            getImageUrl(Number(task.imageId)).then((url) => {
-                if (!revoked && url) setImageUrl(url);
+            getImageUrl(task.imageId).then((url) => {
+                setPreviewUrl(url);
             });
+        } else {
+            clearImage();
         }
-        return () => {
-            revoked = true;
-            if (imageUrl) URL.revokeObjectURL(imageUrl);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [task.imageId]);
+    }, [task.imageId, setPreviewUrl, clearImage]);
 
     const handleFile = useCallback(async (file: File) => {
-        if (!file.type.startsWith('image/')) return;
+        if (!file.type.startsWith('image/')) {
+            console.warn('[ImagePlaceholderEditor] Ignored non-image file:', file.type || file.name);
+            return;
+        }
 
         setIsUploading(true);
         try {
-            const id = await addImage(file.name, file);
-            updateTask(task.id, { imageId: String(id) } as Partial<ImagePlaceholderTask>);
-
-            // Vorschau-URL erzeugen
-            const url = URL.createObjectURL(file);
-            setImageUrl(url);
+            await handleImageUpload(file);
         } catch (err) {
             console.error('Image upload failed:', err);
         } finally {
             setIsUploading(false);
         }
-    }, [task.id, updateTask]);
+    }, [handleImageUpload]);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -67,9 +72,8 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
 
     const removeImage = useCallback(() => {
         updateTask(task.id, { imageId: undefined } as Partial<ImagePlaceholderTask>);
-        if (imageUrl) URL.revokeObjectURL(imageUrl);
-        setImageUrl(null);
-    }, [task.id, updateTask, imageUrl]);
+        clearImage();
+    }, [task.id, updateTask, clearImage]);
 
     return (
         <div className="space-y-2">

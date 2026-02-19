@@ -174,4 +174,30 @@
         padding-bottom: 1mm !important;
         border-bottom: 1px solid #1e293b !important;
     }
+
+    /* ── Two-column layout: preserve grid in print ── */
+    .columns-task {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .columns-task__grid {
+        display: grid !important;
+        column-gap: 6mm !important;
+    }
+
+    .columns-task__col {
+        min-width: 0;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .columns-task__col--empty {
+        /* Hide empty-slot UI chrome in print */
+        border: none !important;
+    }
+
+    .columns-task__col--empty > div {
+        border: none !important;
+    }
 }
