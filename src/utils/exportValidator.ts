@@ -98,6 +98,10 @@ export function validateForExport(
                 // No specific validation needed
                 break;
 
+            case 'instruction':
+                // Leerer Text ist erlaubt – keine Warnung nötig.
+                break;
+
             case 'columns': {
                 const cols = task as ColumnsTask;
                 // Both slots empty

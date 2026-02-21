@@ -33,13 +33,13 @@ export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task }) => {
             {/* Compact Controls – no-print so they don't show on paper */}
             <div className="flex items-center gap-3 no-print flex-wrap">
                 {/* Style Selector */}
-                <label className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0">
+                <label className="text-xs text-worksheet-inkLight uppercase tracking-wider shrink-0">
                     Linienart
                 </label>
                 <select
                     value={task.lineStyle}
                     onChange={handleStyleChange}
-                    className="flex-1 min-w-0 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow cursor-pointer"
+                    className="flex-1 min-w-0 px-2 py-1 rounded-md border border-worksheet-border bg-worksheet-field text-worksheet-ink text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow cursor-pointer"
                 >
                     {(Object.entries(LINE_STYLE_LABELS) as [LineStyle, string][]).map(
                         ([value, label]) => (
@@ -52,7 +52,7 @@ export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task }) => {
 
                 {/* Row Count Slider */}
                 <div className="flex items-center gap-2 shrink-0">
-                    <label className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <label className="text-xs text-worksheet-inkLight uppercase tracking-wider">
                         Zeilen
                     </label>
                     <input
@@ -61,22 +61,22 @@ export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task }) => {
                         max={20}
                         value={lineRows}
                         onChange={handleRowsChange}
-                        className="w-20 h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        className="w-20 h-1 bg-worksheet-border rounded-lg appearance-none cursor-pointer accent-blue-500"
                     />
-                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 tabular-nums w-5 text-right">
+                    <span className="text-xs font-bold text-blue-600 tabular-nums w-5 text-right">
                         {lineRows}
                     </span>
                 </div>
 
                 {/* Read-only info */}
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums shrink-0">
+                <span className="text-[10px] text-worksheet-inkLight tabular-nums shrink-0">
                     {task.gridColumns > 1 ? `${task.gridColumns} Sp.` : 'Vollbreite'}
                 </span>
             </div>
 
             {/* Live Lineatur Preview – this IS the content that prints */}
             <div
-                className="rounded border border-slate-200/60 dark:border-slate-700/40 overflow-hidden"
+                className="rounded border border-worksheet-border overflow-hidden print:border-none"
                 style={{
                     ...getLineaturBackground(task.lineStyle),
                     height: `${previewHeightPx}px`,

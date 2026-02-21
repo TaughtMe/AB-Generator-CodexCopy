@@ -98,7 +98,7 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
             {/* ── Toolbar ── */}
             <div className="flex items-center gap-1 flex-wrap no-print">
                 {/* Mode Toggle */}
-                <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden mr-1">
+                <div className="flex items-center rounded-md border border-worksheet-border overflow-hidden mr-1">
                     <button
                         type="button"
                         onClick={() => setMode('edit')}
@@ -106,7 +106,7 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                             'flex items-center gap-1 px-2 py-1 text-[11px] font-medium transition-colors cursor-pointer',
                             mode === 'edit'
                                 ? 'bg-blue-500 text-white'
-                                : 'bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                : 'bg-worksheet-field text-worksheet-ink hover:bg-slate-100'
                         )}
                     >
                         <Pencil size={11} /> Edit
@@ -118,7 +118,7 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                             'flex items-center gap-1 px-2 py-1 text-[11px] font-medium transition-colors cursor-pointer',
                             mode === 'preview'
                                 ? 'bg-blue-500 text-white'
-                                : 'bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                : 'bg-worksheet-field text-worksheet-ink hover:bg-slate-100'
                         )}
                     >
                         <Eye size={11} /> Preview
@@ -132,7 +132,7 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                         type="button"
                         title={s.label}
                         onClick={() => insertSnippet(s.latex, s.cursorOffset)}
-                        className="flex items-center gap-1 px-1.5 py-1 rounded text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                        className="flex items-center gap-1 px-1.5 py-1 rounded text-[11px] font-medium bg-worksheet-field text-worksheet-ink hover:bg-slate-100 border border-worksheet-border transition-colors cursor-pointer"
                     >
                         {s.icon ?? null}
                         <span>{s.label}</span>
@@ -144,13 +144,13 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                     <button
                         type="button"
                         onClick={() => setShowGreek(!showGreek)}
-                        className="flex items-center gap-0.5 px-1.5 py-1 rounded text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                        className="flex items-center gap-0.5 px-1.5 py-1 rounded text-[11px] font-medium bg-worksheet-field text-worksheet-ink hover:bg-slate-100 border border-worksheet-border transition-colors cursor-pointer"
                     >
                         <span>αβγ</span>
                         <ChevronDown size={10} />
                     </button>
                     {showGreek && (
-                        <div className="absolute top-full left-0 mt-1 z-50 grid grid-cols-7 gap-0.5 p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl">
+                        <div className="absolute top-full left-0 mt-1 z-50 grid grid-cols-7 gap-0.5 p-1.5 rounded-lg bg-worksheet-paper border border-worksheet-border shadow-xl">
                             {GREEK_LETTERS.map((g) => (
                                 <button
                                     key={g.label}
@@ -159,7 +159,7 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                                         insertSnippet(g.latex);
                                         setShowGreek(false);
                                     }}
-                                    className="w-7 h-7 flex items-center justify-center rounded text-sm hover:bg-blue-100 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                                    className="w-7 h-7 flex items-center justify-center rounded text-sm text-worksheet-ink hover:bg-slate-100 transition-colors cursor-pointer"
                                 >
                                     {g.label}
                                 </button>
@@ -177,18 +177,18 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                     onChange={(e) => onChange(e.target.value)}
                     placeholder="LaTeX eingeben, z.B. \frac{a}{b} + \sqrt{c}"
                     spellCheck={false}
-                    className="w-full min-h-[60px] px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none resize-y transition-shadow"
+                    className="w-full min-h-[60px] px-3 py-2 rounded-md border border-worksheet-border bg-worksheet-field text-sm font-mono text-worksheet-ink placeholder:text-worksheet-inkLight focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none resize-y transition-shadow print:bg-transparent print:border-none"
                     rows={3}
                 />
             ) : (
-                <div className="min-h-[60px] px-3 py-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center">
+                <div className="min-h-[60px] px-3 py-3 rounded-md border border-worksheet-border bg-worksheet-field flex items-center justify-center print:bg-transparent print:border-none">
                     {value.trim() ? (
                         <span
                             className="math-preview text-lg"
                             dangerouslySetInnerHTML={{ __html: renderedHtml }}
                         />
                     ) : (
-                        <span className="text-sm text-slate-400 italic">
+                        <span className="text-sm text-worksheet-inkLight italic">
                             Noch keine Formel eingegeben…
                         </span>
                     )}
@@ -197,7 +197,7 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
 
             {/* ── Inline live preview (in edit mode) ── */}
             {mode === 'edit' && value.trim() && (
-                <div className="px-3 py-2 rounded-md bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700">
+                <div className="px-3 py-2 rounded-md bg-worksheet-field border border-dashed border-worksheet-border print:bg-transparent print:border-none">
                     <span
                         className="math-preview"
                         dangerouslySetInnerHTML={{ __html: renderedHtml }}

@@ -2,10 +2,11 @@ import React from 'react';
 import type { Task, TaskType } from '../../types/worksheet';
 import { MultipleChoiceEditor } from './MultipleChoiceEditor';
 import { LineaturEditor } from './LineaturEditor';
-import { ClozeEditor } from './TaskPlaceholders';
+import { ClozeEditor } from './ClozeEditor';
 import { ImagePlaceholderEditor } from './ImagePlaceholderEditor';
 import { MathTaskEditor } from './MathTaskEditor';
 import { ColumnsEditor } from './ColumnsEditor';
+import { InstructionTaskEditor } from './InstructionTaskEditor';
 import { UnknownTaskFallback } from './UnknownTaskFallback';
 
 /**
@@ -54,6 +55,9 @@ export const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
     },
     'columns': {
         editor: ColumnsEditor as React.ComponentType<{ task: Task }>,
+    },
+    'instruction': {
+        editor: InstructionTaskEditor as React.ComponentType<{ task: Task }>,
     },
 };
 

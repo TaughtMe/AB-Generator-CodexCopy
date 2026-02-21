@@ -2,20 +2,17 @@
  * mathExportUtils.ts – Converts LaTeX formulas to high-res PNG images
  *
  * Since Word (.docx) cannot render KaTeX HTML/CSS, we render the formula
- * into a temporary DOM element, capture it with html2canvas at ~300 DPI,
+ * into a temporary DOM element, capture it with html-to-image at ~300 DPI,
  * and return the result as a Blob.
  */
 
 import katex from 'katex';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
 /**
- * Fixed scale factor for high-res output (~300 DPI).
- * html2canvas applies this to the element's CSS pixel dimensions,
- * producing a zoom-independent result (does NOT use devicePixelRatio
- * when scale is explicitly provided).
+ * Fixed pixel-ratio for high-res output (~300 DPI).
  */
-const CANVAS_SCALE = 4;
+const PIXEL_RATIO = 4;
 
 /**
  * Renders a LaTeX string to a high-resolution PNG Blob.
@@ -45,32 +42,15 @@ export async function convertMathToImage(latex: string): Promise<Blob> {
     document.body.appendChild(container);
 
     try {
-        // 3. Capture with html2canvas at a fixed scale.
-        //    html2canvas uses the explicit scale directly (not multiplied
-        //    by devicePixelRatio), so the output canvas dimensions are
-        //    always elementCSSWidth×4 × elementCSSHeight×4 regardless
-        //    of browser zoom level.
-        const canvas = await html2canvas(container, {
-            scale: CANVAS_SCALE,
+        // 3. Capture with html-to-image at a fixed pixelRatio.
+        const dataUrl = await toPng(container, {
+            pixelRatio: PIXEL_RATIO,
             backgroundColor: '#ffffff',
-            logging: false,
-            useCORS: true,
         });
 
-        // 4. Convert canvas to Blob
-        const blob = await new Promise<Blob>((resolve, reject) => {
-            canvas.toBlob(
-                (blob) => {
-                    if (blob) {
-                        resolve(blob);
-                    } else {
-                        reject(new Error('Failed to convert math canvas to Blob'));
-                    }
-                },
-                'image/png',
-                1.0,
-            );
-        });
+        // 4. Convert data-URL to Blob
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
 
         // 5. Validate PNG data
         const arrayBuffer = await blob.arrayBuffer();

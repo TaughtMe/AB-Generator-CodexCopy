@@ -135,15 +135,15 @@ export function WorksheetCanvas({
                                             style={{ breakAfter: 'page' }}
                                         >
                                             <div className="flex items-center gap-2">
-                                                <div className="flex-1 border-t-2 border-dashed border-slate-300 dark:border-slate-600" />
-                                                <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 px-2 whitespace-nowrap flex items-center gap-1">
+                                                <div className="flex-1 border-t-2 border-dashed border-worksheet-border" />
+                                                <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-worksheet-field text-worksheet-inkLight border border-worksheet-border print:bg-transparent print:border-none">
                                                     <Scissors size={10} />
                                                     Seitenumbruch
                                                 </span>
-                                                <div className="flex-1 border-t-2 border-dashed border-slate-300 dark:border-slate-600" />
+                                                <div className="flex-1 border-t-2 border-dashed border-worksheet-border" />
                                                 <button
                                                     onClick={() => onRemoveTask(id)}
-                                                    className="p-0.5 text-slate-300 hover:text-red-500 transition-colors cursor-pointer no-print"
+                                                    className="p-0.5 text-worksheet-inkLight hover:text-red-500 transition-colors cursor-pointer no-print"
                                                     title="Seitenumbruch entfernen"
                                                 >
                                                     <Trash2 size={12} />
@@ -172,11 +172,11 @@ export function WorksheetCanvas({
 
                     <DragOverlay>
                         {activeTask ? (
-                            <div className="bg-white border-2 border-blue-500 rounded-lg shadow-2xl p-3 opacity-90 rotate-1">
+                            <div className="bg-worksheet-paper border-2 border-blue-500 rounded-lg shadow-2xl p-3 opacity-90 rotate-1">
                                 <span className="text-xs font-medium text-blue-500">
                                     {activeTask.type.replace('-', ' ')}
                                 </span>
-                                <p className="text-slate-700 text-xs mt-0.5 truncate">
+                                <p className="text-worksheet-ink text-xs mt-0.5 truncate">
                                     {activeTask.title}
                                 </p>
                             </div>

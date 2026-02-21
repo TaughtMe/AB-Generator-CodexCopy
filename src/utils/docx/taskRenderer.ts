@@ -12,13 +12,19 @@ import {
     AlignmentType,
     convertMillimetersToTwip,
 } from 'docx';
-import type { Task, MultipleChoiceTask, LineaturTask, ClozeTask, MathTask, ImagePlaceholderTask, ColumnsTask } from '../../types/worksheet';
+import type { Task, MultipleChoiceTask, LineaturTask, ClozeTask, MathTask, ImagePlaceholderTask, ColumnsTask, InstructionTask } from '../../types/worksheet';
 import { renderLineBlockToImage } from '../lineBlockToImage';
 import { convertMathToImage } from '../mathExportUtils';
 import { mmToPx, A4_INNER_WIDTH_MM } from '../mmToEmu';
 import { getImage } from '../../store/dexieStore';
 import { getRowHeightMM } from '../lineaturStyles';
 import { processImageForDocx } from './imagePipeline';
+import {
+    DEFAULT_CLOZE_GAP_MULTIPLIER,
+    DEFAULT_CLOZE_GAP_STYLE,
+    getClozeGapText,
+    tokenizeClozeContent,
+} from '../clozeParser';
 
 /**
  * Renderer-Layer der modularisierten DOCX-Pipeline.
@@ -195,13 +201,14 @@ function renderCloze(task: ClozeTask, isTeacherMode: boolean, config: TaskRender
         ];
     }
 
-    const parts = task.content.split(/(\{\{.*?\}\})/g);
+    const gapStyle = task.gapStyle ?? DEFAULT_CLOZE_GAP_STYLE;
+    const gapMultiplier = task.gapMultiplier ?? DEFAULT_CLOZE_GAP_MULTIPLIER;
+    const parts = tokenizeClozeContent(task.content);
     const runs: TextRun[] = [];
 
     for (const part of parts) {
-        const match = part.match(/^\{\{(.+?)\}\}$/);
-        if (match) {
-            const word = match[1];
+        if (part.type === 'gap') {
+            const word = part.answer;
             if (isTeacherMode) {
                 runs.push(
                     new TextRun({
@@ -214,20 +221,19 @@ function renderCloze(task: ClozeTask, isTeacherMode: boolean, config: TaskRender
                     }),
                 );
             } else {
-                const blankWidth = Math.max(word.length * 2, 10);
                 runs.push(
                     new TextRun({
-                        text: '_'.repeat(blankWidth),
+                        text: getClozeGapText(word, gapStyle, gapMultiplier),
                         font: config.fontFamily,
                         size: config.fontSizePt * 2,
                         color: config.docxTheme.muted,
                     }),
                 );
             }
-        } else if (part) {
+        } else if (part.value) {
             runs.push(
                 new TextRun({
-                    text: part,
+                    text: part.value,
                     font: config.fontFamily,
                     size: config.fontSizePt * 2,
                 }),
@@ -471,6 +477,43 @@ export function wrapTaskInGrid(
     });
 }
 
+function renderInstruction(
+    task: InstructionTask,
+    config: TaskRendererConfig,
+): (Paragraph | Table)[] {
+    if (!task.text || !task.text.trim()) {
+        return [
+            new Paragraph({
+                children: [
+                    new TextRun({
+                        text: '(Kein Aufgabentext)',
+                        font: config.fontFamily,
+                        size: config.fontSizePt * 2,
+                        color: config.docxTheme.muted,
+                        italics: true,
+                    }),
+                ],
+            }),
+        ];
+    }
+
+    // Split by newlines so multi-line text is preserved
+    return task.text.split('\n').map(
+        (line) =>
+            new Paragraph({
+                children: [
+                    new TextRun({
+                        text: line,
+                        font: config.fontFamily,
+                        size: config.fontSizePt * 2,
+                        color: config.docxTheme.text,
+                    }),
+                ],
+                spacing: { after: 80 },
+            }),
+    );
+}
+
 export async function renderTaskContent(
     task: Task,
     isTeacherMode: boolean,
@@ -487,6 +530,8 @@ export async function renderTaskContent(
             return await renderMath(task, config);
         case 'image-placeholder':
             return await renderImagePlaceholder(task, config);
+        case 'instruction':
+            return renderInstruction(task as InstructionTask, config);
         default:
             return [
                 new Paragraph({

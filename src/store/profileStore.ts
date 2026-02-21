@@ -10,6 +10,10 @@ import type { Subject, ClassProfile } from '../types/profiles';
 interface ProfileState {
     subjects: Subject[];
     classes: ClassProfile[];
+    /** Aktuell ausgewähltes Fach (wird in Sidebar angezeigt) */
+    activeSubjectId: string | null;
+    /** Aktuell ausgewählte Klasse (wird in Sidebar angezeigt) */
+    activeClassId: string | null;
 }
 
 interface ProfileActions {
@@ -17,6 +21,8 @@ interface ProfileActions {
     removeSubject: (id: string) => void;
     addClassProfile: (name: string, characteristic?: string) => void;
     removeClassProfile: (id: string) => void;
+    setActiveSubject: (id: string | null) => void;
+    setActiveClass: (id: string | null) => void;
 }
 
 type ProfileStore = ProfileState & ProfileActions;
@@ -26,6 +32,8 @@ export const useProfileStore = create<ProfileStore>()(
         (set) => ({
             subjects: [],
             classes: [],
+            activeSubjectId: null,
+            activeClassId: null,
 
             addSubject: (name, curriculumText = '') =>
                 set((s) => ({
@@ -35,6 +43,8 @@ export const useProfileStore = create<ProfileStore>()(
             removeSubject: (id) =>
                 set((s) => ({
                     subjects: s.subjects.filter((sub) => sub.id !== id),
+                    // Wenn das aktive Fach gelöscht wird, zurücksetzen
+                    activeSubjectId: s.activeSubjectId === id ? null : s.activeSubjectId,
                 })),
 
             addClassProfile: (name, characteristic = '') =>
@@ -45,7 +55,12 @@ export const useProfileStore = create<ProfileStore>()(
             removeClassProfile: (id) =>
                 set((s) => ({
                     classes: s.classes.filter((cls) => cls.id !== id),
+                    // Wenn die aktive Klasse gelöscht wird, zurücksetzen
+                    activeClassId: s.activeClassId === id ? null : s.activeClassId,
                 })),
+
+            setActiveSubject: (id) => set({ activeSubjectId: id }),
+            setActiveClass: (id) => set({ activeClassId: id }),
         }),
         {
             name: 'ab-generator-profiles',

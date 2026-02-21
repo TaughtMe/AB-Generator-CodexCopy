@@ -135,7 +135,7 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
 
     return (
         <div className="a4-desk">
-            <div className="a4-page" style={pageStyle} data-brand-color={brandColor}>
+            <div className="a4-page bg-worksheet-paper text-worksheet-ink shadow-lg" style={pageStyle} data-brand-color={brandColor}>
                 <div ref={containerRef} className="space-y-3">
                     {renderItems}
                 </div>

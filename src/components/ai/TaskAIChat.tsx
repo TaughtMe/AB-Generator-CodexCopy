@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Check, X, Sparkles } from 'lucide-react';
-import { modifyTask } from '../../services/geminiService';
+import { modifyTask } from '../../services/aiService';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import type { Task } from '../../types/worksheet';
 

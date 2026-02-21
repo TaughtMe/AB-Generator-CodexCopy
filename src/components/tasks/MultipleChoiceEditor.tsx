@@ -50,7 +50,7 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
         <div className="space-y-4">
             {/* Question */}
             <div>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider no-print">
+                <label className="block text-xs font-medium text-worksheet-inkLight mb-1.5 uppercase tracking-wider no-print">
                     Frage
                 </label>
                 <textarea
@@ -58,13 +58,13 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                     onChange={updateQuestion}
                     placeholder="Stelle hier deine Frage…"
                     rows={2}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow resize-none placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                    className="w-full px-3 py-2 rounded-lg border border-worksheet-border bg-worksheet-field text-worksheet-ink text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow resize-none placeholder:text-worksheet-inkLight print:bg-transparent print:border-none"
                 />
             </div>
 
             {/* Options */}
             <div>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider no-print">
+                <label className="block text-xs font-medium text-worksheet-inkLight mb-2 uppercase tracking-wider no-print">
                     Antwortmöglichkeiten
                 </label>
                 <div className="space-y-2">
@@ -74,8 +74,8 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                             <button
                                 onClick={() => toggleCorrect(option.id)}
                                 className={`mc-correct-marker shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${option.isCorrect
-                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200 dark:shadow-emerald-900'
-                                    : 'border-slate-300 dark:border-slate-600 text-transparent hover:border-emerald-400'
+                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200'
+                                    : 'border-worksheet-border text-transparent hover:border-emerald-400'
                                     }`}
                                 title={option.isCorrect ? 'Als falsch markieren' : 'Als richtig markieren'}
                                 data-correct={option.isCorrect}
@@ -86,7 +86,7 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
 
                             {/* Print-only checkbox indicator */}
                             <span
-                                className="mc-print-checkbox hidden shrink-0 w-5 h-5 border-2 border-slate-400 rounded-sm"
+                                className="mc-print-checkbox hidden shrink-0 w-5 h-5 border-2 border-worksheet-border rounded-sm"
                                 data-correct={option.isCorrect}
                                 data-teacher={isTeacherMode}
                             />
@@ -96,14 +96,14 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                                 type="text"
                                 value={option.text}
                                 onChange={(e) => updateOptionText(option.id, e.target.value)}
-                                className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+                                className="flex-1 px-3 py-1.5 rounded-lg border border-worksheet-border bg-worksheet-field text-worksheet-ink text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow print:bg-transparent print:border-none"
                             />
 
                             {/* Delete option */}
                             <button
                                 onClick={() => removeOption(option.id)}
                                 disabled={task.options.length <= 2}
-                                className="shrink-0 p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 rounded transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover/option:opacity-100 no-print"
+                                className="shrink-0 p-1.5 text-worksheet-inkLight/60 hover:text-red-500 rounded transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover/option:opacity-100 no-print"
                                 title="Option entfernen"
                             >
                                 <Trash2 size={14} />
@@ -116,7 +116,7 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
             {/* Add option */}
             <button
                 onClick={addOption}
-                className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors cursor-pointer no-print"
+                className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-600 font-medium transition-colors cursor-pointer no-print"
             >
                 <Plus size={16} /> Option hinzufügen
             </button>

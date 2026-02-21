@@ -22,8 +22,20 @@ export interface WorksheetRecord {
     title: string;
     tasksById: Record<string, Task>;
     taskIds: string[];
+    /** Optionale Zuordnung zu einem Fach (profileStore Subject-ID) */
+    subjectId?: string;
+    /** Optionale Zuordnung zu einer Klasse (profileStore ClassProfile-ID) */
+    classId?: string;
+    /** Screenshot-Thumbnail des Worksheets (JPEG Blob, top ~300px) */
+    thumbnailBlob?: Blob;
     createdAt: Date;
     updatedAt: Date;
+}
+
+/** A compact task preview shown in the card thumbnail */
+export interface TaskPreviewItem {
+    type: string;
+    label: string;
 }
 
 /** Lightweight metadata for listing worksheets (no heavy task data) */
@@ -31,8 +43,14 @@ export interface WorksheetMeta {
     id: string;
     title: string;
     taskCount: number;
+    subjectId?: string;
+    classId?: string;
     createdAt: Date;
     updatedAt: Date;
+    /** First few tasks summarised for the card preview */
+    taskPreview: TaskPreviewItem[];
+    /** Object-URL for the stored screenshot thumbnail (created on the fly) */
+    thumbnailUrl?: string;
 }
 
 /* ── Database Definition ── */
@@ -53,6 +71,12 @@ class ABGeneratorDB extends Dexie {
         this.version(2).stores({
             images: '++id, name, createdAt',
             worksheets: 'id, title, updatedAt',
+        });
+
+        // Version 3: add subjectId & classId indexes for filtering
+        this.version(3).stores({
+            images: '++id, name, createdAt',
+            worksheets: 'id, title, updatedAt, subjectId, classId',
         });
     }
 }
@@ -94,7 +118,10 @@ export async function saveWorksheet(
     id: string,
     title: string,
     tasksById: Record<string, Task>,
-    taskIds: string[]
+    taskIds: string[],
+    subjectId?: string,
+    classId?: string,
+    thumbnailBlob?: Blob
 ): Promise<void> {
     const existing = await db.worksheets.get(id);
     const now = new Date();
@@ -104,6 +131,9 @@ export async function saveWorksheet(
         title,
         tasksById,
         taskIds,
+        subjectId: subjectId ?? existing?.subjectId,
+        classId: classId ?? existing?.classId,
+        thumbnailBlob: thumbnailBlob ?? existing?.thumbnailBlob,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
     });
@@ -119,19 +149,84 @@ export async function deleteWorksheet(id: string): Promise<void> {
     await db.worksheets.delete(id);
 }
 
-/** Gibt die letzten N Arbeitsblätter als Metadaten zurück (nach updatedAt sortiert) */
-export async function listRecentWorksheets(limit = 10): Promise<WorksheetMeta[]> {
-    const records = await db.worksheets
-        .orderBy('updatedAt')
+/** Filter-Optionen für die Worksheet-Liste */
+export interface WorksheetFilter {
+    subjectId?: string;
+    classId?: string;
+    sortBy?: 'updatedAt' | 'createdAt' | 'title';
+}
+
+/** Gibt Arbeitsblätter als Metadaten zurück, optional gefiltert & sortiert */
+export async function listRecentWorksheets(
+    limit = 10,
+    filter?: WorksheetFilter
+): Promise<WorksheetMeta[]> {
+    const sortField = filter?.sortBy ?? 'updatedAt';
+
+    let records = await db.worksheets
+        .orderBy(sortField)
         .reverse()
-        .limit(limit)
         .toArray();
 
-    return records.map(({ id, title, taskIds, createdAt, updatedAt }) => ({
-        id,
-        title,
-        taskCount: taskIds.length,
-        createdAt,
-        updatedAt,
-    }));
+    // Client-side filter (Dexie compound-index wäre Overkill hier)
+    if (filter?.subjectId) {
+        records = records.filter((r) => r.subjectId === filter.subjectId);
+    }
+    if (filter?.classId) {
+        records = records.filter((r) => r.classId === filter.classId);
+    }
+
+    // Limit nach Filter
+    records = records.slice(0, limit);
+
+    return records.map((rec) => {
+        const { id, title, taskIds, tasksById, subjectId, classId, createdAt, updatedAt } = rec;
+        // Build a compact preview from the first 4 tasks
+        const taskPreview: TaskPreviewItem[] = taskIds.slice(0, 4).map((tid) => {
+            const t = tasksById[tid];
+            if (!t) return { type: 'unknown', label: '' };
+            let label = t.title || '';
+            switch (t.type) {
+                case 'multiple-choice':
+                    label = label || t.question?.slice(0, 60) || 'Multiple Choice';
+                    break;
+                case 'cloze':
+                    label = label || t.content?.replace(/\[.*?\]/g, '___').slice(0, 60) || 'Lückentext';
+                    break;
+                case 'instruction':
+                    label = label || t.text?.slice(0, 60) || 'Aufgabe';
+                    break;
+                case 'math':
+                    label = label || t.content?.slice(0, 40) || 'Mathe';
+                    break;
+                case 'lineatur':
+                    label = label || `Lineatur ${t.lineRows} Zeilen`;
+                    break;
+                case 'image-placeholder':
+                    label = label || t.caption || 'Bild';
+                    break;
+                case 'columns':
+                    label = label || `Spalten ${t.layout}`;
+                    break;
+                case 'page-break':
+                    label = '— Seitenumbruch —';
+                    break;
+                default:
+                    label = label || t.type;
+            }
+            return { type: t.type, label };
+        });
+
+        return {
+            id,
+            title,
+            taskCount: taskIds.length,
+            subjectId,
+            classId,
+            createdAt,
+            updatedAt,
+            taskPreview,
+            thumbnailUrl: rec.thumbnailBlob ? URL.createObjectURL(rec.thumbnailBlob) : undefined,
+        };
+    });
 }

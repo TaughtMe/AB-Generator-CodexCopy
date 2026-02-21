@@ -1,5 +1,6 @@
 @import "katex/dist/katex.min.css";
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ──── Design Tokens ──── */
 @theme {
@@ -12,18 +13,6 @@
     --color-accent: #3b82f6;
     --color-accent-hover: #2563eb;
     --color-danger: #ef4444;
-}
-
-/* ──── Darkmode overrides via media query ──── */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --color-surface: #020617;
-        --color-surface-alt: #0f172a;
-        --color-surface-elevated: #1e293b;
-        --color-border-default: #1e293b;
-        --color-text-primary: #f1f5f9;
-        --color-text-secondary: #94a3b8;
-    }
 }
 
 /* ──── Global Resets ──── */
@@ -51,16 +40,6 @@ body {
     background: #94a3b8;
 }
 
-@media (prefers-color-scheme: dark) {
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #334155;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #475569;
-    }
-}
-
 /* ──── A4 Page System ──── */
 .a4-desk {
     min-height: calc(100vh - 48px);
@@ -74,7 +53,6 @@ body {
     width: 210mm;
     min-height: 297mm;
     padding: 20mm;
-    background: white;
     box-shadow:
         0 1px 3px rgba(0, 0, 0, 0.08),
         0 8px 24px rgba(0, 0, 0, 0.12),
@@ -84,61 +62,27 @@ body {
     box-sizing: border-box;
 }
 
-/* Dark mode: paper stays white, desk gets darker */
-.dark .a4-page {
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.2),
-        0 8px 24px rgba(0, 0, 0, 0.4),
-        0 24px 48px rgba(0, 0, 0, 0.2);
-}
-
-/* ──── Force light-mode colors inside A4 page ──── */
-/* The A4 page is always white, so all content must use dark text */
+/* ══ Worksheet Dark-Mode Isolation ══
+   Hard HEX values – the worksheet MUST stay white with dark text
+   regardless of dark mode. These rules override any inherited or
+   Tailwind-generated dark-mode styles.                          */
 .a4-page,
-.a4-page * {
-    color: #1e293b;
-    /* slate-800 */
+.dark .a4-page {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
 }
 
-.a4-page .task-card-header {
-    background-color: #f8fafc;
-    /* slate-50 */
-    border-color: #e2e8f0;
-    /* slate-200 */
+.a4-page .task-card,
+.dark .a4-page .task-card {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    border-color: #e2e8f0 !important;
 }
 
-.a4-page .task-card-header .text-slate-400,
-.a4-page .task-card-header .text-blue-500\/80 {
-    color: #94a3b8;
-    /* slate-400 */
-}
-
-.a4-page .task-card-header .text-blue-500\/80 {
-    color: #3b82f6;
-    /* blue-500 */
-}
-
-/* Inputs & selects inside A4 page always light mode */
-.a4-page input,
-.a4-page textarea,
-.a4-page select {
-    background-color: #ffffff;
-    border-color: #e2e8f0;
-    color: #1e293b;
-}
-
-.a4-page input::placeholder,
-.a4-page textarea::placeholder {
-    color: #94a3b8;
-}
-
-/* A4 task card borders */
-.a4-page .task-card {
-    border-color: #e2e8f0;
-}
-
-.a4-page .task-card:hover {
-    border-color: #cbd5e1;
+.a4-page .task-card-header,
+.dark .a4-page .task-card-header {
+    background-color: #f8fafc !important;
+    border-color: #e2e8f0 !important;
 }
 
 /* ──── Multi-Page Desk ──── */

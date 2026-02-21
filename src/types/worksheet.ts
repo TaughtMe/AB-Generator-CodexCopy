@@ -1,4 +1,4 @@
-export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns';
+export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction';
 
 export type ColumnsLayout = '50-50' | '60-40' | '40-60';
 
@@ -31,9 +31,13 @@ export interface LineaturTask extends BaseTask {
     lineRows: number; // Number of line groups/rows (min 1, default 4)
 }
 
+export type ClozeGapStyle = 'continuous' | 'per-letter';
+
 export interface ClozeTask extends BaseTask {
     type: 'cloze';
-    content: string; // Text with placeholders like {{word}}
+    content: string;        // Text with gap placeholders, e.g. "Die [Sonne] scheint jeden [Tag]."
+    gapStyle?: ClozeGapStyle; // Default: 'continuous'
+    gapMultiplier?: number;   // Default: 1.5 – scales gap width relative to word length
 }
 
 export interface ImagePlaceholderTask extends BaseTask {
@@ -60,7 +64,13 @@ export interface ColumnsTask extends BaseTask {
     children: [string | null, string | null]; // taskId refs
 }
 
-export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask;
+/** Reine Aufgabe – freier Aufgabentext ohne interaktive Elemente. */
+export interface InstructionTask extends BaseTask {
+    type: 'instruction';
+    text: string;
+}
+
+export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask;
 
 export interface Worksheet {
     id: string;

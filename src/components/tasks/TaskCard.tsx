@@ -45,8 +45,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
             ref={setNodeRef}
             style={style}
             className={clsx(
-                "task-card group border border-slate-200/60 dark:border-slate-700/40 rounded-lg transition-all",
-                isDragging ? "opacity-50 z-50 ring-2 ring-blue-500 scale-[1.01]" : "hover:border-slate-300 dark:hover:border-slate-600"
+                "task-card group rounded-lg transition-all bg-worksheet-field text-worksheet-ink border border-worksheet-border print:bg-transparent print:border-none",
+                isDragging ? "opacity-50 z-50 ring-2 ring-blue-500 scale-[1.01]" : "hover:border-worksheet-border"
             )}
         >
             {/* Print-only task index – visible ONLY in @media print.
@@ -58,18 +58,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
             )}
 
             {/* Header – hidden in print */}
-            <div className="task-card-header flex items-center gap-1.5 px-2 py-1 border-b border-slate-100/80 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-800/30">
+            <div className="task-card-header flex items-center gap-1.5 px-2 py-1 border-b border-worksheet-border bg-worksheet-field print:bg-transparent print:border-none">
                 {/* Drag Handle */}
                 <div
                     {...attributes}
                     {...listeners}
-                    className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-slate-400"
+                    className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-slate-200 rounded transition-colors text-worksheet-inkLight"
                 >
                     <GripVertical size={14} />
                 </div>
 
                 {/* Task number + type */}
-                <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 tracking-wider">
+                <span className="text-[11px] font-medium text-worksheet-inkLight tracking-wider">
                     {taskNumber !== null && (
                         <span className="text-blue-500/80 font-bold mr-1">{taskNumber}.</span>
                     )}
@@ -84,8 +84,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
                         className={clsx(
                             "p-1 rounded transition-colors cursor-pointer",
                             taskNumber !== null
-                                ? "text-blue-500/70 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                : "text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                ? "text-blue-500/70 hover:text-blue-600 hover:bg-blue-50"
+                                : "text-worksheet-inkLight/60 hover:text-worksheet-inkLight hover:bg-worksheet-field"
                         )}
                         title={taskNumber !== null ? 'Nummerierung entfernen' : 'Nummerierung hinzufügen'}
                     >
@@ -97,8 +97,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
                         className={clsx(
                             "p-1 rounded transition-colors cursor-pointer",
                             showAIChat
-                                ? "text-purple-500 bg-purple-50 dark:bg-purple-900/30"
-                                : "text-slate-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                ? "text-purple-500 bg-purple-50"
+                                : "text-worksheet-inkLight hover:text-purple-500 hover:bg-purple-50"
                         )}
                         title="KI-Assistent"
                     >
@@ -107,7 +107,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
 
                     <button
                         onClick={() => onDuplicate(id)}
-                        className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                        className="p-1 text-worksheet-inkLight hover:text-worksheet-ink rounded hover:bg-worksheet-field transition-colors cursor-pointer"
                         title="Duplizieren"
                     >
                         <Copy size={12} />
@@ -115,7 +115,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
 
                     <button
                         onClick={() => onRemove(id)}
-                        className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
+                        className="p-1 text-worksheet-inkLight hover:text-red-500 rounded hover:bg-red-50 transition-colors cursor-pointer"
                         title="Löschen"
                     >
                         <Trash2 size={12} />
@@ -123,7 +123,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
 
                     <button
                         onClick={() => setIsCollapsed((c) => !c)}
-                        className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                        className="p-1 text-worksheet-inkLight hover:text-worksheet-ink rounded hover:bg-worksheet-field transition-colors cursor-pointer"
                         title={isCollapsed ? 'Ausklappen' : 'Einklappen'}
                     >
                         {isCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}

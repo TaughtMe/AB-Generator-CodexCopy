@@ -90,7 +90,7 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({ task }) => {
                     {/* Detach button */}
                     <button
                         onClick={() => detachFromColumn(task.id, slotIndex)}
-                        className="no-print absolute top-1 right-1 z-10 p-0.5 rounded bg-red-50 dark:bg-red-900/30 text-red-400 hover:text-red-600 opacity-0 group-hover/slot:opacity-100 transition-opacity cursor-pointer"
+                        className="no-print absolute top-1 right-1 z-10 p-0.5 rounded bg-red-50 text-red-400 hover:text-red-600 opacity-0 group-hover/slot:opacity-100 transition-opacity cursor-pointer"
                         title="Aus Spalte entfernen"
                     >
                         <X size={12} />
@@ -103,8 +103,8 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({ task }) => {
         // Empty slot
         return (
             <div className="columns-task__col columns-task__col--empty relative">
-                <div className="flex flex-col items-center justify-center gap-2 py-8 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg min-h-[80px]">
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                <div className="flex flex-col items-center justify-center gap-2 py-8 border-2 border-dashed border-worksheet-border rounded-lg min-h-[80px] bg-worksheet-field print:bg-transparent print:border-none">
+                    <p className="text-[10px] text-worksheet-inkLight">
                         Spalte {slotIndex + 1} – leer
                     </p>
                     <div className="no-print relative" ref={openSlot === slotIndex ? menuRef : undefined}>
@@ -116,12 +116,12 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({ task }) => {
                             Aufgabe einfügen
                         </button>
                         {openSlot === slotIndex && (
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-white text-slate-800 border border-slate-200 rounded-md shadow-xl py-1 z-50">
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-worksheet-paper text-worksheet-ink border border-worksheet-border rounded-md shadow-xl py-1 z-50">
                                 {SLOT_TASK_OPTIONS.map(({ type, label }) => (
                                     <button
                                         key={type}
                                         onClick={() => handleCreateInSlot(slotIndex, type)}
-                                        className="w-full text-left px-3 py-2 text-[12px] text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+                                        className="w-full text-left px-3 py-2 text-[12px] text-worksheet-ink hover:bg-slate-100 cursor-pointer transition-colors"
                                     >
                                         {label}
                                     </button>
@@ -138,8 +138,8 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({ task }) => {
         <div className="columns-task">
             {/* Controls (hidden in print) */}
             <div className="no-print flex items-center gap-2 mb-2">
-                <Columns size={14} className="text-slate-400" />
-                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <Columns size={14} className="text-worksheet-inkLight" />
+                <span className="text-[10px] font-medium text-worksheet-inkLight uppercase tracking-wider">
                     Zweispaltig
                 </span>
 
@@ -147,17 +147,17 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({ task }) => {
                 <select
                     value={task.layout}
                     onChange={(e) => handleLayoutChange(e.target.value as ColumnsLayout)}
-                    className="ml-auto text-[10px] px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
+                    className="ml-auto text-[10px] px-1.5 py-0.5 rounded border border-worksheet-border bg-worksheet-field text-worksheet-ink cursor-pointer"
                 >
                     {LAYOUT_OPTIONS.map(({ value, label }) => (
-                        <option key={value} value={value} className="bg-white text-slate-700 dark:bg-slate-700 dark:text-slate-200">{label}</option>
+                        <option key={value} value={value} className="bg-worksheet-paper text-worksheet-ink">{label}</option>
                     ))}
                 </select>
 
                 {/* Swap button */}
                 <button
                     onClick={handleSwapColumns}
-                    className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                    className="p-1 rounded text-worksheet-inkLight hover:text-worksheet-ink hover:bg-worksheet-field transition-colors cursor-pointer"
                     title="Spalten tauschen"
                 >
                     <ArrowLeftRight size={12} />

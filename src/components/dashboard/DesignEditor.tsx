@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X, Upload, Image as ImageIcon, Trash2, Type, Palette, Eye } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { addImage, getImageUrl } from '../../store/dexieStore';

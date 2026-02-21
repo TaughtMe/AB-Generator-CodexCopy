@@ -4,9 +4,18 @@ import {
     BookOpen, GraduationCap, Loader2, AlertCircle, Cpu,
     SlidersHorizontal, Trash2,
 } from 'lucide-react';
-import { generateTasks, getApiKey, type GenerateTasksOptions } from '../../services/geminiService';
+import {
+    generateTasks,
+    isActiveProviderConfigured,
+    getActiveProviderLabel,
+    type GenerateTasksOptions,
+} from '../../services/aiService';
 import { useProfileStore } from '../../store/profileStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { PROVIDER_MODEL_OPTIONS, getModelLabel } from '../../services/ai/modelCatalog';
+import { useLocalModels } from '../../hooks/useLocalModels';
+import { useOpenAIModels } from '../../hooks/useOpenAIModels';
+import { useGeminiModels } from '../../hooks/useGeminiModels';
 import type { Task } from '../../types/worksheet';
 
 /* ══════════════════════════════════════════════════
@@ -29,18 +38,12 @@ const DIFFICULTY_OPTIONS = [
     { value: 'schwer', label: 'Schwer', emoji: '🔴' },
 ];
 
-const MODEL_OPTIONS = [
-    { value: 'flash' as const, label: 'Flash', desc: 'Schnell' },
-    { value: 'pro' as const, label: 'Pro', desc: 'Qualität' },
-];
-
 export const AIImportWizard: React.FC<AIImportWizardProps> = ({
     isOpen, onClose, onImport, onOpenSettings,
 }) => {
     // ── Stores ──
     const { subjects, classes } = useProfileStore();
-    const { geminiModel, setGeminiModel } = useSettingsStore();
-    const apiKey = getApiKey();
+    const { aiProvider, providers, setProviderModel } = useSettingsStore();
 
     // ── Local State ──
     const [phase, setPhase] = useState<WizardPhase>('input');
@@ -59,8 +62,28 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
     // ── Derived ──
     const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
     const selectedClass = classes.find((c) => c.id === selectedClassId);
-    const hasApiKey = Boolean(apiKey?.trim());
-    const canGenerate = hasApiKey && topic.trim().length > 0;
+    const activeConfig = providers[aiProvider];
+    const { models: detectedLocalModels } = useLocalModels(activeConfig.baseUrl ?? '', isOpen && aiProvider === 'local');
+    const { models: detectedGeminiModels } = useGeminiModels(activeConfig.apiKey ?? '', isOpen && aiProvider === 'gemini');
+    const { models: detectedOpenAIModels } = useOpenAIModels(activeConfig.baseUrl ?? '', activeConfig.apiKey ?? '', isOpen && aiProvider === 'openai');
+    const mergedGeminiModels = Array.from(
+        new Map([
+            ...detectedGeminiModels,
+            ...PROVIDER_MODEL_OPTIONS.gemini,
+        ].map((option) => [option.value, option])).values()
+    );
+    const modelOptions = aiProvider === 'local' && detectedLocalModels.length > 0
+        ? detectedLocalModels
+        : aiProvider === 'gemini' && mergedGeminiModels.length > 0
+            ? mergedGeminiModels
+        : aiProvider === 'openai' && detectedOpenAIModels.length > 0
+            ? detectedOpenAIModels
+            : PROVIDER_MODEL_OPTIONS[aiProvider];
+    const selectedModelIds = activeConfig.selectedModelIds ?? [];
+    const favoriteModelOptions = modelOptions.filter((option) => selectedModelIds.includes(option.value));
+    const editorModelOptions = favoriteModelOptions.length > 0 ? favoriteModelOptions : modelOptions;
+    const providerReady = isActiveProviderConfigured();
+    const canGenerate = providerReady && topic.trim().length > 0;
 
     // ── Handlers ──
     function handleReset() {
@@ -169,11 +192,11 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
                     {/* ═══ API Key Warning ═══ */}
-                    {!hasApiKey && (
+                    {!providerReady && (
                         <div className="flex items-start gap-2.5 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                             <XCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
                             <div className="text-xs text-red-600 dark:text-red-400">
-                                <p className="font-semibold">Kein API-Key</p>
+                                <p className="font-semibold">KI nicht vollständig konfiguriert</p>
                                 <p className="mt-0.5">
                                     Bitte zuerst in den{' '}
                                     <button
@@ -182,7 +205,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                                     >
                                         Einstellungen
                                     </button>
-                                    {' '}hinterlegen.
+                                    {' '}für {getActiveProviderLabel()} hinterlegen.
                                 </p>
                             </div>
                         </div>
@@ -352,16 +375,16 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                                         KI-Modell
                                     </label>
                                     <div className="flex gap-1.5">
-                                        {MODEL_OPTIONS.map(({ value, label, desc }) => (
+                                        {editorModelOptions.map(({ value, label, desc }) => (
                                             <button
                                                 key={value}
-                                                onClick={() => setGeminiModel(value)}
-                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer border ${geminiModel === value
+                                                onClick={() => setProviderModel(aiProvider, value)}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer border ${activeConfig.model === value
                                                     ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300'
                                                     : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                                                     }`}
                                             >
-                                                {geminiModel === value && <CheckCircle size={12} />}
+                                                {activeConfig.model === value && <CheckCircle size={12} />}
                                                 {label}
                                                 <span className="text-[9px] opacity-60">({desc})</span>
                                             </button>
@@ -386,7 +409,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                                     Generiere {taskCount} Aufgaben...
                                 </p>
                                 <p className="text-[11px] text-slate-400 mt-1">
-                                    Modell: {geminiModel === 'pro' ? 'Gemini 1.5 Pro' : 'Gemini 2.0 Flash'}
+                                    {getActiveProviderLabel()} · {getModelLabel(aiProvider, activeConfig.model)}
                                 </p>
                             </div>
                         </div>

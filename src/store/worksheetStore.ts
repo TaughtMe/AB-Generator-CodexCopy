@@ -165,6 +165,14 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
                     children: [null, null],
                 };
                 break;
+            case 'instruction':
+                newTask = {
+                    ...base,
+                    type: 'instruction',
+                    title: 'Neue Aufgabe',
+                    text: '',
+                };
+                break;
             default:
                 throw new Error(`Unsupported task type: ${type}`);
         }

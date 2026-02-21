@@ -83,7 +83,7 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
                     <img
                         src={imageUrl}
                         alt={task.caption || 'Bild'}
-                        className="max-w-full rounded-lg border border-slate-200 dark:border-slate-700"
+                        className="max-w-full rounded-lg border border-worksheet-border"
                         style={{
                             maxWidth: `${task.widthMm}mm`,
                             maxHeight: `${task.heightMm}mm`,
@@ -109,30 +109,30 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
                         border-2 border-dashed rounded-xl cursor-pointer
                         transition-all duration-200
                         ${isDragOver
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-[1.01]'
-                            : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                            ? 'border-blue-500 bg-blue-50 scale-[1.01]'
+                            : 'border-worksheet-border bg-worksheet-field hover:border-blue-400 hover:bg-slate-50'
                         }
                     `}
                 >
                     {isUploading ? (
                         <>
                             <Loader2 size={32} className="text-blue-500 animate-spin" />
-                            <span className="text-sm text-slate-500">Wird hochgeladen...</span>
+                            <span className="text-sm text-worksheet-inkLight">Wird hochgeladen...</span>
                         </>
                     ) : (
                         <>
-                            <div className="p-3 bg-slate-100 dark:bg-slate-700 rounded-full">
+                            <div className="p-3 bg-worksheet-field border border-worksheet-border rounded-full print:bg-transparent print:border-none">
                                 {isDragOver ? (
                                     <Upload size={24} className="text-blue-500" />
                                 ) : (
-                                    <ImageIcon size={24} className="text-slate-400" />
+                                    <ImageIcon size={24} className="text-worksheet-inkLight" />
                                 )}
                             </div>
                             <div className="text-center">
-                                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                                <p className="text-sm font-medium text-worksheet-ink">
                                     Bild hierher ziehen
                                 </p>
-                                <p className="text-xs text-slate-400 mt-0.5">
+                                <p className="text-xs text-worksheet-inkLight mt-0.5">
                                     oder klicken zum Auswählen
                                 </p>
                             </div>
@@ -152,13 +152,13 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
             {/* Print-Platzhalter wenn kein Bild */}
             {!imageUrl && (
                 <div
-                    className="hidden print:block border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center"
+                    className="hidden print:block border-2 border-dashed border-worksheet-border rounded-lg flex items-center justify-center"
                     style={{
                         width: `${task.widthMm}mm`,
                         height: `${task.heightMm}mm`,
                     }}
                 >
-                    <span className="text-slate-400 text-sm">[Bild-Platzhalter]</span>
+                    <span className="text-worksheet-inkLight text-sm">[Bild-Platzhalter]</span>
                 </div>
             )}
 
@@ -168,11 +168,11 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
                 value={task.caption}
                 onChange={(e) => updateTask(task.id, { caption: e.target.value } as Partial<ImagePlaceholderTask>)}
                 placeholder="Bildunterschrift (optional)"
-                className="w-full px-2 py-1 text-xs bg-transparent border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
+                className="w-full px-2 py-1 text-xs bg-transparent border border-worksheet-border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-worksheet-ink placeholder:text-worksheet-inkLight print:border-none"
             />
 
             {/* Size Controls */}
-            <div className="no-print flex items-center gap-3 text-xs text-slate-500">
+            <div className="no-print flex items-center gap-3 text-xs text-worksheet-inkLight">
                 <label className="flex items-center gap-1.5">
                     Breite:
                     <input
