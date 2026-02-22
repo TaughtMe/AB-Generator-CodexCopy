@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Upload, Image as ImageIcon, Trash2, Type, Palette, Eye, Save, FolderOpen } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Trash2, Type, Palette, Eye, Save, FolderOpen, Search } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { addImage, getImageUrl } from '../../store/dexieStore';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { validateTemplateName } from '../../types/designTemplate';
+import { CURATED_FONTS, loadGoogleFont, preloadCuratedFonts } from '../../utils/googleFonts';
 
 /* ══════════════════════════════════════════════════
    DesignEditor – Arbeitsblatt-Design konfigurieren
@@ -17,13 +18,14 @@ interface DesignEditorProps {
     onClose: () => void;
 }
 
-const FONT_OPTIONS = [
-    { value: 'Inter, sans-serif', label: 'Inter' },
-    { value: 'Georgia, serif', label: 'Georgia' },
-    { value: '"Comic Sans MS", cursive', label: 'Comic Sans' },
-    { value: '"Courier New", monospace', label: 'Courier New' },
-    { value: 'system-ui, sans-serif', label: 'System UI' },
-];
+/** Font-Kategorie-Labels für die gruppierte Anzeige */
+const CATEGORY_LABELS: Record<string, string> = {
+    'sans-serif': 'Sans-Serif',
+    serif: 'Serif',
+    handwriting: 'Handschrift',
+    monospace: 'Monospace',
+    system: 'System',
+};
 
 const COLOR_PRESETS = [
     '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
@@ -63,6 +65,17 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
     const [isNameConflict, setIsNameConflict] = useState(false);
     const [isSavingTemplate, setIsSavingTemplate] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [fontSearch, setFontSearch] = useState('');
+
+    // Preload Google Fonts beim ersten Öffnen des Editors
+    useEffect(() => {
+        if (isOpen) preloadCuratedFonts();
+    }, [isOpen]);
+
+    // Aktive Schriftart sicherstellen
+    useEffect(() => {
+        if (fontFamily) loadGoogleFont(fontFamily);
+    }, [fontFamily]);
 
     const editingTemplate = editingTemplateId
         ? designTemplates.find((item) => item.id === editingTemplateId)
@@ -456,20 +469,52 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                 <Type size={12} />
                                 Schriftart
                             </label>
-                            <div className="space-y-1">
-                                {FONT_OPTIONS.map(({ value, label }) => (
-                                    <button
-                                        key={value}
-                                        onClick={() => setFontFamily(value)}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all cursor-pointer border ${fontFamily === value
-                                                ? 'bg-violet-50 dark:bg-violet-900/30 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 font-medium'
-                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
-                                            }`}
-                                        style={{ fontFamily: value }}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
+
+                            {/* Suchfeld */}
+                            <div className="relative mb-2">
+                                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="text"
+                                    value={fontSearch}
+                                    onChange={(e) => setFontSearch(e.target.value)}
+                                    placeholder="Font suchen..."
+                                    className="w-full pl-7 pr-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
+                                />
+                            </div>
+
+                            {/* Gruppierte Font-Liste */}
+                            <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-2">
+                                {(['sans-serif', 'serif', 'handwriting', 'monospace'] as const).map((cat) => {
+                                    const fonts = CURATED_FONTS
+                                        .filter((f) => f.category === cat)
+                                        .filter((f) => !fontSearch || f.label.toLowerCase().includes(fontSearch.toLowerCase()));
+                                    if (fonts.length === 0) return null;
+                                    return (
+                                        <div key={cat}>
+                                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                                                {CATEGORY_LABELS[cat]}
+                                            </p>
+                                            <div className="space-y-0.5">
+                                                {fonts.map(({ value, label }) => (
+                                                    <button
+                                                        key={value}
+                                                        onClick={() => {
+                                                            loadGoogleFont(value);
+                                                            setFontFamily(value);
+                                                        }}
+                                                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer border ${fontFamily === value
+                                                                ? 'bg-violet-50 dark:bg-violet-900/30 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 font-medium'
+                                                                : 'bg-white dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                            }`}
+                                                        style={{ fontFamily: value }}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 

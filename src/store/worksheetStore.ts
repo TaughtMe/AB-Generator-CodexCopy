@@ -19,6 +19,8 @@ interface WorksheetStore extends Worksheet {
     showHeader: boolean;
     // Actions
     addTask: (type: TaskType) => void;
+    /** Fügt einen neuen Task an einer bestimmten Position ein */
+    insertTaskAt: (type: TaskType, index: number) => void;
     addTasksFromAI: (tasks: Omit<Task, 'id'>[]) => void;
     updateTask: (id: string, updates: Partial<Task>) => void;
     removeTask: (id: string) => void;
@@ -39,6 +41,50 @@ interface WorksheetStore extends Worksheet {
 
 /** Default line style for new lineatur tasks */
 const DEFAULT_LINE_STYLE: LineStyle = 'grid-5mm';
+
+/**
+ * Erzeugt ein neues Task-Objekt mit einer frischen UUID.
+ * Wird von addTask und insertTaskAt gemeinsam genutzt.
+ */
+function createNewTask(type: TaskType): Task {
+    const id = crypto.randomUUID();
+    const base = { id, type, title: `Neue Aufgabe (${type})` };
+
+    switch (type) {
+        case 'multiple-choice':
+            return {
+                ...base, type: 'multiple-choice', question: '',
+                options: [
+                    { id: crypto.randomUUID(), text: 'Option 1', isCorrect: false },
+                    { id: crypto.randomUUID(), text: 'Option 2', isCorrect: false },
+                ],
+            };
+        case 'lineatur':
+            return {
+                ...base, type: 'lineatur',
+                lineStyle: DEFAULT_LINE_STYLE,
+                gridColumns: getGridColumns(DEFAULT_LINE_STYLE),
+                lineRows: 4,
+            };
+        case 'cloze':
+            return { ...base, type: 'cloze', content: '' };
+        case 'image-placeholder':
+            return { ...base, type: 'image-placeholder', caption: '', widthMm: 80, heightMm: 60 };
+        case 'math':
+            return { ...base, type: 'math', content: '' };
+        case 'page-break':
+            return { ...base, type: 'page-break', title: 'Seitenumbruch' };
+        case 'columns':
+            return {
+                ...base, type: 'columns', title: 'Zweispaltig',
+                layout: '50-50', gapMm: 6, children: [null, null],
+            };
+        case 'instruction':
+            return { ...base, type: 'instruction', title: 'Neue Aufgabe', text: '' };
+        default:
+            throw new Error(`Unsupported task type: ${type}`);
+    }
+}
 
 /**
  * Normalisiert Legacy-Persistenzdaten beim Laden.
@@ -88,98 +134,27 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
 
     /**
      * Erstellt einen Root-Task und hängt ihn an das Ende von `taskIds`.
-     *
-     * Referenzielle Integrität:
-     * - Jede Erstellung schreibt Task und ID atomar im selben `set`.
-     * - Bei `columns` wird nur der Container erzeugt; Child-Slots starten als
-     *   `null`, damit keine dangling references entstehen.
      */
     addTask: (type: TaskType) => set((state) => {
-        const id = crypto.randomUUID();
-        let newTask: Task;
-
-        const base = {
-            id,
-            type,
-            title: `Neue Aufgabe (${type})`,
-        };
-
-        switch (type) {
-            case 'multiple-choice':
-                newTask = {
-                    ...base,
-                    type: 'multiple-choice',
-                    question: '',
-                    options: [
-                        { id: crypto.randomUUID(), text: 'Option 1', isCorrect: false },
-                        { id: crypto.randomUUID(), text: 'Option 2', isCorrect: false },
-                    ],
-                };
-                break;
-            case 'lineatur':
-                newTask = {
-                    ...base,
-                    type: 'lineatur',
-                    lineStyle: DEFAULT_LINE_STYLE,
-                    gridColumns: getGridColumns(DEFAULT_LINE_STYLE),
-                    lineRows: 4,
-                };
-                break;
-            case 'cloze':
-                newTask = {
-                    ...base,
-                    type: 'cloze',
-                    content: '',
-                };
-                break;
-            case 'image-placeholder':
-                newTask = {
-                    ...base,
-                    type: 'image-placeholder',
-                    caption: '',
-                    widthMm: 80,
-                    heightMm: 60,
-                };
-                break;
-            case 'math':
-                newTask = {
-                    ...base,
-                    type: 'math',
-                    content: '',
-                };
-                break;
-            case 'page-break':
-                newTask = {
-                    ...base,
-                    type: 'page-break',
-                    title: 'Seitenumbruch',
-                };
-                break;
-            case 'columns':
-                newTask = {
-                    ...base,
-                    type: 'columns',
-                    title: 'Zweispaltig',
-                    layout: '50-50',
-                    gapMm: 6,
-                    children: [null, null],
-                };
-                break;
-            case 'instruction':
-                newTask = {
-                    ...base,
-                    type: 'instruction',
-                    title: 'Neue Aufgabe',
-                    text: '',
-                };
-                break;
-            default:
-                throw new Error(`Unsupported task type: ${type}`);
-        }
-
+        const newTask = createNewTask(type);
         return {
-            tasksById: { ...state.tasksById, [id]: newTask },
-            taskIds: [...state.taskIds, id],
+            tasksById: { ...state.tasksById, [newTask.id]: newTask },
+            taskIds: [...state.taskIds, newTask.id],
+        };
+    }),
+
+    /**
+     * Erstellt einen Root-Task und fügt ihn an Position `index` ein.
+     * index = 0 → ganz oben, index >= taskIds.length → am Ende.
+     */
+    insertTaskAt: (type: TaskType, index: number) => set((state) => {
+        const newTask = createNewTask(type);
+        const newTaskIds = [...state.taskIds];
+        const clampedIndex = Math.max(0, Math.min(index, newTaskIds.length));
+        newTaskIds.splice(clampedIndex, 0, newTask.id);
+        return {
+            tasksById: { ...state.tasksById, [newTask.id]: newTask },
+            taskIds: newTaskIds,
         };
     }),
 

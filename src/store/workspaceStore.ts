@@ -37,6 +37,10 @@ interface WorkspaceState {
     chatMessages: ChatMessage[];
     isChatGenerating: boolean;
     isAiSidebarOpen: boolean;
+    /** Outline-Navigator (linke Sidebar im Editor) */
+    isOutlineOpen: boolean;
+    /** Placement-Modus: Nutzer platziert eine neue Aufgabe per Klick im Canvas */
+    isPlacingNewTask: boolean;
     designTemplates: DesignTemplate[];
     selectedTemplateId: string | null;
     isTemplateLoading: boolean;
@@ -67,6 +71,11 @@ interface WorkspaceActions {
     clearChat: () => void;
     setIsChatGenerating: (isGenerating: boolean) => void;
     toggleAiSidebar: () => void;
+    toggleOutline: () => void;
+    /** Startet den Placement-Modus: Maus-Klick im Canvas platziert neue Aufgabe */
+    startPlacingTask: () => void;
+    /** Bricht den Placement-Modus ab */
+    cancelPlacingTask: () => void;
     loadDesignTemplates: () => Promise<void>;
     saveCurrentDesignAsTemplate: (name: string, overwrite?: boolean, targetTemplateId?: string) => Promise<DesignTemplate>;
     applyTemplateToCurrentWorksheet: (templateId: string) => Promise<boolean>;
@@ -88,6 +97,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     chatMessages: [],
     isChatGenerating: false,
     isAiSidebarOpen: false,
+    isOutlineOpen: false,
+    isPlacingNewTask: false,
     designTemplates: [],
     selectedTemplateId: null,
     isTemplateLoading: false,
@@ -165,6 +176,18 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     toggleAiSidebar: () => {
         set((state) => ({ isAiSidebarOpen: !state.isAiSidebarOpen }));
+    },
+
+    toggleOutline: () => {
+        set((state) => ({ isOutlineOpen: !state.isOutlineOpen }));
+    },
+
+    startPlacingTask: () => {
+        set({ isPlacingNewTask: true });
+    },
+
+    cancelPlacingTask: () => {
+        set({ isPlacingNewTask: false });
     },
 
     loadDesignTemplates: async () => {

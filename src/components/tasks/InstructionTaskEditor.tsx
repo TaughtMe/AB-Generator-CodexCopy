@@ -1,5 +1,6 @@
 import { useWorksheetStore } from '../../store/worksheetStore';
 import type { InstructionTask } from '../../types/worksheet';
+import { RichTextEditor } from '../editor/RichTextEditor';
 
 interface Props {
     task: InstructionTask;
@@ -7,23 +8,22 @@ interface Props {
 
 /**
  * Editor für "Reine Aufgabe" (type: 'instruction').
- * Zeigt einen frei-editierbaren Aufgabentext an – kein interaktives Element,
- * kein Lösungsfeld. Ideal für Arbeitsaufträge, Erklärungen, Überschriften.
+ * Nutzt Tiptap-Rich-Text für Fett, Kursiv, Unterstrichen, Listen.
+ * Abwärtskompatibel: Plain-Text wird automatisch in HTML migriert.
  */
 export function InstructionTaskEditor({ task }: Props) {
     const updateTask = useWorksheetStore((s) => s.updateTask);
 
     return (
         <div className="w-full">
-            <textarea
+            <RichTextEditor
                 value={task.text}
-                onChange={(e) => updateTask(task.id, { text: e.target.value } as Partial<InstructionTask>)}
+                onChange={(html) => updateTask(task.id, { text: html } as Partial<InstructionTask>)}
                 placeholder="Aufgabentext eingeben…"
-                rows={4}
-                className="w-full resize-y rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-2 text-sm text-worksheet-ink placeholder:text-worksheet-inkLight focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors print:bg-transparent print:border-none"
+                minRows={3}
             />
-            <p className="mt-1 text-[10px] text-worksheet-inkLight">
-                Freier Aufgabentext ohne Interaktion – erscheint direkt auf dem Arbeitsblatt.
+            <p className="mt-1 text-[10px] text-worksheet-inkLight no-print">
+                Freier Aufgabentext – formatiere mit der Toolbar (Fett, Kursiv, Listen).
             </p>
         </div>
     );

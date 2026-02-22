@@ -6,6 +6,7 @@ import {
     Printer,
     Save,
     Sparkles,
+    List,
 } from 'lucide-react';
 
 export interface TopBarProps {
@@ -21,6 +22,8 @@ export interface TopBarProps {
     onToggleThemeMode: () => void;
     isAiSidebarOpen: boolean;
     onToggleAiSidebar: () => void;
+    isOutlineOpen: boolean;
+    onToggleOutline: () => void;
 }
 
 export function TopBar({
@@ -36,6 +39,8 @@ export function TopBar({
     onToggleThemeMode,
     isAiSidebarOpen,
     onToggleAiSidebar,
+    isOutlineOpen,
+    onToggleOutline,
 }: TopBarProps) {
     return (
         <header className="no-print sticky top-0 z-30 backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/80 dark:border-slate-800/80 shadow-sm">
@@ -49,6 +54,21 @@ export function TopBar({
                     >
                         <ArrowLeft size={14} />
                         <span className="hidden sm:inline">Dashboard</span>
+                    </button>
+
+                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60" />
+
+                    {/* Outline-Navigator Toggle */}
+                    <button
+                        onClick={onToggleOutline}
+                        className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                            isOutlineOpen
+                                ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                        title={isOutlineOpen ? 'Gliederung ausblenden' : 'Gliederung einblenden'}
+                    >
+                        <List size={15} />
                     </button>
 
                     <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60" />

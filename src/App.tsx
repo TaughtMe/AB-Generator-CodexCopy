@@ -15,6 +15,7 @@ import { TemplateGallery } from './components/dashboard/TemplateGallery';
 import { TopBar } from './components/editor/TopBar';
 import { FloatingToolbar } from './components/editor/FloatingToolbar';
 import { WorksheetCanvas } from './components/editor/WorksheetCanvas';
+import { OutlineNavigator } from './components/layout/OutlineNavigator';
 import { AppShell, type DashboardView } from './components/layout/AppShell';
 import { ProfileManager } from './components/dashboard/ProfileManager';
 
@@ -24,7 +25,7 @@ function App() {
   const title = useWorksheetStore((state) => state.title);
   const taskIds = useWorksheetStore((state) => state.taskIds);
   const tasksById = useWorksheetStore((state) => state.tasksById);
-  const addTask = useWorksheetStore((state) => state.addTask);
+  const insertTaskAt = useWorksheetStore((state) => state.insertTaskAt);
   const addTasksFromAI = useWorksheetStore((state) => state.addTasksFromAI);
   const updateTask = useWorksheetStore((state) => state.updateTask);
   const removeTask = useWorksheetStore((state) => state.removeTask);
@@ -41,6 +42,11 @@ function App() {
   const setCurrentView = useWorkspaceStore((s) => s.setCurrentView);
   const isAiSidebarOpen = useWorkspaceStore((s) => s.isAiSidebarOpen);
   const toggleAiSidebar = useWorkspaceStore((s) => s.toggleAiSidebar);
+  const isOutlineOpen = useWorkspaceStore((s) => s.isOutlineOpen);
+  const toggleOutline = useWorkspaceStore((s) => s.toggleOutline);
+  const isPlacingNewTask = useWorkspaceStore((s) => s.isPlacingNewTask);
+  const startPlacingTask = useWorkspaceStore((s) => s.startPlacingTask);
+  const cancelPlacingTask = useWorkspaceStore((s) => s.cancelPlacingTask);
   const isTemplateGalleryOpen = useWorkspaceStore((s) => s.isTemplateGalleryOpen);
   const closeTemplateGallery = useWorkspaceStore((s) => s.closeTemplateGallery);
   const clearTemplateEdit = useWorkspaceStore((s) => s.clearTemplateEdit);
@@ -165,9 +171,27 @@ function App() {
         onToggleThemeMode={toggleThemeMode}
         isAiSidebarOpen={isAiSidebarOpen}
         onToggleAiSidebar={toggleAiSidebar}
+        isOutlineOpen={isOutlineOpen}
+        onToggleOutline={toggleOutline}
       />
 
       <div className="lg:flex lg:items-stretch">
+        {/* Outline-Navigator (linke Sidebar) */}
+        <div
+          className={`no-print hidden lg:block shrink-0 h-[calc(100vh-52px)] sticky top-[52px] transition-all duration-200 ease-in-out overflow-hidden ${
+            isOutlineOpen ? 'w-60 border-r border-slate-200/80 dark:border-slate-800/80' : 'w-0'
+          }`}
+        >
+          {isOutlineOpen && (
+            <OutlineNavigator
+              taskIds={taskIds}
+              tasksById={tasksById}
+              onReorderTasks={reorderTasks}
+              onClose={toggleOutline}
+            />
+          )}
+        </div>
+
         <div className="flex-1 min-w-0 pb-28">
           <WorksheetCanvas
             taskIds={taskIds}
@@ -179,6 +203,10 @@ function App() {
             onRemoveTask={removeTask}
             onDuplicateTask={duplicateTask}
             onToggleTaskNumber={handleToggleNumber}
+            onUpdateTask={updateTask}
+            onInsertTaskAt={insertTaskAt}
+            isPlacingNewTask={isPlacingNewTask}
+            onCancelPlacing={cancelPlacingTask}
           />
 
           {/* Empty state */}
@@ -200,7 +228,7 @@ function App() {
       </div>
 
       <div
-        className={`no-print fixed bottom-4 sm:bottom-6 lg:bottom-8 z-40 flex justify-center pointer-events-none ${
+        className={`no-print fixed bottom-16 sm:bottom-18 lg:bottom-20 z-40 flex justify-center pointer-events-none ${
           isAiSidebarOpen
             ? 'left-0 right-0 lg:right-80 xl:right-96'
             : 'left-0 right-0'
@@ -208,7 +236,6 @@ function App() {
       >
         <div className="pointer-events-auto">
           <FloatingToolbar
-            onAddTask={addTask}
             onOpenAIImport={() => setShowAIWizard(true)}
             showHeader={showHeader}
             onToggleHeaderDesign={handleToggleHeaderDesign}
@@ -216,6 +243,9 @@ function App() {
             onToggleTeacherMode={toggleTeacherMode}
             zoomLevel={zoomLevel}
             onZoomLevelChange={setZoomLevel}
+            isPlacingNewTask={isPlacingNewTask}
+            onStartPlacing={startPlacingTask}
+            onCancelPlacing={cancelPlacingTask}
           />
         </div>
       </div>

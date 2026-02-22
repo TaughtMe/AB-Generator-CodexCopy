@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
+import React, { useRef, useState } from 'react';
+import { useSortable, defaultAnimateLayoutChanges, type AnimateLayoutChanges } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Copy, ChevronDown, ChevronUp, Sparkles, Hash, EyeOff } from 'lucide-react';
+import { GripVertical, Trash2, Copy, ChevronDown, ChevronUp, Sparkles, Hash, EyeOff, Palette } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Task } from '../../types/worksheet';
 import { TaskAIChat } from '../ai/TaskAIChat';
 import { useSettingsStore } from '../../store/settingsStore';
+
+/** Voreingestellte Akzentfarben für den per-Task Farbpicker */
+const TASK_COLOR_PRESETS = [
+    '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
+    '#ef4444', '#f97316', '#eab308', '#22c55e',
+    '#14b8a6', '#06b6d4', '#1e293b', '#64748b',
+];
 
 interface TaskCardProps {
     id: string;
@@ -16,6 +23,7 @@ interface TaskCardProps {
     onRemove: (id: string) => void;
     onDuplicate: (id: string) => void;
     onToggleNumber: (id: string) => void;
+    onUpdateTask?: (id: string, updates: Partial<Task>) => void;
 }
 
 /**
@@ -23,11 +31,24 @@ interface TaskCardProps {
  * Minimal chrome so the printed page looks clean.
  * Header and action buttons are hidden in @media print via .task-card-header
  */
-export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, children, onRemove, onDuplicate, onToggleNumber }) => {
+/* Während des Sortierens oder nach dem Drag keine Layout-Animation abspielen.
+   Verhindert den Sprung-nach-oben-Bug beim Drag-Start. */
+const noAnimationWhileSorting: AnimateLayoutChanges = (args) => {
+    const { isSorting, wasDragging } = args;
+    if (isSorting || wasDragging) return false;
+    return defaultAnimateLayoutChanges(args);
+};
+
+export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, children, onRemove, onDuplicate, onToggleNumber, onUpdateTask }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showAIChat, setShowAIChat] = useState(false);
+    const [showColorPicker, setShowColorPicker] = useState(false);
+    const colorPickerRef = useRef<HTMLDivElement>(null);
     const brandColor = useSettingsStore((s) => s.brandColor);
     const applyColorToTasks = useSettingsStore((s) => s.applyColorToTasks);
+
+    // Per-Task Farbe hat Vorrang vor globaler brandColor
+    const effectiveColor = task.accentColor || (applyColorToTasks ? brandColor : undefined);
 
     const {
         attributes,
@@ -36,22 +57,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
         transform,
         transition,
         isDragging,
-    } = useSortable({ id });
+    } = useSortable({ id, animateLayoutChanges: noAnimationWhileSorting });
 
     const style = {
-        transform: CSS.Transform.toString(transform),
+        /* CSS.Translate statt CSS.Transform – verhindert Scale-Sprünge */
+        transform: CSS.Translate.toString(transform),
         transition,
-        borderColor: applyColorToTasks ? `${brandColor}4D` : undefined,
-        ['--task-accent-color' as string]: applyColorToTasks ? brandColor : '#000000',
+        borderColor: effectiveColor ? `${effectiveColor}4D` : undefined,
+        ['--task-accent-color' as string]: effectiveColor || '#000000',
+    };
+
+    const handleSetColor = (color: string | undefined) => {
+        onUpdateTask?.(id, { accentColor: color } as Partial<Task>);
+        setShowColorPicker(false);
     };
 
     return (
         <div
             ref={setNodeRef}
             style={style}
+            data-task-id={id}
             className={clsx(
                 "task-card group rounded-lg transition-all bg-worksheet-field text-worksheet-ink border border-worksheet-border print:bg-transparent print:border-none",
-                isDragging ? "opacity-50 z-50 ring-2 ring-blue-500 scale-[1.01]" : "hover:border-worksheet-border"
+                isDragging ? "opacity-30 z-50 ring-2 ring-blue-500" : "hover:border-worksheet-border"
             )}
         >
             {/* Print-only task index – visible ONLY in @media print.
@@ -78,7 +106,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
                     {taskNumber !== null && (
                         <span
                             className="font-bold mr-1"
-                            style={{ color: applyColorToTasks ? brandColor : undefined }}
+                            style={{ color: effectiveColor || undefined }}
                         >
                             {taskNumber}.
                         </span>
@@ -88,6 +116,63 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
 
                 {/* Action buttons – always visible in editor, hidden by PrintStyles */}
                 <div className="ml-auto flex items-center gap-0.5">
+                    {/* Per-Task Farbpicker */}
+                    <div className="relative" ref={colorPickerRef}>
+                        <button
+                            onClick={() => setShowColorPicker(!showColorPicker)}
+                            className={clsx(
+                                "p-1 rounded transition-colors cursor-pointer",
+                                task.accentColor
+                                    ? "hover:bg-slate-100"
+                                    : "text-worksheet-inkLight/60 hover:text-worksheet-inkLight hover:bg-worksheet-field"
+                            )}
+                            title="Aufgabenfarbe"
+                        >
+                            {task.accentColor ? (
+                                <div className="w-3 h-3 rounded-full border border-white shadow-sm" style={{ backgroundColor: task.accentColor }} />
+                            ) : (
+                                <Palette size={12} />
+                            )}
+                        </button>
+
+                        {/* Farbpicker-Dropdown */}
+                        {showColorPicker && (
+                            <div className="absolute top-full right-0 mt-1 z-50 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl min-w-[160px]">
+                                <p className="text-[10px] font-semibold text-slate-400 mb-1.5">Aufgabenfarbe</p>
+                                <div className="grid grid-cols-6 gap-1">
+                                    {TASK_COLOR_PRESETS.map((color) => (
+                                        <button
+                                            key={color}
+                                            onClick={() => handleSetColor(color)}
+                                            className={clsx(
+                                                "w-5 h-5 rounded cursor-pointer transition-all",
+                                                task.accentColor === color ? "ring-2 ring-offset-1 ring-violet-500 scale-110" : "hover:scale-110"
+                                            )}
+                                            style={{ backgroundColor: color }}
+                                        />
+                                    ))}
+                                </div>
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                    <input
+                                        type="color"
+                                        value={task.accentColor || brandColor}
+                                        onChange={(e) => handleSetColor(e.target.value)}
+                                        className="w-5 h-5 border-0 cursor-pointer rounded"
+                                    />
+                                    <span className="text-[9px] text-slate-400 font-mono">{task.accentColor || 'global'}</span>
+                                </div>
+                                {task.accentColor && (
+                                    <button
+                                        onClick={() => handleSetColor(undefined)}
+                                        className="mt-1.5 w-full text-[10px] text-slate-500 hover:text-red-500 transition-colors cursor-pointer py-0.5"
+                                    >
+                                        Zurücksetzen (global)
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Toggle task numbering */}
                     <button
                         onClick={() => onToggleNumber(id)}

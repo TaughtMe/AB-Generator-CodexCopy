@@ -2,6 +2,7 @@ import React from 'react';
 import type { MultipleChoiceTask } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { Plus, Trash2, Check } from 'lucide-react';
+import { RichTextEditor } from '../editor/RichTextEditor';
 
 interface MultipleChoiceEditorProps {
     task: MultipleChoiceTask;
@@ -11,8 +12,8 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
     const updateTask = useWorksheetStore((s) => s.updateTask);
     const isTeacherMode = useWorksheetStore((s) => s.isTeacherMode);
 
-    const updateQuestion = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        updateTask(task.id, { question: e.target.value });
+    const updateQuestion = (html: string) => {
+        updateTask(task.id, { question: html });
     };
 
     const updateOptionText = (optionId: string, text: string) => {
@@ -53,12 +54,11 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                 <label className="block text-xs font-medium text-worksheet-inkLight mb-1.5 uppercase tracking-wider no-print">
                     Frage
                 </label>
-                <textarea
+                <RichTextEditor
                     value={task.question}
                     onChange={updateQuestion}
                     placeholder="Stelle hier deine Frage…"
-                    rows={2}
-                    className="w-full px-3 py-2 rounded-lg border border-worksheet-border bg-worksheet-field text-worksheet-ink text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow resize-none placeholder:text-worksheet-inkLight print:bg-transparent print:border-none"
+                    minRows={2}
                 />
             </div>
 

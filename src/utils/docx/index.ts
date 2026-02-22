@@ -78,7 +78,7 @@ export async function exportToDocx(
     taskIds: string[],
     isTeacherMode: boolean,
 ): Promise<void> {
-    const { fontFamily: userFont } = useSettingsStore.getState();
+    const { fontFamily: userFont, brandColor, applyColorToTasks } = useSettingsStore.getState();
     const fontFamily = (userFont || 'Inter').split(',')[0].replace(/["']/g, '').trim();
 
     const warnings = validateForExport(tasksById, taskIds);
@@ -178,6 +178,9 @@ export async function exportToDocx(
                 });
             }
 
+            // Per-Task accentColor oder globale brandColor (wenn aktiviert)
+            const taskAccentColor = task.accentColor || (applyColorToTasks ? brandColor : undefined);
+
             allChildren.push(wrapTaskInGrid(currentNumber, taskContent, {
                 fontFamily,
                 fontSizePt: FONT_SIZE_PT,
@@ -188,7 +191,7 @@ export async function exportToDocx(
                 mcOptionRowDxa: MC_OPTION_ROW_DXA,
                 noTableBorders: NO_TABLE_BORDERS,
                 docxTheme: DOCX_THEME,
-            }));
+            }, taskAccentColor));
         }
 
         const doc = createStyledDocument(fontFamily, FONT_SIZE_PT, allChildren);

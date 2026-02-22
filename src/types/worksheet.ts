@@ -10,6 +10,8 @@ export interface BaseTask {
     title: string;
     /** When false the task is unnumbered and does not count towards the running index. Defaults to true. */
     showNumber?: boolean;
+    /** Per-Task Akzentfarbe – überschreibt die globale brandColor wenn gesetzt (hex). */
+    accentColor?: string;
 }
 
 export interface MultipleChoiceOption {

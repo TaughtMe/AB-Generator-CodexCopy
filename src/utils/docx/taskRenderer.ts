@@ -25,6 +25,7 @@ import {
     getClozeGapText,
     tokenizeClozeContent,
 } from '../clozeParser';
+import { htmlToDocxParagraphs } from './htmlToDocx';
 
 /**
  * Renderer-Layer der modularisierten DOCX-Pipeline.
@@ -75,19 +76,14 @@ function renderMultipleChoice(
     const elements: (Paragraph | Table)[] = [];
 
     if (task.question && task.question.trim()) {
-        elements.push(
-            new Paragraph({
-                children: [
-                    new TextRun({
-                        text: task.question,
-                        font: config.fontFamily,
-                        size: config.fontSizePt * 2,
-                        bold: true,
-                    }),
-                ],
-                spacing: { after: 120 },
-            }),
-        );
+        // Unterstützt jetzt HTML-Content aus dem Tiptap-Editor (Bold/Italic/Underline/Listen)
+        const questionParagraphs = htmlToDocxParagraphs(task.question, {
+            fontFamily: config.fontFamily,
+            fontSizePt: config.fontSizePt,
+            color: config.docxTheme.text,
+            bold: true,
+        }, 120);
+        elements.push(...questionParagraphs);
     }
 
     const answerColDXA = config.a4InnerWidthDxa - config.checkboxColDxa;
@@ -413,6 +409,7 @@ export function wrapTaskInGrid(
     taskIndex: number | null,
     contentElements: (Paragraph | Table)[],
     config: TaskRendererConfig,
+    accentColor?: string,
 ): Table {
     /**
      * Hybrid-Grid-Vertrag:
@@ -424,10 +421,14 @@ export function wrapTaskInGrid(
      * die Höhe und reduziert Layoutdrift über unterschiedliche Tasktypen hinweg.
      */
     const titleText = taskIndex !== null ? `Aufgabe ${taskIndex}` : '';
+    // Per-Task accentColor → hex ohne '#' für DOCX
+    const titleColor = accentColor
+        ? accentColor.replace('#', '')
+        : config.docxTheme.taskTitle;
     const titleCellBorders: TaskRendererConfig['noTableBorders'] = titleText
         ? {
             ...config.noTableBorders,
-            bottom: { style: 'single', size: 2, color: config.docxTheme.taskTitle },
+            bottom: { style: 'single', size: 2, color: titleColor },
         }
         : config.noTableBorders;
 
@@ -444,7 +445,7 @@ export function wrapTaskInGrid(
                                     font: config.fontFamily,
                                     size: config.fontSizePt * 2,
                                     bold: true,
-                                    color: config.docxTheme.taskTitle,
+                                    color: titleColor,
                                 }),
                             ]
                             : [],
@@ -497,21 +498,12 @@ function renderInstruction(
         ];
     }
 
-    // Split by newlines so multi-line text is preserved
-    return task.text.split('\n').map(
-        (line) =>
-            new Paragraph({
-                children: [
-                    new TextRun({
-                        text: line,
-                        font: config.fontFamily,
-                        size: config.fontSizePt * 2,
-                        color: config.docxTheme.text,
-                    }),
-                ],
-                spacing: { after: 80 },
-            }),
-    );
+    // Unterstützt jetzt HTML-Content aus dem Tiptap-Editor
+    return htmlToDocxParagraphs(task.text, {
+        fontFamily: config.fontFamily,
+        fontSizePt: config.fontSizePt,
+        color: config.docxTheme.text,
+    }, 80);
 }
 
 export async function renderTaskContent(

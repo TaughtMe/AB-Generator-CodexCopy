@@ -2,9 +2,8 @@ import React, { useRef, useState, useMemo, useCallback } from 'react';
 import katex from 'katex';
 import {
     Divide, Radical, Superscript, Subscript, X, ChevronDown,
-    Sigma, Pencil, Eye,
+    Sigma,
 } from 'lucide-react';
-import { clsx } from 'clsx';
 
 /* ══════════════════════════════════════════════════
    MathInput – LaTeX Editor with Toolbar & Live Preview
@@ -55,7 +54,6 @@ const GREEK_LETTERS = [
 
 export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [mode, setMode] = useState<'edit' | 'preview'>('edit');
     const [showGreek, setShowGreek] = useState(false);
 
     /* ── Insert snippet at cursor position ── */
@@ -97,34 +95,6 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
         <div className="space-y-2">
             {/* ── Toolbar ── */}
             <div className="flex items-center gap-1 flex-wrap no-print">
-                {/* Mode Toggle */}
-                <div className="flex items-center rounded-md border border-worksheet-border overflow-hidden mr-1">
-                    <button
-                        type="button"
-                        onClick={() => setMode('edit')}
-                        className={clsx(
-                            'flex items-center gap-1 px-2 py-1 text-[11px] font-medium transition-colors cursor-pointer',
-                            mode === 'edit'
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-worksheet-field text-worksheet-ink hover:bg-slate-100'
-                        )}
-                    >
-                        <Pencil size={11} /> Edit
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setMode('preview')}
-                        className={clsx(
-                            'flex items-center gap-1 px-2 py-1 text-[11px] font-medium transition-colors cursor-pointer',
-                            mode === 'preview'
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-worksheet-field text-worksheet-ink hover:bg-slate-100'
-                        )}
-                    >
-                        <Eye size={11} /> Preview
-                    </button>
-                </div>
-
                 {/* Snippet Buttons */}
                 {SNIPPETS.map((s) => (
                     <button
@@ -169,41 +139,39 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                 </div>
             </div>
 
-            {/* ── Editor / Preview ── */}
-            {mode === 'edit' ? (
-                <textarea
-                    ref={textareaRef}
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    placeholder="LaTeX eingeben, z.B. \frac{a}{b} + \sqrt{c}"
-                    spellCheck={false}
-                    className="w-full min-h-[60px] px-3 py-2 rounded-md border border-worksheet-border bg-worksheet-field text-sm font-mono text-worksheet-ink placeholder:text-worksheet-inkLight focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none resize-y transition-shadow print:bg-transparent print:border-none"
-                    rows={3}
-                />
-            ) : (
-                <div className="min-h-[60px] px-3 py-3 rounded-md border border-worksheet-border bg-worksheet-field flex items-center justify-center print:bg-transparent print:border-none">
-                    {value.trim() ? (
-                        <span
-                            className="math-preview text-lg"
-                            dangerouslySetInnerHTML={{ __html: renderedHtml }}
-                        />
-                    ) : (
-                        <span className="text-sm text-worksheet-inkLight italic">
-                            Noch keine Formel eingegeben…
-                        </span>
-                    )}
-                </div>
-            )}
-
-            {/* ── Inline live preview (in edit mode) ── */}
-            {mode === 'edit' && value.trim() && (
-                <div className="px-3 py-2 rounded-md bg-worksheet-field border border-dashed border-worksheet-border print:bg-transparent print:border-none">
-                    <span
-                        className="math-preview"
-                        dangerouslySetInnerHTML={{ __html: renderedHtml }}
+            {/* ── Split-View: Editor + Live Preview nebeneinander ── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {/* LaTeX-Editor */}
+                <div>
+                    <p className="text-[10px] font-medium text-worksheet-inkLight mb-1 no-print">LaTeX-Code</p>
+                    <textarea
+                        ref={textareaRef}
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        placeholder="LaTeX eingeben, z.B. \frac{a}{b} + \sqrt{c}"
+                        spellCheck={false}
+                        className="w-full min-h-[80px] px-3 py-2 rounded-md border border-worksheet-border bg-worksheet-field text-sm font-mono text-worksheet-ink placeholder:text-worksheet-inkLight focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none resize-y transition-shadow print:hidden"
+                        rows={3}
                     />
                 </div>
-            )}
+
+                {/* Live Preview */}
+                <div>
+                    <p className="text-[10px] font-medium text-worksheet-inkLight mb-1 no-print">Vorschau</p>
+                    <div className="min-h-[80px] px-3 py-3 rounded-md border border-worksheet-border bg-worksheet-field flex items-center justify-center print:bg-transparent print:border-none print:p-0">
+                        {value.trim() ? (
+                            <span
+                                className="math-preview text-lg"
+                                dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                            />
+                        ) : (
+                            <span className="text-sm text-worksheet-inkLight italic no-print">
+                                Noch keine Formel eingegeben…
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
