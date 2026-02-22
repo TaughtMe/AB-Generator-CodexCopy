@@ -5,8 +5,7 @@ import {
     ArrowLeft,
     Printer,
     Save,
-    Settings,
-    MessageSquare,
+    Sparkles,
 } from 'lucide-react';
 
 export interface TopBarProps {
@@ -20,7 +19,6 @@ export interface TopBarProps {
     onExportPDF: () => void;
     isDarkMode: boolean;
     onToggleThemeMode: () => void;
-    onOpenSettings: () => void;
     isAiSidebarOpen: boolean;
     onToggleAiSidebar: () => void;
 }
@@ -36,7 +34,6 @@ export function TopBar({
     onExportPDF,
     isDarkMode,
     onToggleThemeMode,
-    onOpenSettings,
     isAiSidebarOpen,
     onToggleAiSidebar,
 }: TopBarProps) {
@@ -99,15 +96,15 @@ export function TopBar({
 
                     <button
                         onClick={onToggleAiSidebar}
-                        className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-xs font-medium cursor-pointer active:scale-95 ${
+                        className={`hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all text-xs font-medium cursor-pointer active:scale-95 ${
                             isAiSidebarOpen
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30'
+                                : 'bg-transparent text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100'
                         }`}
                         title={isAiSidebarOpen ? 'KI-Chat ausblenden' : 'KI-Chat einblenden'}
                     >
-                        <MessageSquare size={14} />
-                        <span>KI-Chat</span>
+                        <Sparkles size={14} />
+                        <span className="hidden xl:inline">KI-Chat</span>
                     </button>
 
                     <button
@@ -116,14 +113,6 @@ export function TopBar({
                         title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
                     >
                         {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
-                    </button>
-
-                    <button
-                        onClick={onOpenSettings}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        title="Einstellungen"
-                    >
-                        <Settings size={15} />
                     </button>
                 </div>
             </div>

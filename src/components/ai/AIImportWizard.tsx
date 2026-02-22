@@ -27,7 +27,6 @@ interface AIImportWizardProps {
     isOpen: boolean;
     onClose: () => void;
     onImport?: (tasks: Omit<Task, 'id'>[]) => void;
-    onOpenSettings: () => void;
 }
 
 type WizardPhase = 'input' | 'generating' | 'results';
@@ -39,7 +38,7 @@ const DIFFICULTY_OPTIONS = [
 ];
 
 export const AIImportWizard: React.FC<AIImportWizardProps> = ({
-    isOpen, onClose, onImport, onOpenSettings,
+    isOpen, onClose, onImport,
 }) => {
     // ── Stores ──
     const { subjects, classes } = useProfileStore();
@@ -198,14 +197,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                             <div className="text-xs text-red-600 dark:text-red-400">
                                 <p className="font-semibold">KI nicht vollständig konfiguriert</p>
                                 <p className="mt-0.5">
-                                    Bitte zuerst in den{' '}
-                                    <button
-                                        onClick={() => { handleClose(); onOpenSettings(); }}
-                                        className="underline font-medium cursor-pointer"
-                                    >
-                                        Einstellungen
-                                    </button>
-                                    {' '}für {getActiveProviderLabel()} hinterlegen.
+                                    Bitte zuerst die Einstellungen im Dashboard öffnen und dort die Daten für {getActiveProviderLabel()} hinterlegen.
                                 </p>
                             </div>
                         </div>

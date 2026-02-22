@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Settings } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ActionHub } from './ActionHub';
 import { FilterBar } from './FilterBar';
@@ -15,11 +16,20 @@ interface DashboardProps {
     onOpenEditor: () => void;
     onOpenAIChat: () => void;
     onOpenDesignEditor: () => void;
+    onOpenSettings: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat, onOpenDesignEditor }) => {
-    const { recentWorksheets, loadRecent, openWorksheet, createNewWorksheet, removeWorksheet, filter, setFilter } =
-        useWorkspaceStore();
+export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat, onOpenDesignEditor, onOpenSettings }) => {
+    const {
+        recentWorksheets,
+        loadRecent,
+        openWorksheet,
+        createNewWorksheet,
+        removeWorksheet,
+        filter,
+        setFilter,
+        openTemplateGallery,
+    } = useWorkspaceStore();
 
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -56,11 +66,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
 
     return (
         <div className="max-w-6xl mx-auto px-6 py-8 md:py-10">
+            <div className="mb-5 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white">Dashboard</h2>
+                <button
+                    onClick={onOpenSettings}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm cursor-pointer"
+                    title="Globale Einstellungen öffnen"
+                >
+                    <Settings size={16} />
+                    Einstellungen
+                </button>
+            </div>
+
             {/* ── Aktions-Hub (oben) ── */}
             <ActionHub
                 onNewWorksheet={handleNewWorksheet}
                 onOpenAIChat={onOpenAIChat}
                 onOpenDesignEditor={onOpenDesignEditor}
+                onBrowseTemplates={openTemplateGallery}
                 onResumeLastWorksheet={handleResumeLastWorksheet}
                 hasRecentWorksheet={recentWorksheets.length > 0}
             />

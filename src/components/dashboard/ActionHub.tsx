@@ -10,6 +10,7 @@ interface ActionHubProps {
     onNewWorksheet: () => void;
     onOpenAIChat: () => void;
     onOpenDesignEditor: () => void;
+    onBrowseTemplates: () => void;
     onResumeLastWorksheet?: () => void;
     hasRecentWorksheet?: boolean;
 }
@@ -18,6 +19,7 @@ export const ActionHub: React.FC<ActionHubProps> = ({
     onNewWorksheet,
     onOpenAIChat,
     onOpenDesignEditor,
+    onBrowseTemplates,
     onResumeLastWorksheet,
     hasRecentWorksheet = false,
 }) => {
@@ -68,7 +70,7 @@ export const ActionHub: React.FC<ActionHubProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Vorlagen durchsuchen */}
                 <button
-                    onClick={onNewWorksheet}
+                    onClick={onBrowseTemplates}
                     className="flex items-center gap-3 px-4 py-3.5 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/50 rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer text-left"
                 >
                     <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">

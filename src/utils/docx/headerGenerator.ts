@@ -2,6 +2,11 @@ import {
     Paragraph,
     TextRun,
     ImageRun,
+    Table,
+    TableCell,
+    TableRow,
+    WidthType,
+    VerticalAlign,
     BorderStyle,
 } from 'docx';
 import { mmToPx } from '../mmToEmu';
@@ -41,8 +46,16 @@ interface HeaderGeneratorConfig {
 export async function createHeaderTable(
     exportTitle: string,
     config: HeaderGeneratorConfig,
-): Promise<Paragraph[]> {
-    const { schoolName, logoImageId, headerFields, brandColor, logoText } = useSettingsStore.getState();
+): Promise<(Paragraph | Table)[]> {
+    const {
+        schoolName,
+        logoImageId,
+        headerFields,
+        brandColor,
+        logoText,
+        showHeaderTitle,
+        showWorksheetTitle,
+    } = useSettingsStore.getState();
     const { showHeader } = useWorksheetStore.getState();
 
     const worksheetTitle =
@@ -50,7 +63,7 @@ export async function createHeaderTable(
 
     if (!showHeader) return [];
 
-    const paragraphs: Paragraph[] = [];
+    const blocks: (Paragraph | Table)[] = [];
 
     try {
         {
@@ -82,46 +95,104 @@ export async function createHeaderTable(
                 }
             }
 
-            if (logoMeta) {
-                const logoTargetH = 15;
-                const logoTargetW = logoTargetH * logoMeta.ratio;
-                paragraphs.push(
-                    new Paragraph({
-                        children: [
-                            new ImageRun({
-                                data: logoMeta.data,
-                                transformation: { width: mmToPx(logoTargetW), height: mmToPx(logoTargetH) },
-                                type: 'png',
-                            }),
-                        ],
-                        spacing: { after: 40 },
-                    }),
-                );
-            }
+            const logoTargetH = 15;
+            const logoTargetW = logoMeta ? logoTargetH * logoMeta.ratio : 15;
+            const logoCellParagraph = logoMeta
+                ? new Paragraph({
+                    children: [
+                        new ImageRun({
+                            data: logoMeta.data,
+                            transformation: {
+                                width: mmToPx(logoTargetW),
+                                height: mmToPx(logoTargetH),
+                            },
+                            type: 'png',
+                        }),
+                    ],
+                })
+                : new Paragraph({ children: [] });
 
-            if (schoolName && schoolName.trim()) {
-                paragraphs.push(
+            const titleRuns: Paragraph[] = [];
+            if (showHeaderTitle) {
+                titleRuns.push(
                     new Paragraph({
                         children: [
                             new TextRun({
-                                text: schoolName,
+                                text: schoolName?.trim() || 'Kopfzeile AB',
                                 font: config.fontFamily,
                                 size: config.headingSizePt * 2,
                                 bold: true,
                                 color: (brandColor || '#3B82F6').replace('#', ''),
                             }),
                         ],
-                        spacing: { after: 20 },
+                        spacing: { after: showWorksheetTitle ? 40 : 0 },
                     }),
                 );
             }
+
+            if (showWorksheetTitle) {
+                titleRuns.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: worksheetTitle,
+                                font: config.fontFamily,
+                                size: 10 * 2,
+                                color: config.docxTheme.muted,
+                            }),
+                        ],
+                    }),
+                );
+            }
+
+            const headerTable = new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: {
+                    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                    insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                    insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                },
+                rows: [
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                width: { size: 18, type: WidthType.PERCENTAGE },
+                                verticalAlign: VerticalAlign.CENTER,
+                                children: [logoCellParagraph],
+                                borders: {
+                                    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                },
+                            }),
+                            new TableCell({
+                                width: { size: 82, type: WidthType.PERCENTAGE },
+                                verticalAlign: VerticalAlign.CENTER,
+                                children: titleRuns.length > 0 ? titleRuns : [new Paragraph({ children: [] })],
+                                borders: {
+                                    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                },
+                            }),
+                        ],
+                    }),
+                ],
+            });
+
+            blocks.push(headerTable);
         }
 
-        paragraphs.push(
+        blocks.push(
             new Paragraph({
                 children: [
                     new TextRun({
-                        text: worksheetTitle,
+                        text: '',
                         font: config.fontFamily,
                         size: 9 * 2,
                         color: config.docxTheme.muted,
@@ -139,7 +210,7 @@ export async function createHeaderTable(
             }),
         );
 
-        paragraphs.push(
+        blocks.push(
             new Paragraph({ spacing: { before: 0, after: 120 }, children: [] }),
         );
 
@@ -150,7 +221,7 @@ export async function createHeaderTable(
             if (headerFields.showDate) parts.push(`Datum: ${'_'.repeat(12)}`);
             if (headerFields.showClass) parts.push(`Klasse: ${'_'.repeat(12)}`);
 
-            paragraphs.push(
+            blocks.push(
                 new Paragraph({
                     children: [
                         new TextRun({
@@ -169,5 +240,5 @@ export async function createHeaderTable(
         return [];
     }
 
-    return paragraphs;
+    return blocks;
 }

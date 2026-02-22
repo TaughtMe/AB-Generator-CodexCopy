@@ -134,8 +134,8 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                 </button>
             </div>
 
-            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/90 dark:bg-slate-900/70 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-200/70 dark:border-slate-800">
+            <div className="rounded-2xl bg-white/75 dark:bg-slate-900/80 backdrop-blur-md shadow-xl overflow-hidden">
+                <div className="px-5 py-4">
                     <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">KI-Assistent</h2>
                     <p className="text-xs text-slate-500 mt-1">
                         Besprich Thema, Zielgruppe und Aufgabentypen. Danach klickst du auf „✨ Arbeitsblatt erstellen“.
@@ -160,7 +160,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                                 className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
                                     message.role === 'user'
                                         ? 'bg-blue-600 text-white rounded-br-md'
-                                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-bl-md'
+                                        : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-100 rounded-bl-md'
                                 }`}
                             >
                                 {message.content}
@@ -170,14 +170,14 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
 
                     {isReplyLoading && (
                         <div className="flex justify-start">
-                            <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs text-slate-500">
+                            <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md bg-white/90 dark:bg-slate-800/90 px-3 py-2 text-xs text-slate-500">
                                 <Loader2 size={13} className="animate-spin" /> KI denkt nach...
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="p-4 border-t border-slate-200/70 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <div className="p-4">
                     {!providerReady && (
                         <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                             KI nicht konfiguriert. Bitte Einstellungen für {getActiveProviderLabel()} prüfen.
@@ -190,19 +190,19 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                         </div>
                     )}
 
-                    <form onSubmit={handleSend} className="flex items-end gap-2">
+                    <form onSubmit={handleSend} className="flex items-center gap-2 rounded-full bg-white/85 dark:bg-slate-800/85 backdrop-blur px-2 py-2">
                         <textarea
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            rows={3}
+                            rows={1}
                             placeholder="Nachricht an den KI-Assistenten..."
                             disabled={!providerReady || isReplyLoading || isChatGenerating}
-                            className="flex-1 resize-none rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                            className="flex-1 h-10 max-h-24 resize-none rounded-full bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                         />
                         <button
                             type="submit"
                             disabled={!providerReady || !input.trim() || isReplyLoading || isChatGenerating}
-                            className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
                             aria-label="Nachricht senden"
                         >
                             <Send size={16} />

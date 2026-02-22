@@ -136,7 +136,7 @@ export function FloatingToolbar({
     };
 
     return (
-        <div className="no-print fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-white dark:bg-gray-800 rounded-full shadow-xl px-5 py-2.5 border border-gray-200 dark:border-gray-700">
+        <div className="no-print flex items-center gap-3 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-full shadow-xl px-5 py-2.5 border border-gray-200 dark:border-gray-700">
 
             {/* ── Aufgabe Dropdown ── */}
             <DropdownButton

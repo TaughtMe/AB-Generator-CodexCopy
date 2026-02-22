@@ -5,6 +5,7 @@ import { GripVertical, Trash2, Copy, ChevronDown, ChevronUp, Sparkles, Hash, Eye
 import { clsx } from 'clsx';
 import type { Task } from '../../types/worksheet';
 import { TaskAIChat } from '../ai/TaskAIChat';
+import { useSettingsStore } from '../../store/settingsStore';
 
 interface TaskCardProps {
     id: string;
@@ -25,6 +26,8 @@ interface TaskCardProps {
 export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, children, onRemove, onDuplicate, onToggleNumber }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showAIChat, setShowAIChat] = useState(false);
+    const brandColor = useSettingsStore((s) => s.brandColor);
+    const applyColorToTasks = useSettingsStore((s) => s.applyColorToTasks);
 
     const {
         attributes,
@@ -38,6 +41,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
+        borderColor: applyColorToTasks ? `${brandColor}4D` : undefined,
+        ['--task-accent-color' as string]: applyColorToTasks ? brandColor : '#000000',
     };
 
     return (
@@ -71,7 +76,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
                 {/* Task number + type */}
                 <span className="text-[11px] font-medium text-worksheet-inkLight tracking-wider">
                     {taskNumber !== null && (
-                        <span className="text-blue-500/80 font-bold mr-1">{taskNumber}.</span>
+                        <span
+                            className="font-bold mr-1"
+                            style={{ color: applyColorToTasks ? brandColor : undefined }}
+                        >
+                            {taskNumber}.
+                        </span>
                     )}
                     <span className="uppercase text-[10px]">{task.type.replace('-', ' ')}</span>
                 </span>

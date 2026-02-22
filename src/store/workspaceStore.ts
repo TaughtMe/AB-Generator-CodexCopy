@@ -4,11 +4,23 @@ import {
     loadWorksheet,
     deleteWorksheet,
     listRecentWorksheets,
+    createDesignTemplate,
+    deleteDesignTemplate,
+    getDesignTemplate,
+    getImage,
+    addImage,
+    listDesignTemplates,
+    markDesignTemplateUsed,
+    updateDesignTemplate,
+    getDesignTemplateByName,
+    upsertDesignTemplateByName,
     type WorksheetMeta,
     type WorksheetFilter,
 } from './dexieStore';
 import { useWorksheetStore } from './worksheetStore';
 import type { ChatMessage } from '../types/ai';
+import { useSettingsStore } from './settingsStore';
+import { normalizeTemplateName, type DesignTemplate } from '../types/designTemplate';
 
 /* ══════════════════════════════════════════════════
    workspaceStore.ts – Workspace / Worksheet Management
@@ -25,6 +37,11 @@ interface WorkspaceState {
     chatMessages: ChatMessage[];
     isChatGenerating: boolean;
     isAiSidebarOpen: boolean;
+    designTemplates: DesignTemplate[];
+    selectedTemplateId: string | null;
+    isTemplateLoading: boolean;
+    isTemplateGalleryOpen: boolean;
+    editingTemplateId: string | null;
 }
 
 export type WorkspaceView = 'dashboard' | 'ai-chat' | 'editor';
@@ -50,6 +67,14 @@ interface WorkspaceActions {
     clearChat: () => void;
     setIsChatGenerating: (isGenerating: boolean) => void;
     toggleAiSidebar: () => void;
+    loadDesignTemplates: () => Promise<void>;
+    saveCurrentDesignAsTemplate: (name: string, overwrite?: boolean, targetTemplateId?: string) => Promise<DesignTemplate>;
+    applyTemplateToCurrentWorksheet: (templateId: string) => Promise<boolean>;
+    removeDesignTemplate: (templateId: string) => Promise<void>;
+    openTemplateGallery: () => void;
+    closeTemplateGallery: () => void;
+    startTemplateEdit: (templateId: string) => void;
+    clearTemplateEdit: () => void;
 }
 
 type WorkspaceStore = WorkspaceState & WorkspaceActions;
@@ -63,6 +88,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     chatMessages: [],
     isChatGenerating: false,
     isAiSidebarOpen: false,
+    designTemplates: [],
+    selectedTemplateId: null,
+    isTemplateLoading: false,
+    isTemplateGalleryOpen: false,
+    editingTemplateId: null,
 
     loadRecent: async (filter) => {
         const activeFilter = filter ?? get().filter;
@@ -135,5 +165,144 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     toggleAiSidebar: () => {
         set((state) => ({ isAiSidebarOpen: !state.isAiSidebarOpen }));
+    },
+
+    loadDesignTemplates: async () => {
+        const templates = await listDesignTemplates({ sortBy: 'updatedAt' });
+        const sortedTemplates = [...templates].sort((a, b) => {
+            const aTime = new Date(a.lastUsedAt ?? a.updatedAt).getTime();
+            const bTime = new Date(b.lastUsedAt ?? b.updatedAt).getTime();
+            return bTime - aTime;
+        });
+        set({ designTemplates: sortedTemplates });
+    },
+
+    saveCurrentDesignAsTemplate: async (name, overwrite = false, targetTemplateId) => {
+        const normalizedName = normalizeTemplateName(name);
+        const settings = useSettingsStore.getState();
+        const snapshot = settings.getDesignSnapshot();
+        const existingLogo =
+            typeof snapshot.logoImageId === 'number' ? await getImage(snapshot.logoImageId) : undefined;
+
+        const savePayload = {
+            name: normalizedName,
+            idForCreate: crypto.randomUUID(),
+            design: snapshot,
+            embeddedLogoBlob: existingLogo?.blob,
+        };
+
+        let template: DesignTemplate;
+
+        if (targetTemplateId) {
+            try {
+                const updated = await updateDesignTemplate(targetTemplateId, {
+                    name: savePayload.name,
+                    design: savePayload.design,
+                    embeddedLogoBlob: savePayload.embeddedLogoBlob,
+                });
+                if (!updated) {
+                    throw new Error('TEMPLATE_UPDATE_FAILED');
+                }
+                template = updated;
+            } catch (error) {
+                if (
+                    overwrite &&
+                    error instanceof Error &&
+                    error.message === 'TEMPLATE_NAME_EXISTS'
+                ) {
+                    const conflicting = await getDesignTemplateByName(savePayload.name);
+                    if (conflicting && conflicting.id !== targetTemplateId) {
+                        await deleteDesignTemplate(conflicting.id);
+                    }
+
+                    const updated = await updateDesignTemplate(targetTemplateId, {
+                        name: savePayload.name,
+                        design: savePayload.design,
+                        embeddedLogoBlob: savePayload.embeddedLogoBlob,
+                    });
+
+                    if (!updated) {
+                        throw new Error('TEMPLATE_UPDATE_FAILED');
+                    }
+                    template = updated;
+                } else {
+                    throw error;
+                }
+            }
+        } else {
+            template = overwrite
+                ? await upsertDesignTemplateByName(savePayload)
+                : await createDesignTemplate({
+                    id: savePayload.idForCreate,
+                    name: savePayload.name,
+                    design: savePayload.design,
+                    embeddedLogoBlob: savePayload.embeddedLogoBlob,
+                });
+        }
+
+        await get().loadDesignTemplates();
+        set({ selectedTemplateId: template.id });
+        return template;
+    },
+
+    applyTemplateToCurrentWorksheet: async (templateId) => {
+        set({ isTemplateLoading: true });
+        try {
+            const template = await getDesignTemplate(templateId);
+            if (!template) return false;
+
+            let resolvedLogoImageId = template.design.logoImageId;
+
+            if (typeof resolvedLogoImageId === 'number') {
+                const existing = await getImage(resolvedLogoImageId);
+                if (!existing) {
+                    resolvedLogoImageId = null;
+                }
+            }
+
+            if (resolvedLogoImageId == null && template.embeddedLogoBlob) {
+                resolvedLogoImageId = await addImage(`${template.name}-logo`, template.embeddedLogoBlob);
+            }
+
+            useSettingsStore.getState().applyDesignSnapshot({
+                ...template.design,
+                logoImageId: resolvedLogoImageId,
+            });
+
+            await markDesignTemplateUsed(template.id);
+            await get().loadDesignTemplates();
+
+            set({ selectedTemplateId: template.id });
+            return true;
+        } finally {
+            set({ isTemplateLoading: false });
+        }
+    },
+
+    removeDesignTemplate: async (templateId) => {
+        await deleteDesignTemplate(templateId);
+        await get().loadDesignTemplates();
+
+        set((state) => ({
+            selectedTemplateId: state.selectedTemplateId === templateId ? null : state.selectedTemplateId,
+            editingTemplateId: state.editingTemplateId === templateId ? null : state.editingTemplateId,
+        }));
+    },
+
+    openTemplateGallery: () => {
+        set({ isTemplateGalleryOpen: true });
+        void get().loadDesignTemplates();
+    },
+
+    closeTemplateGallery: () => {
+        set({ isTemplateGalleryOpen: false });
+    },
+
+    startTemplateEdit: (templateId) => {
+        set({ editingTemplateId: templateId, selectedTemplateId: templateId });
+    },
+
+    clearTemplateEdit: () => {
+        set({ editingTemplateId: null });
     },
 }));

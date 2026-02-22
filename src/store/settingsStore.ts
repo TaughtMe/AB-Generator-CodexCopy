@@ -1,5 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+    normalizeDesignSnapshot,
+    normalizeHeaderFields,
+    type DesignSnapshot,
+} from '../types/designTemplate';
 
 /* ══════════════════════════════════════════════════
    settingsStore.ts – Globale Einstellungen
@@ -34,6 +39,7 @@ type ThemeMode = 'light' | 'dark';
 interface SettingsState {
     aiProvider: AIProvider;
     providers: AIProviderSettings;
+    chatModelPreferences: Record<AIProvider, string>;
     themeMode: ThemeMode;
     schoolType: string;
     subject: string;
@@ -45,6 +51,9 @@ interface SettingsState {
     headerFields: HeaderFields;
     brandColor: string;
     fontFamily: string;
+    showHeaderTitle: boolean;
+    showWorksheetTitle: boolean;
+    applyColorToTasks: boolean;
 }
 
 interface SettingsActions {
@@ -53,6 +62,7 @@ interface SettingsActions {
     setProviderModel: (provider: AIProvider, model: string) => void;
     setProviderBaseUrl: (provider: AIProvider, baseUrl: string) => void;
     setProviderSelectedModelIds: (provider: AIProvider, ids: string[]) => void;
+    setChatModelPreference: (provider: AIProvider, model: string) => void;
     setThemeMode: (mode: ThemeMode) => void;
     toggleThemeMode: () => void;
     setSchoolType: (type: string) => void;
@@ -65,6 +75,11 @@ interface SettingsActions {
     setHeaderFields: (fields: Partial<HeaderFields>) => void;
     setBrandColor: (color: string) => void;
     setFontFamily: (font: string) => void;
+    setShowHeaderTitle: (value: boolean) => void;
+    setShowWorksheetTitle: (value: boolean) => void;
+    setApplyColorToTasks: (value: boolean) => void;
+    getDesignSnapshot: () => DesignSnapshot;
+    applyDesignSnapshot: (snapshot: Partial<DesignSnapshot>) => void;
 }
 
 type SettingsStore = SettingsState & SettingsActions;
@@ -86,7 +101,7 @@ const LEGACY_GEMINI_MODEL_MAP = {
 
 export const useSettingsStore = create<SettingsStore>()(
     persist(
-        (set) => ({
+        (set, get) => ({
             // State – legacy key gets migrated on first load
             aiProvider: 'gemini' as AIProvider,
             providers: {
@@ -108,6 +123,11 @@ export const useSettingsStore = create<SettingsStore>()(
                     selectedModelIds: [],
                 },
             },
+            chatModelPreferences: {
+                gemini: 'auto',
+                openai: 'auto',
+                local: 'auto',
+            },
             themeMode: 'light' as ThemeMode,
             schoolType: '',
             subject: '',
@@ -119,6 +139,9 @@ export const useSettingsStore = create<SettingsStore>()(
             headerFields: { showName: true, showDate: true, showClass: true },
             brandColor: '#3b82f6',
             fontFamily: 'Inter',
+            showHeaderTitle: true,
+            showWorksheetTitle: true,
+            applyColorToTasks: true,
 
             // Actions
             setAIProvider: (provider) => set({ aiProvider: provider }),
@@ -162,6 +185,13 @@ export const useSettingsStore = create<SettingsStore>()(
                         },
                     },
                 })),
+            setChatModelPreference: (provider, model) =>
+                set((state) => ({
+                    chatModelPreferences: {
+                        ...state.chatModelPreferences,
+                        [provider]: model || 'auto',
+                    },
+                })),
             setThemeMode: (mode) => set({ themeMode: mode }),
             toggleThemeMode: () =>
                 set((state) => ({
@@ -175,20 +205,78 @@ export const useSettingsStore = create<SettingsStore>()(
             setLogoImageId: (id) => set({ logoImageId: id }),
             setLogoText: (text) => set({ logoText: text.slice(0, 3) }),
             setHeaderFields: (fields) =>
-                set((s) => ({ headerFields: { ...s.headerFields, ...fields } })),
+                set((s) => ({ headerFields: normalizeHeaderFields({ ...s.headerFields, ...fields }) })),
             setBrandColor: (color) => set({ brandColor: color }),
             setFontFamily: (font) => set({ fontFamily: font }),
+            setShowHeaderTitle: (value) => set({ showHeaderTitle: value }),
+            setShowWorksheetTitle: (value) => set({ showWorksheetTitle: value }),
+            setApplyColorToTasks: (value) => set({ applyColorToTasks: value }),
+            getDesignSnapshot: () => {
+                const state = get();
+                return normalizeDesignSnapshot({
+                    schoolName: state.schoolName,
+                    logoImageId: state.logoImageId,
+                    logoText: state.logoText,
+                    headerFields: state.headerFields,
+                    brandColor: state.brandColor,
+                    fontFamily: state.fontFamily,
+                    showHeaderTitle: state.showHeaderTitle,
+                    showWorksheetTitle: state.showWorksheetTitle,
+                    applyColorToTasks: state.applyColorToTasks,
+                });
+            },
+            applyDesignSnapshot: (snapshot) => {
+                const normalized = normalizeDesignSnapshot(snapshot);
+                set({
+                    schoolName: normalized.schoolName,
+                    logoImageId: normalized.logoImageId,
+                    logoText: normalized.logoText,
+                    headerFields: normalized.headerFields,
+                    brandColor: normalized.brandColor,
+                    fontFamily: normalized.fontFamily,
+                    showHeaderTitle: normalized.showHeaderTitle,
+                    showWorksheetTitle: normalized.showWorksheetTitle,
+                    applyColorToTasks: normalized.applyColorToTasks,
+                });
+            },
         }),
         {
             name: 'ab-generator-settings',
-            version: 4,
+            version: 6,
             migrate: (persistedState, version) => {
                 if (!persistedState || typeof persistedState !== 'object') {
                     return persistedState as SettingsStore;
                 }
 
-                if (version >= 4) {
+                if (version >= 6) {
                     return persistedState as SettingsStore;
+                }
+
+                if (version === 5) {
+                    const stateV5 = persistedState as SettingsStore;
+                    return {
+                        ...stateV5,
+                        chatModelPreferences: {
+                            gemini: stateV5.chatModelPreferences?.gemini ?? 'auto',
+                            openai: stateV5.chatModelPreferences?.openai ?? 'auto',
+                            local: stateV5.chatModelPreferences?.local ?? 'auto',
+                        },
+                    } as SettingsStore;
+                }
+
+                if (version === 4) {
+                    const stateV4 = persistedState as SettingsStore;
+                    return {
+                        ...stateV4,
+                        chatModelPreferences: {
+                            gemini: stateV4.chatModelPreferences?.gemini ?? 'auto',
+                            openai: stateV4.chatModelPreferences?.openai ?? 'auto',
+                            local: stateV4.chatModelPreferences?.local ?? 'auto',
+                        },
+                        showHeaderTitle: stateV4.showHeaderTitle ?? true,
+                        showWorksheetTitle: stateV4.showWorksheetTitle ?? true,
+                        applyColorToTasks: stateV4.applyColorToTasks ?? true,
+                    } as SettingsStore;
                 }
 
                 if (version === 3) {
@@ -196,6 +284,11 @@ export const useSettingsStore = create<SettingsStore>()(
 
                     return {
                         ...stateV3,
+                        chatModelPreferences: {
+                            gemini: stateV3.chatModelPreferences?.gemini ?? 'auto',
+                            openai: stateV3.chatModelPreferences?.openai ?? 'auto',
+                            local: stateV3.chatModelPreferences?.local ?? 'auto',
+                        },
                         providers: {
                             ...stateV3.providers,
                             gemini: {
@@ -225,6 +318,11 @@ export const useSettingsStore = create<SettingsStore>()(
 
                     return {
                         ...stateV2,
+                        chatModelPreferences: {
+                            gemini: stateV2.chatModelPreferences?.gemini ?? 'auto',
+                            openai: stateV2.chatModelPreferences?.openai ?? 'auto',
+                            local: stateV2.chatModelPreferences?.local ?? 'auto',
+                        },
                         providers: {
                             ...stateV2.providers,
                             gemini: {
@@ -259,6 +357,11 @@ export const useSettingsStore = create<SettingsStore>()(
                 return {
                     ...legacyState,
                     aiProvider: legacyState.aiProvider ?? 'gemini',
+                    chatModelPreferences: {
+                        gemini: 'auto',
+                        openai: 'auto',
+                        local: 'auto',
+                    },
                     providers: {
                         gemini: {
                             apiKey: legacyState.apiKey ?? '',

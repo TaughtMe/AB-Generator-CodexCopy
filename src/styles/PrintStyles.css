@@ -7,6 +7,12 @@
    ══════════════════════════════════════════════════ */
 
 @media print {
+    body,
+    .a4-page {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
 
     /* ── Page setup (physical margins – browser controls whitespace) ── */
     @page {
@@ -169,10 +175,10 @@
         opacity: 1 !important;
         font-weight: 700 !important;
         font-size: 11pt !important;
-        color: #000000 !important;
+        color: var(--task-accent-color, #000000) !important;
         margin-bottom: 2mm !important;
         padding-bottom: 1mm !important;
-        border-bottom: 1px solid #1e293b !important;
+        border-bottom: 1px solid var(--task-accent-color, #1e293b) !important;
     }
 
     /* ── Two-column layout: preserve grid in print ── */

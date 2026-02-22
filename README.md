@@ -71,3 +71,59 @@ export default defineConfig([
   },
 ])
 ```
+
+## Datenverwaltung (Backup, Import, Hard Reset)
+
+Im Bereich **Globale Einstellungen → Datenverwaltung** gibt es drei Aktionen:
+
+- **Backup herunterladen**: Speichert Arbeitsblätter, Einstellungen und Design-Vorlagen als `ab-generator-backup.json`.
+- **Backup wiederherstellen**: Liest eine zuvor exportierte JSON-Datei ein, überschreibt lokale Daten und lädt die Seite neu.
+- **Alle lokalen Daten löschen**: Leert LocalStorage und IndexedDB vollständig und lädt die Seite neu.
+
+### Wichtiger Hinweis zu Bildern
+
+In der aktuellen Phase werden Bilddaten (z. B. Blob/Base64-Inhalte) bewusst **nicht** in das JSON-Backup aufgenommen, damit die Datei klein und robust bleibt.
+
+### Manuelle Kurz-Tests (für Nicht-Programmierer)
+
+1. **Backup testen**
+  - Öffne **Globale Einstellungen → Datenverwaltung**.
+  - Klicke auf **Backup herunterladen**.
+  - Prüfe, ob eine Datei `ab-generator-backup.json` im Download-Ordner liegt.
+
+2. **Wiederherstellung testen**
+  - Erstelle oder ändere vorher sichtbar Daten (z. B. Titel eines Arbeitsblatts).
+  - Klicke auf **Backup wiederherstellen** und wähle die Backup-Datei.
+  - Die Seite lädt neu. Prüfe danach, ob der gespeicherte Stand wieder da ist.
+
+3. **Hard Reset testen**
+  - Klicke auf **Alle lokalen Daten löschen** und bestätige den Dialog.
+  - Die Seite lädt neu.
+  - Prüfe danach, ob die App wie frisch gestartet wirkt (keine lokalen Daten mehr sichtbar).
+
+### Fehlerhilfe (einfach)
+
+- **„Backup konnte nicht importiert werden“**
+  - Prüfe, ob du wirklich eine `.json`-Datei aus **dieser App** gewählt hast.
+  - Öffne die Datei kurz in einem Editor: Sie sollte mit `{` beginnen und lesbaren Text enthalten.
+
+- **Nach Import fehlen Bilder**
+  - Das ist in dieser Phase normal: Bilddaten sind aktuell nicht Teil des JSON-Backups.
+
+- **Nach Klick auf Backup passiert scheinbar nichts**
+  - Prüfe den Download-Ordner und den Browser-Downloadverlauf.
+  - Manche Browser blockieren Downloads, wenn Popups/Downloads eingeschränkt sind.
+
+- **Reset wurde abgebrochen**
+  - Wenn der Bestätigungsdialog geschlossen oder auf „Abbrechen“ geklickt wird, bleiben alle Daten erhalten.
+
+- **Ich bin unsicher, ob alles geklappt hat**
+  - Starte den 3‑Punkte-Check von oben (Backup → Import → Reset) einmal komplett durch.
+
+### Was wird gesichert?
+
+| Wird gesichert | Wird nicht gesichert |
+|---|---|
+| Arbeitsblätter (Inhalte, Reihenfolge, Metadaten) | Bilddaten (Blob/Base64) |
+| Globale Einstellungen (inkl. KI-/Design-Einstellungen) | Bereits vorhandene Browser-Downloads |
+| Design-Vorlagen (ohne eingebettete Bilddaten) | Externe Dienste / Cloud-Daten |

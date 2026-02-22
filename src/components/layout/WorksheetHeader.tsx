@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { getImageUrl } from '../../store/dexieStore';
 import { useImageUpload } from '../../hooks/useImageUpload';
 
@@ -12,10 +13,25 @@ import { useImageUpload } from '../../hooks/useImageUpload';
    ══════════════════════════════════════════════════ */
 
 export const WorksheetHeader: React.FC = () => {
-    const { schoolName, logoImageId, headerFields, brandColor, logoText } = useSettingsStore();
+    const {
+        schoolName,
+        logoImageId,
+        headerFields,
+        brandColor,
+        logoText,
+        showHeaderTitle,
+        showWorksheetTitle,
+    } = useSettingsStore();
     const showHeader = useWorksheetStore((s) => s.showHeader);
-    const title = useWorksheetStore((s) => s.title);
+    const liveTitle = useWorksheetStore((s) => s.title);
+    const currentWorksheetId = useWorkspaceStore((s) => s.currentWorksheetId);
+    const recentWorksheets = useWorkspaceStore((s) => s.recentWorksheets);
     const { previewUrl: logoUrl, setPreviewUrl, clearImage } = useImageUpload();
+
+    const persistedTitle = currentWorksheetId
+        ? recentWorksheets.find((sheet) => sheet.id === currentWorksheetId)?.title
+        : null;
+    const title = liveTitle || persistedTitle || 'Neues Arbeitsblatt';
 
     useEffect(() => {
         if (logoImageId) {
@@ -40,8 +56,8 @@ export const WorksheetHeader: React.FC = () => {
     }
 
     // showHeader is ON → full design header
-    const hasLogo = logoImageId || logoText;
-    const hasHeader = schoolName || hasLogo;
+    const hasLogo = Boolean(logoImageId || logoText);
+    const hasTitleBlock = showHeaderTitle || showWorksheetTitle;
     const hasFields = headerFields.showName || headerFields.showDate || headerFields.showClass;
 
     // Resolve the text displayed inside the fallback logo box
@@ -49,8 +65,8 @@ export const WorksheetHeader: React.FC = () => {
 
     return (
         <div className="mb-6 worksheet-header" style={{ fontFamily: 'inherit' }}>
-            {/* ── Logo + School Name ── */}
-            {hasHeader && (
+            {/* ── Logo + Title Block ── */}
+            {(hasLogo || hasTitleBlock) && (
                 <div
                     className="flex items-center gap-3 mb-4 pb-3"
                     style={{ borderBottom: `2px solid ${brandColor}` }}
@@ -61,7 +77,7 @@ export const WorksheetHeader: React.FC = () => {
                             alt="Logo"
                             className="h-12 w-auto object-contain"
                         />
-                    ) : schoolName || logoText ? (
+                    ) : hasLogo ? (
                         <div
                             className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold shrink-0"
                             style={{ backgroundColor: brandColor }}
@@ -69,24 +85,21 @@ export const WorksheetHeader: React.FC = () => {
                             {logoDisplay}
                         </div>
                     ) : null}
-                    <h2
-                        className="text-base font-bold flex-1"
-                        style={{ color: brandColor }}
-                    >
-                        {schoolName}
-                    </h2>
-                </div>
-            )}
 
-            {/* If no school header but showHeader is on, show title with brand color */}
-            {!hasHeader && (
-                <div className="mb-4 pb-3" style={{ borderBottom: `2px solid ${brandColor}` }}>
-                    <h2
-                        className="text-base font-bold"
-                        style={{ color: brandColor }}
-                    >
-                        {title || 'Arbeitsblatt'}
-                    </h2>
+                    {hasTitleBlock && (
+                        <div className="flex flex-col justify-center min-h-10 flex-1">
+                            {showHeaderTitle && (
+                                <h2 className="text-base font-bold leading-tight" style={{ color: brandColor }}>
+                                    {schoolName || 'Kopfzeile AB'}
+                                </h2>
+                            )}
+                            {showWorksheetTitle && (
+                                <p className="text-sm text-slate-600 leading-tight mt-0.5">
+                                    {title}
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -1,5 +1,11 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { Task } from '../types/worksheet';
+import {
+    normalizeDesignSnapshot,
+    normalizeTemplateName,
+    type DesignSnapshot,
+    type DesignTemplate,
+} from '../types/designTemplate';
 
 /* ══════════════════════════════════════════════════
    DexieStore – IndexedDB via Dexie.js
@@ -53,11 +59,28 @@ export interface WorksheetMeta {
     thumbnailUrl?: string;
 }
 
+export interface DesignTemplateRecord {
+    id: string;
+    name: string;
+    nameLower: string;
+    design: DesignSnapshot;
+    embeddedLogoBlob?: Blob;
+    createdAt: Date;
+    updatedAt: Date;
+    lastUsedAt?: Date;
+}
+
+export interface DesignTemplateListOptions {
+    sortBy?: 'updatedAt' | 'createdAt' | 'lastUsedAt' | 'name';
+    query?: string;
+}
+
 /* ── Database Definition ── */
 
 class ABGeneratorDB extends Dexie {
     images!: EntityTable<ImageRecord, 'id'>;
     worksheets!: EntityTable<WorksheetRecord, 'id'>;
+    designTemplates!: EntityTable<DesignTemplateRecord, 'id'>;
 
     constructor() {
         super('ABGeneratorDB');
@@ -78,10 +101,51 @@ class ABGeneratorDB extends Dexie {
             images: '++id, name, createdAt',
             worksheets: 'id, title, updatedAt, subjectId, classId',
         });
+
+        // Version 4: add design templates
+        this.version(4).stores({
+            images: '++id, name, createdAt',
+            worksheets: 'id, title, updatedAt, subjectId, classId',
+            designTemplates: 'id, nameLower, updatedAt, createdAt, lastUsedAt',
+        });
     }
 }
 
 const db = new ABGeneratorDB();
+
+export async function listWorksheetRecords(): Promise<WorksheetRecord[]> {
+    return db.worksheets.toArray();
+}
+
+export async function listDesignTemplateRecords(): Promise<DesignTemplateRecord[]> {
+    return db.designTemplates.toArray();
+}
+
+export async function replaceWorksheetRecords(records: WorksheetRecord[]): Promise<void> {
+    await db.transaction('rw', db.worksheets, async () => {
+        await db.worksheets.clear();
+        if (records.length > 0) {
+            await db.worksheets.bulkPut(records);
+        }
+    });
+}
+
+export async function replaceDesignTemplateRecords(records: DesignTemplateRecord[]): Promise<void> {
+    await db.transaction('rw', db.designTemplates, async () => {
+        await db.designTemplates.clear();
+        if (records.length > 0) {
+            await db.designTemplates.bulkPut(records);
+        }
+    });
+}
+
+export async function clearAllIndexedDbData(): Promise<void> {
+    await db.transaction('rw', db.images, db.worksheets, db.designTemplates, async () => {
+        await db.images.clear();
+        await db.worksheets.clear();
+        await db.designTemplates.clear();
+    });
+}
 
 /* ══════════════════════════════════════════════════
    Image CRUD Helpers
@@ -107,6 +171,146 @@ export async function getImageUrl(id: number): Promise<string | null> {
     const record = await db.images.get(id);
     if (!record) return null;
     return URL.createObjectURL(record.blob);
+}
+
+/* ══════════════════════════════════════════════════
+   Design Template CRUD Helpers
+   ══════════════════════════════════════════════════ */
+
+function toTemplate(record: DesignTemplateRecord): DesignTemplate {
+    return {
+        ...record,
+        design: normalizeDesignSnapshot(record.design),
+    };
+}
+
+export async function getDesignTemplateByName(name: string): Promise<DesignTemplate | undefined> {
+    const normalizedName = normalizeTemplateName(name).toLowerCase();
+    if (!normalizedName) return undefined;
+    const record = await db.designTemplates.where('nameLower').equals(normalizedName).first();
+    return record ? toTemplate(record) : undefined;
+}
+
+export async function createDesignTemplate(payload: {
+    id: string;
+    name: string;
+    design: Partial<DesignSnapshot>;
+    embeddedLogoBlob?: Blob;
+}): Promise<DesignTemplate> {
+    const trimmedName = normalizeTemplateName(payload.name);
+    const now = new Date();
+
+    const existing = await db.designTemplates.where('nameLower').equals(trimmedName.toLowerCase()).first();
+    if (existing) {
+        throw new Error('TEMPLATE_NAME_EXISTS');
+    }
+
+    const record: DesignTemplateRecord = {
+        id: payload.id,
+        name: trimmedName,
+        nameLower: trimmedName.toLowerCase(),
+        design: normalizeDesignSnapshot(payload.design),
+        embeddedLogoBlob: payload.embeddedLogoBlob,
+        createdAt: now,
+        updatedAt: now,
+    };
+
+    await db.designTemplates.add(record);
+    return toTemplate(record);
+}
+
+export async function updateDesignTemplate(
+    id: string,
+    patch: Partial<Omit<DesignTemplateRecord, 'id' | 'createdAt' | 'design'>> & {
+        design?: Partial<DesignSnapshot>;
+    }
+): Promise<DesignTemplate | undefined> {
+    const current = await db.designTemplates.get(id);
+    if (!current) return undefined;
+
+    const nextName = patch.name ? normalizeTemplateName(patch.name) : current.name;
+    const nextNameLower = nextName.toLowerCase();
+
+    if (nextNameLower !== current.nameLower) {
+        const other = await db.designTemplates.where('nameLower').equals(nextNameLower).first();
+        if (other && other.id !== id) {
+            throw new Error('TEMPLATE_NAME_EXISTS');
+        }
+    }
+
+    const nextRecord: DesignTemplateRecord = {
+        ...current,
+        ...patch,
+        name: nextName,
+        nameLower: nextNameLower,
+        design: patch.design ? normalizeDesignSnapshot(patch.design) : normalizeDesignSnapshot(current.design),
+        updatedAt: new Date(),
+    };
+
+    await db.designTemplates.put(nextRecord);
+    return toTemplate(nextRecord);
+}
+
+export async function deleteDesignTemplate(id: string): Promise<void> {
+    await db.designTemplates.delete(id);
+}
+
+export async function getDesignTemplate(id: string): Promise<DesignTemplate | undefined> {
+    const record = await db.designTemplates.get(id);
+    return record ? toTemplate(record) : undefined;
+}
+
+export async function listDesignTemplates(options?: DesignTemplateListOptions): Promise<DesignTemplate[]> {
+    const sortBy = options?.sortBy ?? 'updatedAt';
+    const query = normalizeTemplateName(options?.query ?? '').toLowerCase();
+
+    let records = await db.designTemplates.orderBy(sortBy).reverse().toArray();
+
+    if (query) {
+        records = records.filter((entry) => entry.nameLower.includes(query));
+    }
+
+    return records.map(toTemplate);
+}
+
+export async function upsertDesignTemplateByName(payload: {
+    name: string;
+    idForCreate: string;
+    design: Partial<DesignSnapshot>;
+    embeddedLogoBlob?: Blob;
+}): Promise<DesignTemplate> {
+    const trimmedName = normalizeTemplateName(payload.name);
+    const existing = await db.designTemplates.where('nameLower').equals(trimmedName.toLowerCase()).first();
+
+    if (!existing) {
+        return createDesignTemplate({
+            id: payload.idForCreate,
+            name: trimmedName,
+            design: payload.design,
+            embeddedLogoBlob: payload.embeddedLogoBlob,
+        });
+    }
+
+    const updated = await updateDesignTemplate(existing.id, {
+        name: trimmedName,
+        design: payload.design,
+        embeddedLogoBlob: payload.embeddedLogoBlob,
+    });
+
+    if (!updated) {
+        throw new Error('TEMPLATE_UPDATE_FAILED');
+    }
+
+    return updated;
+}
+
+export async function markDesignTemplateUsed(id: string): Promise<void> {
+    const current = await db.designTemplates.get(id);
+    if (!current) return;
+    await db.designTemplates.update(id, {
+        lastUsedAt: new Date(),
+        updatedAt: new Date(),
+    });
 }
 
 /* ══════════════════════════════════════════════════
@@ -212,7 +416,7 @@ export async function listRecentWorksheets(
                     label = '— Seitenumbruch —';
                     break;
                 default:
-                    label = label || t.type;
+                    label = label || 'Aufgabe';
             }
             return { type: t.type, label };
         });

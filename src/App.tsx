@@ -8,9 +8,10 @@ import { captureWorksheetThumbnail } from './utils/thumbnailCapture';
 import { AIImportWizard } from './components/ai/AIImportWizard';
 import { ChatAssistant } from './components/ai/ChatAssistant';
 import { EditorChatSidebar } from './components/ai/EditorChatSidebar';
-import { GlobalSettingsModal } from './components/settings/GlobalSettingsModal';
+import { SettingsModal } from './components/settings/SettingsModal';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { DesignEditor } from './components/dashboard/DesignEditor';
+import { TemplateGallery } from './components/dashboard/TemplateGallery';
 import { TopBar } from './components/editor/TopBar';
 import { FloatingToolbar } from './components/editor/FloatingToolbar';
 import { WorksheetCanvas } from './components/editor/WorksheetCanvas';
@@ -40,6 +41,9 @@ function App() {
   const setCurrentView = useWorkspaceStore((s) => s.setCurrentView);
   const isAiSidebarOpen = useWorkspaceStore((s) => s.isAiSidebarOpen);
   const toggleAiSidebar = useWorkspaceStore((s) => s.toggleAiSidebar);
+  const isTemplateGalleryOpen = useWorkspaceStore((s) => s.isTemplateGalleryOpen);
+  const closeTemplateGallery = useWorkspaceStore((s) => s.closeTemplateGallery);
+  const clearTemplateEdit = useWorkspaceStore((s) => s.clearTemplateEdit);
   const fontFamily = useSettingsStore((state) => state.fontFamily);
   const brandColor = useSettingsStore((state) => state.brandColor);
   const themeMode = useSettingsStore((state) => state.themeMode);
@@ -118,19 +122,28 @@ function App() {
               onOpenEditor={() => setCurrentView('editor')}
               onOpenAIChat={() => setCurrentView('ai-chat')}
               onOpenDesignEditor={() => setShowDesignEditor(true)}
+              onOpenSettings={() => setShowSettingsModal(true)}
             />
           )}
           {currentView === 'dashboard' && dashboardView === 'profiles' && (
             <ProfileManager />
           )}
         </AppShell>
-        <GlobalSettingsModal
+        <SettingsModal
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
         />
         <DesignEditor
           isOpen={showDesignEditor}
-          onClose={() => setShowDesignEditor(false)}
+          onClose={() => {
+            setShowDesignEditor(false);
+            clearTemplateEdit();
+          }}
+        />
+        <TemplateGallery
+          isOpen={isTemplateGalleryOpen}
+          onClose={closeTemplateGallery}
+          onOpenDesignEditor={() => setShowDesignEditor(true)}
         />
       </>
     );
@@ -150,13 +163,12 @@ function App() {
         onExportPDF={handlePdfExport}
         isDarkMode={themeMode === 'dark'}
         onToggleThemeMode={toggleThemeMode}
-        onOpenSettings={() => setShowSettingsModal(true)}
         isAiSidebarOpen={isAiSidebarOpen}
         onToggleAiSidebar={toggleAiSidebar}
       />
 
       <div className="lg:flex lg:items-stretch">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pb-28">
           <WorksheetCanvas
             taskIds={taskIds}
             tasksById={tasksById}
@@ -181,41 +193,53 @@ function App() {
         </div>
 
         {isAiSidebarOpen && (
-          <div className="hidden lg:block w-80 xl:w-96 shrink-0 border-l border-slate-200 dark:border-slate-800 h-[calc(100vh-52px)] sticky top-[52px]">
+          <div className="hidden lg:block w-80 xl:w-96 shrink-0 h-[calc(100vh-52px)] sticky top-[52px] pl-2 pr-2 pb-2">
             <EditorChatSidebar />
           </div>
         )}
       </div>
 
-      <FloatingToolbar
-        onAddTask={addTask}
-        onOpenAIImport={() => setShowAIWizard(true)}
-        showHeader={showHeader}
-        onToggleHeaderDesign={handleToggleHeaderDesign}
-        isTeacherMode={isTeacherMode}
-        onToggleTeacherMode={toggleTeacherMode}
-        zoomLevel={zoomLevel}
-        onZoomLevelChange={setZoomLevel}
-      />
+      <div
+        className={`no-print fixed bottom-4 sm:bottom-6 lg:bottom-8 z-40 flex justify-center pointer-events-none ${
+          isAiSidebarOpen
+            ? 'left-0 right-0 lg:right-80 xl:right-96'
+            : 'left-0 right-0'
+        }`}
+      >
+        <div className="pointer-events-auto">
+          <FloatingToolbar
+            onAddTask={addTask}
+            onOpenAIImport={() => setShowAIWizard(true)}
+            showHeader={showHeader}
+            onToggleHeaderDesign={handleToggleHeaderDesign}
+            isTeacherMode={isTeacherMode}
+            onToggleTeacherMode={toggleTeacherMode}
+            zoomLevel={zoomLevel}
+            onZoomLevelChange={setZoomLevel}
+          />
+        </div>
+      </div>
 
       {/* AI Import Wizard Modal */}
       <AIImportWizard
         isOpen={showAIWizard}
         onClose={() => setShowAIWizard(false)}
         onImport={addTasksFromAI}
-        onOpenSettings={() => setShowSettingsModal(true)}
-      />
-
-      {/* Settings Modal */}
-      <GlobalSettingsModal
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
       />
 
       {/* Design Editor Modal */}
       <DesignEditor
         isOpen={showDesignEditor}
-        onClose={() => setShowDesignEditor(false)}
+        onClose={() => {
+          setShowDesignEditor(false);
+          clearTemplateEdit();
+        }}
+      />
+
+      <TemplateGallery
+        isOpen={isTemplateGalleryOpen}
+        onClose={closeTemplateGallery}
+        onOpenDesignEditor={() => setShowDesignEditor(true)}
       />
     </div>
   );

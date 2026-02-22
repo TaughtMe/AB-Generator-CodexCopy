@@ -24,6 +24,18 @@ function getActiveProviderState() {
     };
 }
 
+function getPreferredChatModel(provider: AIProvider): string {
+    const { providers, chatModelPreferences } = useSettingsStore.getState();
+    const configuredModel = providers[provider].model;
+    const preferred = chatModelPreferences?.[provider];
+
+    if (!preferred || preferred === 'auto') {
+        return configuredModel;
+    }
+
+    return preferred;
+}
+
 export function getActiveProviderLabel(): string {
     const { provider } = getActiveProviderState();
     return PROVIDER_LABELS[provider];
@@ -68,10 +80,10 @@ function requireProviderConfig(provider: AIProvider) {
     return config;
 }
 
-function getGeminiModel(): GenerativeModel {
+function getGeminiModel(modelOverride?: string): GenerativeModel {
     const config = requireProviderConfig('gemini');
     const genAI = new GoogleGenerativeAI(config.apiKey);
-    return genAI.getGenerativeModel({ model: config.model });
+    return genAI.getGenerativeModel({ model: modelOverride ?? config.model });
 }
 
 function getCandidateBaseUrls(baseUrl: string, provider: 'openai' | 'local'): string[] {
@@ -101,6 +113,7 @@ async function requestOpenAICompatible(params: {
     userPrompt: string;
     systemPrompt: string;
     screenshotBase64?: string;
+    modelOverride?: string;
 }): Promise<string> {
     const config = requireProviderConfig(params.provider);
     const baseUrl = (config.baseUrl || (params.provider === 'openai' ? 'https://api.openai.com/v1' : '')).replace(/\/$/, '');
@@ -132,7 +145,7 @@ async function requestOpenAICompatible(params: {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
-                    model: config.model,
+                    model: params.modelOverride ?? config.model,
                     messages: [
                         { role: 'system', content: params.systemPrompt },
                         { role: 'user', content },
@@ -229,7 +242,7 @@ const geminiAdapter: ProviderAdapter = {
     },
 
     async chatAssistantText(messages) {
-        const model = getGeminiModel();
+        const model = getGeminiModel(getPreferredChatModel('gemini'));
         const userPrompt = buildChatUserPrompt(messages);
 
         const result = await model.generateContent({
@@ -279,6 +292,7 @@ const openaiAdapter: ProviderAdapter = {
             provider: 'openai',
             userPrompt: buildChatUserPrompt(messages),
             systemPrompt: CHAT_ASSISTANT_SYSTEM_PROMPT,
+            modelOverride: getPreferredChatModel('openai'),
         });
     },
 
@@ -319,6 +333,7 @@ const localAdapter: ProviderAdapter = {
             provider: 'local',
             userPrompt: buildChatUserPrompt(messages),
             systemPrompt: CHAT_ASSISTANT_SYSTEM_PROMPT,
+            modelOverride: getPreferredChatModel('local'),
         });
     },
 
