@@ -7,11 +7,15 @@ import {
     Save,
     Sparkles,
     List,
+    Link,
 } from 'lucide-react';
 
 export interface TopBarProps {
     title: string;
     onTitleChange: (title: string) => void;
+    classId?: string;
+    classOptions: Array<{ id: string; name: string }>;
+    onClassChange: (classId: string | undefined) => void;
     onBackToDashboard: () => void;
     onSave: () => Promise<void> | void;
     isSaving: boolean;
@@ -24,11 +28,15 @@ export interface TopBarProps {
     onToggleAiSidebar: () => void;
     isOutlineOpen: boolean;
     onToggleOutline: () => void;
+    onOpenSources: () => void;
 }
 
 export function TopBar({
     title,
     onTitleChange,
+    classId,
+    classOptions,
+    onClassChange,
     onBackToDashboard,
     onSave,
     isSaving,
@@ -41,7 +49,10 @@ export function TopBar({
     onToggleAiSidebar,
     isOutlineOpen,
     onToggleOutline,
+    onOpenSources,
 }: TopBarProps) {
+    const hasMissingClassSelection = Boolean(classId) && !classOptions.some((entry) => entry.id === classId);
+
     return (
         <header className="no-print sticky top-0 z-30 backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/80 dark:border-slate-800/80 shadow-sm">
             <div className="max-w-[260mm] mx-auto px-5 py-2.5 flex items-center gap-2">
@@ -80,6 +91,25 @@ export function TopBar({
                         placeholder="Arbeitsblatt-Name..."
                         className="text-[13px] font-bold tracking-tight text-slate-800 dark:text-slate-100 bg-transparent border-0 border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none px-1 py-0.5 transition-colors min-w-0 w-40 sm:w-52"
                     />
+
+                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60" />
+
+                    <label className="sr-only" htmlFor="topbar-class-select">Klasse zuweisen</label>
+                    <select
+                        id="topbar-class-select"
+                        value={classId ?? ''}
+                        onChange={(event) => onClassChange(event.target.value || undefined)}
+                        className="max-w-36 sm:max-w-44 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-slate-100/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 cursor-pointer"
+                        title="Klassenprofil dem Arbeitsblatt zuweisen"
+                    >
+                        <option value="">Keine Klasse</option>
+                        {hasMissingClassSelection && (
+                            <option value={classId}>Gelöschtes Profil</option>
+                        )}
+                        {classOptions.map((entry) => (
+                            <option key={entry.id} value={entry.id}>{entry.name}</option>
+                        ))}
+                    </select>
                 </div>
 
                 {/* Right: Actions */}
@@ -112,6 +142,15 @@ export function TopBar({
                     >
                         <Printer size={14} />
                         <span>PDF</span>
+                    </button>
+
+                    <button
+                        onClick={onOpenSources}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer active:scale-95"
+                        title="Quellen verwalten"
+                    >
+                        <Link size={14} />
+                        <span>Quellen</span>
                     </button>
 
                     <button

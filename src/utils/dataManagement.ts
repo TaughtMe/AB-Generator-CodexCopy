@@ -1,12 +1,17 @@
 import {
     clearAllIndexedDbData,
+    listClassProfileRecords,
     listDesignTemplateRecords,
     listWorksheetRecords,
+    replaceClassProfileRecords,
     replaceDesignTemplateRecords,
     replaceWorksheetRecords,
+    type ClassProfileRecord,
     type DesignTemplateRecord,
     type WorksheetRecord,
 } from '../store/dexieStore';
+import type { ChatMessage } from '../types/ai';
+import type { WorksheetSource } from '../types/worksheet';
 
 const SETTINGS_STORAGE_KEY = 'ab-generator-settings';
 const BACKUP_FILENAME = 'ab-generator-backup.json';
@@ -22,6 +27,8 @@ interface BackupWorksheet {
     title: string;
     tasksById: WorksheetRecord['tasksById'];
     taskIds: string[];
+    chatHistory: ChatMessage[];
+    sources: WorksheetSource[];
     subjectId?: string;
     classId?: string;
     createdAt: string;
@@ -38,6 +45,17 @@ interface BackupDesignTemplate {
     lastUsedAt?: string;
 }
 
+interface BackupClassProfile {
+    id: string;
+    name: string;
+    nameLower: string;
+    subjectId?: string;
+    curriculumContext: string;
+    studentProfile: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 interface ABGeneratorBackupV1 {
     app: 'ab-generator';
     schemaVersion: typeof BACKUP_SCHEMA_VERSION;
@@ -47,6 +65,7 @@ interface ABGeneratorBackupV1 {
         settings: PersistedSettingsState;
         worksheets: BackupWorksheet[];
         designTemplates: BackupDesignTemplate[];
+        classProfiles?: BackupClassProfile[];
     };
 }
 
@@ -89,6 +108,8 @@ function serializeWorksheets(records: WorksheetRecord[]): BackupWorksheet[] {
         title: record.title,
         tasksById: record.tasksById,
         taskIds: record.taskIds,
+        chatHistory: record.chatHistory ?? [],
+        sources: record.sources ?? [],
         subjectId: record.subjectId,
         classId: record.classId,
         createdAt: record.createdAt.toISOString(),
@@ -111,10 +132,24 @@ function serializeTemplates(records: DesignTemplateRecord[]): BackupDesignTempla
     }));
 }
 
+function serializeClassProfiles(records: ClassProfileRecord[]): BackupClassProfile[] {
+    return records.map((record) => ({
+        id: record.id,
+        name: record.name,
+        nameLower: record.nameLower,
+        subjectId: record.subjectId,
+        curriculumContext: record.curriculumContext,
+        studentProfile: record.studentProfile,
+        createdAt: record.createdAt.toISOString(),
+        updatedAt: record.updatedAt.toISOString(),
+    }));
+}
+
 function buildBackupPayload(
     settings: PersistedSettingsState,
     worksheets: BackupWorksheet[],
-    templates: BackupDesignTemplate[]
+    templates: BackupDesignTemplate[],
+    classProfiles: BackupClassProfile[],
 ): ABGeneratorBackupV1 {
     return {
         app: 'ab-generator',
@@ -125,6 +160,7 @@ function buildBackupPayload(
             settings,
             worksheets,
             designTemplates: templates,
+            classProfiles,
         },
     };
 }
@@ -170,6 +206,9 @@ function parseBackupJson(raw: string): ABGeneratorBackupV1 {
     if (!Array.isArray(data.worksheets) || !Array.isArray(data.designTemplates)) {
         throw new Error('Arbeitsblätter oder Vorlagen sind im Backup ungültig.');
     }
+    if ('classProfiles' in data && data.classProfiles != null && !Array.isArray(data.classProfiles)) {
+        throw new Error('Klassenprofile sind im Backup ungültig.');
+    }
 
     return parsed as unknown as ABGeneratorBackupV1;
 }
@@ -188,6 +227,8 @@ function toWorksheetRecords(entries: BackupWorksheet[]): WorksheetRecord[] {
         title: entry.title,
         tasksById: entry.tasksById,
         taskIds: entry.taskIds,
+        chatHistory: entry.chatHistory ?? [],
+        sources: entry.sources ?? [],
         subjectId: entry.subjectId,
         classId: entry.classId,
         createdAt: toDate(entry.createdAt, 'worksheets.createdAt'),
@@ -210,6 +251,19 @@ function toTemplateRecords(entries: BackupDesignTemplate[]): DesignTemplateRecor
     }));
 }
 
+function toClassProfileRecords(entries: BackupClassProfile[]): ClassProfileRecord[] {
+    return entries.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        nameLower: entry.nameLower,
+        subjectId: entry.subjectId,
+        curriculumContext: entry.curriculumContext ?? '',
+        studentProfile: entry.studentProfile ?? '',
+        createdAt: toDate(entry.createdAt, 'classProfiles.createdAt'),
+        updatedAt: toDate(entry.updatedAt, 'classProfiles.updatedAt'),
+    }));
+}
+
 function readFileAsText(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -223,7 +277,8 @@ export async function exportLocalBackup(): Promise<void> {
     const settings = readPersistedSettings();
     const worksheets = serializeWorksheets(await listWorksheetRecords());
     const templates = serializeTemplates(await listDesignTemplateRecords());
-    const payload = buildBackupPayload(settings, worksheets, templates);
+    const classProfiles = serializeClassProfiles(await listClassProfileRecords());
+    const payload = buildBackupPayload(settings, worksheets, templates, classProfiles);
     downloadJsonFile(payload);
 }
 
@@ -233,10 +288,12 @@ export async function importLocalBackup(file: File): Promise<void> {
 
     const worksheetRecords = toWorksheetRecords(backup.data.worksheets);
     const templateRecords = toTemplateRecords(backup.data.designTemplates);
+    const classProfileRecords = toClassProfileRecords(backup.data.classProfiles ?? []);
 
     await clearAllIndexedDbData();
     await replaceWorksheetRecords(worksheetRecords);
     await replaceDesignTemplateRecords(templateRecords);
+    await replaceClassProfileRecords(classProfileRecords);
 
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(backup.data.settings));
 

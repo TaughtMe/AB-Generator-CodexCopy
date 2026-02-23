@@ -1,5 +1,6 @@
 import React from 'react';
 import { useProfileStore } from '../../store/profileStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { WorksheetFilter } from '../../store/dexieStore';
 
 /* ══════════════════════════════════════════════════
@@ -26,7 +27,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     onFilterChange,
 }) => {
     const subjects = useProfileStore((s) => s.subjects);
-    const classes = useProfileStore((s) => s.classes);
+    const classes = useWorkspaceStore((s) => s.classProfiles);
 
     const handleChange = (key: keyof WorksheetFilter, value: string) => {
         onFilterChange({ ...filter, [key]: value || undefined });

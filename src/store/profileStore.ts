@@ -49,7 +49,16 @@ export const useProfileStore = create<ProfileStore>()(
 
             addClassProfile: (name, characteristic = '') =>
                 set((s) => ({
-                    classes: [...s.classes, { id: crypto.randomUUID(), name, characteristic }],
+                    classes: [...s.classes, {
+                        id: crypto.randomUUID(),
+                        name,
+                        subjectId: undefined,
+                        curriculumContext: '',
+                        studentProfile: characteristic,
+                        characteristic,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                    }],
                 })),
 
             removeClassProfile: (id) =>

@@ -1,5 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { Task } from '../types/worksheet';
+import type { ChatMessage } from '../types/ai';
+import type { WorksheetSource } from '../types/worksheet';
+import type { ClassProfile } from '../types/profiles';
 import {
     normalizeDesignSnapshot,
     normalizeTemplateName,
@@ -28,9 +31,11 @@ export interface WorksheetRecord {
     title: string;
     tasksById: Record<string, Task>;
     taskIds: string[];
+    chatHistory: ChatMessage[];
+    sources: WorksheetSource[];
     /** Optionale Zuordnung zu einem Fach (profileStore Subject-ID) */
     subjectId?: string;
-    /** Optionale Zuordnung zu einer Klasse (profileStore ClassProfile-ID) */
+    /** Optionale Zuordnung zu einem Klassenprofil (Dexie classProfiles-ID) */
     classId?: string;
     /** Screenshot-Thumbnail des Worksheets (JPEG Blob, top ~300px) */
     thumbnailBlob?: Blob;
@@ -75,12 +80,41 @@ export interface DesignTemplateListOptions {
     query?: string;
 }
 
+/* ── Class Profile Records ── */
+
+export interface ClassProfileRecord {
+    id: string;
+    name: string;
+    nameLower: string;
+    subjectId?: string;
+    curriculumContext: string;
+    studentProfile: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface CreateClassProfileInput {
+    id?: string;
+    name: string;
+    subjectId?: string;
+    curriculumContext?: string;
+    studentProfile?: string;
+}
+
+export interface UpdateClassProfileInput {
+    name?: string;
+    subjectId?: string | null;
+    curriculumContext?: string;
+    studentProfile?: string;
+}
+
 /* ── Database Definition ── */
 
 class ABGeneratorDB extends Dexie {
     images!: EntityTable<ImageRecord, 'id'>;
     worksheets!: EntityTable<WorksheetRecord, 'id'>;
     designTemplates!: EntityTable<DesignTemplateRecord, 'id'>;
+    classProfiles!: EntityTable<ClassProfileRecord, 'id'>;
 
     constructor() {
         super('ABGeneratorDB');
@@ -108,6 +142,14 @@ class ABGeneratorDB extends Dexie {
             worksheets: 'id, title, updatedAt, subjectId, classId',
             designTemplates: 'id, nameLower, updatedAt, createdAt, lastUsedAt',
         });
+
+        // Version 5: add class profiles table (for KI context + worksheet coupling)
+        this.version(5).stores({
+            images: '++id, name, createdAt',
+            worksheets: 'id, title, updatedAt, subjectId, classId',
+            designTemplates: 'id, nameLower, updatedAt, createdAt, lastUsedAt',
+            classProfiles: 'id, nameLower, subjectId, updatedAt, createdAt',
+        });
     }
 }
 
@@ -119,6 +161,10 @@ export async function listWorksheetRecords(): Promise<WorksheetRecord[]> {
 
 export async function listDesignTemplateRecords(): Promise<DesignTemplateRecord[]> {
     return db.designTemplates.toArray();
+}
+
+export async function listClassProfileRecords(): Promise<ClassProfileRecord[]> {
+    return db.classProfiles.toArray();
 }
 
 export async function replaceWorksheetRecords(records: WorksheetRecord[]): Promise<void> {
@@ -139,11 +185,21 @@ export async function replaceDesignTemplateRecords(records: DesignTemplateRecord
     });
 }
 
+export async function replaceClassProfileRecords(records: ClassProfileRecord[]): Promise<void> {
+    await db.transaction('rw', db.classProfiles, async () => {
+        await db.classProfiles.clear();
+        if (records.length > 0) {
+            await db.classProfiles.bulkPut(records);
+        }
+    });
+}
+
 export async function clearAllIndexedDbData(): Promise<void> {
-    await db.transaction('rw', db.images, db.worksheets, db.designTemplates, async () => {
+    await db.transaction('rw', db.images, db.worksheets, db.designTemplates, db.classProfiles, async () => {
         await db.images.clear();
         await db.worksheets.clear();
         await db.designTemplates.clear();
+        await db.classProfiles.clear();
     });
 }
 
@@ -314,6 +370,119 @@ export async function markDesignTemplateUsed(id: string): Promise<void> {
 }
 
 /* ══════════════════════════════════════════════════
+   Class Profile CRUD Helpers
+   ══════════════════════════════════════════════════ */
+
+function normalizeClassProfileName(name: string): string {
+    return name.trim().replace(/\s+/g, ' ');
+}
+
+function toClassProfile(record: ClassProfileRecord): ClassProfile {
+    return {
+        id: record.id,
+        name: record.name,
+        subjectId: record.subjectId,
+        curriculumContext: record.curriculumContext,
+        studentProfile: record.studentProfile,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+    };
+}
+
+export async function listClassProfiles(): Promise<ClassProfile[]> {
+    const records = await db.classProfiles.orderBy('updatedAt').reverse().toArray();
+    return records.map(toClassProfile);
+}
+
+export async function getClassProfile(id: string): Promise<ClassProfile | undefined> {
+    const record = await db.classProfiles.get(id);
+    return record ? toClassProfile(record) : undefined;
+}
+
+export async function createClassProfile(input: CreateClassProfileInput): Promise<ClassProfile> {
+    const trimmedName = normalizeClassProfileName(input.name);
+    if (!trimmedName) {
+        throw new Error('CLASS_PROFILE_NAME_REQUIRED');
+    }
+
+    const now = new Date();
+    const record: ClassProfileRecord = {
+        id: input.id ?? crypto.randomUUID(),
+        name: trimmedName,
+        nameLower: trimmedName.toLowerCase(),
+        subjectId: input.subjectId?.trim() || undefined,
+        curriculumContext: input.curriculumContext?.trim() ?? '',
+        studentProfile: input.studentProfile?.trim() ?? '',
+        createdAt: now,
+        updatedAt: now,
+    };
+
+    await db.classProfiles.put(record);
+    return toClassProfile(record);
+}
+
+export async function updateClassProfile(
+    id: string,
+    patch: UpdateClassProfileInput,
+): Promise<ClassProfile | undefined> {
+    const current = await db.classProfiles.get(id);
+    if (!current) return undefined;
+
+    const nextName = patch.name != null ? normalizeClassProfileName(patch.name) : current.name;
+    if (!nextName) {
+        throw new Error('CLASS_PROFILE_NAME_REQUIRED');
+    }
+
+    const nextRecord: ClassProfileRecord = {
+        ...current,
+        name: nextName,
+        nameLower: nextName.toLowerCase(),
+        subjectId:
+            patch.subjectId === null
+                ? undefined
+                : patch.subjectId !== undefined
+                    ? (patch.subjectId.trim() || undefined)
+                    : current.subjectId,
+        curriculumContext:
+            patch.curriculumContext !== undefined
+                ? patch.curriculumContext.trim()
+                : current.curriculumContext,
+        studentProfile:
+            patch.studentProfile !== undefined
+                ? patch.studentProfile.trim()
+                : current.studentProfile,
+        updatedAt: new Date(),
+    };
+
+    await db.classProfiles.put(nextRecord);
+    return toClassProfile(nextRecord);
+}
+
+export async function deleteClassProfile(id: string): Promise<void> {
+    await db.classProfiles.delete(id);
+}
+
+export async function countWorksheetsByClassId(classId: string): Promise<number> {
+    return db.worksheets.where('classId').equals(classId).count();
+}
+
+export async function unlinkClassFromWorksheets(classId: string): Promise<void> {
+    const linked = await db.worksheets.where('classId').equals(classId).toArray();
+    if (linked.length === 0) return;
+
+    const now = new Date();
+    await db.transaction('rw', db.worksheets, async () => {
+        for (const worksheet of linked) {
+            await db.worksheets.put({
+                ...worksheet,
+                classId: undefined,
+                updatedAt: now,
+            });
+        }
+    });
+}
+
+/* ══════════════════════════════════════════════════
    Worksheet CRUD Helpers
    ══════════════════════════════════════════════════ */
 
@@ -323,20 +492,25 @@ export async function saveWorksheet(
     title: string,
     tasksById: Record<string, Task>,
     taskIds: string[],
+    chatHistory: ChatMessage[],
+    sources: WorksheetSource[],
     subjectId?: string,
     classId?: string,
     thumbnailBlob?: Blob
 ): Promise<void> {
     const existing = await db.worksheets.get(id);
     const now = new Date();
+    const classIdWasProvided = arguments.length >= 8;
 
     await db.worksheets.put({
         id,
         title,
         tasksById,
         taskIds,
+        chatHistory,
+        sources,
         subjectId: subjectId ?? existing?.subjectId,
-        classId: classId ?? existing?.classId,
+        classId: classIdWasProvided ? classId : existing?.classId,
         thumbnailBlob: thumbnailBlob ?? existing?.thumbnailBlob,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,

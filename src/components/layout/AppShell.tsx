@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 
 /* ══════════════════════════════════════════════════
@@ -65,9 +66,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     className="md:hidden fixed top-4 left-4 z-20 p-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-lg cursor-pointer"
                     aria-label="Menü öffnen"
                 >
-                    <svg className="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
+                    <Menu className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                 </button>
 
                 {children}

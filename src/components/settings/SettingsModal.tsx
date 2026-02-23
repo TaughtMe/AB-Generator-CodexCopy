@@ -35,6 +35,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const providers = useSettingsStore((state) => state.providers);
     const themeMode = useSettingsStore((state) => state.themeMode);
     const chatModelPreferences = useSettingsStore((state) => state.chatModelPreferences);
+    const submitOnEnter = useSettingsStore((state) => state.submitOnEnter);
 
     const setAIProvider = useSettingsStore((state) => state.setAIProvider);
     const setProviderApiKey = useSettingsStore((state) => state.setProviderApiKey);
@@ -42,6 +43,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const setProviderModel = useSettingsStore((state) => state.setProviderModel);
     const setThemeMode = useSettingsStore((state) => state.setThemeMode);
     const setChatModelPreference = useSettingsStore((state) => state.setChatModelPreference);
+    const setSubmitOnEnter = useSettingsStore((state) => state.setSubmitOnEnter);
 
     const activeConfig = providers[aiProvider];
     const { models: detectedLocalModels } = useLocalModels(activeConfig.baseUrl ?? '', isOpen && aiProvider === 'local');
@@ -286,6 +288,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         ))}
                                     </select>
                                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Aktiv für den Chat: {effectiveChatModel}</p>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50/60 dark:bg-slate-800/40">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Enter sendet Nachricht</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">Wenn aktiv: <strong>Enter</strong> sendet, <strong>Shift+Enter</strong> macht Zeilenumbruch.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setSubmitOnEnter(!submitOnEnter)}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                                                submitOnEnter ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
+                                            }`}
+                                            aria-label="Enter sendet Nachricht"
+                                        >
+                                            <span
+                                                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                                                    submitOnEnter ? 'translate-x-5' : 'translate-x-1'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}

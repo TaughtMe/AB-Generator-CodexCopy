@@ -154,6 +154,17 @@ function renderMultipleChoice(
 }
 
 async function renderLineatur(task: LineaturTask, config: TaskRendererConfig): Promise<Paragraph[]> {
+    const elements: Paragraph[] = [];
+
+    if (task.promptHtml && task.promptHtml.trim()) {
+        const promptParagraphs = htmlToDocxParagraphs(task.promptHtml, {
+            fontFamily: config.fontFamily,
+            fontSizePt: config.fontSizePt,
+            color: config.docxTheme.text,
+        }, 80);
+        elements.push(...promptParagraphs);
+    }
+
     const rows = task.lineRows ?? 4;
     const rowHeight = getRowHeightMM(task.lineStyle);
     const heightMM = rows * rowHeight;
@@ -163,7 +174,7 @@ async function renderLineatur(task: LineaturTask, config: TaskRendererConfig): P
     const widthPx = mmToPx(A4_INNER_WIDTH_MM);
     const heightPx = mmToPx(heightMM);
 
-    return [
+    elements.push(
         new Paragraph({
             children: [
                 new ImageRun({
@@ -177,7 +188,9 @@ async function renderLineatur(task: LineaturTask, config: TaskRendererConfig): P
             ],
             spacing: { after: config.taskGapAfter },
         }),
-    ];
+    );
+
+    return elements;
 }
 
 function renderCloze(task: ClozeTask, isTeacherMode: boolean, config: TaskRendererConfig): Paragraph[] {

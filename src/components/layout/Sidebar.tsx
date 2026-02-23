@@ -1,6 +1,7 @@
 import React from 'react';
 import { BookOpen, LayoutDashboard, FolderOpen, Users, Settings, HelpCircle, ChevronDown } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { DashboardView } from './AppShell';
 
 /* ══════════════════════════════════════════════════
@@ -28,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onOpenSettings,
 }) => {
     const subjects = useProfileStore((s) => s.subjects);
-    const classes = useProfileStore((s) => s.classes);
+    const classes = useWorkspaceStore((s) => s.classProfiles);
     const activeSubjectId = useProfileStore((s) => s.activeSubjectId);
     const activeClassId = useProfileStore((s) => s.activeClassId);
     const setActiveSubject = useProfileStore((s) => s.setActiveSubject);

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     X, Sparkles, Upload, CheckCircle, XCircle,
     BookOpen, GraduationCap, Loader2, AlertCircle, Cpu,
@@ -11,6 +11,8 @@ import {
     type GenerateTasksOptions,
 } from '../../services/aiService';
 import { useProfileStore } from '../../store/profileStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { PROVIDER_MODEL_OPTIONS, getModelLabel } from '../../services/ai/modelCatalog';
 import { useLocalModels } from '../../hooks/useLocalModels';
@@ -41,7 +43,10 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
     isOpen, onClose, onImport,
 }) => {
     // ── Stores ──
-    const { subjects, classes } = useProfileStore();
+    const subjects = useProfileStore((s) => s.subjects);
+    const classes = useWorkspaceStore((s) => s.classProfiles);
+    const loadClassProfiles = useWorkspaceStore((s) => s.loadClassProfiles);
+    const worksheetClassId = useWorksheetStore((s) => s.classId);
     const { aiProvider, providers, setProviderModel } = useSettingsStore();
 
     // ── Local State ──
@@ -84,12 +89,22 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
     const providerReady = isActiveProviderConfigured();
     const canGenerate = providerReady && topic.trim().length > 0;
 
+    useEffect(() => {
+        if (!isOpen) return;
+        void loadClassProfiles();
+    }, [isOpen, loadClassProfiles]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setSelectedClassId((current) => current || worksheetClassId || '');
+    }, [isOpen, worksheetClassId]);
+
     // ── Handlers ──
     function handleReset() {
         setPhase('input');
         setTopic('');
         setSelectedSubjectId('');
-        setSelectedClassId('');
+        setSelectedClassId(worksheetClassId ?? '');
         setDifficulty('mittel');
         setTaskCount(4);
         setScreenshotBase64(null);
@@ -128,9 +143,12 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                 difficultyLevel: difficulty,
                 taskCount,
                 subjectName: selectedSubject?.name,
-                curriculumText: selectedSubject?.curriculumText,
+                curriculumText: [
+                    selectedSubject?.curriculumText?.trim(),
+                    selectedClass?.curriculumContext?.trim(),
+                ].filter(Boolean).join('\n\n'),
                 className: selectedClass?.name,
-                classCharacteristic: selectedClass?.characteristic,
+                studentProfile: selectedClass?.studentProfile ?? selectedClass?.characteristic,
                 screenshotBase64: screenshotBase64 || undefined,
             };
 

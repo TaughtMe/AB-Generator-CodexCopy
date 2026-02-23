@@ -1,4 +1,5 @@
 export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction';
+import type { ChatMessage } from './ai';
 
 export type ColumnsLayout = '50-50' | '60-40' | '40-60';
 
@@ -28,6 +29,7 @@ export interface MultipleChoiceTask extends BaseTask {
 
 export interface LineaturTask extends BaseTask {
     type: 'lineatur';
+    promptHtml: string;
     gridColumns: number;
     lineStyle: LineStyle;
     lineRows: number; // Number of line groups/rows (min 1, default 4)
@@ -79,4 +81,13 @@ export interface Worksheet {
     title: string;
     tasksById: Record<string, Task>;
     taskIds: string[];
+    chatHistory: ChatMessage[];
+    sources: WorksheetSource[];
+    classId?: string;
+}
+
+export interface WorksheetSource {
+    id: string;
+    url: string;
+    title: string;
 }

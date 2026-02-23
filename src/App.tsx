@@ -15,9 +15,10 @@ import { TemplateGallery } from './components/dashboard/TemplateGallery';
 import { TopBar } from './components/editor/TopBar';
 import { FloatingToolbar } from './components/editor/FloatingToolbar';
 import { WorksheetCanvas } from './components/editor/WorksheetCanvas';
+import { SourcesManagerModal } from './components/editor/SourcesManagerModal';
 import { OutlineNavigator } from './components/layout/OutlineNavigator';
 import { AppShell, type DashboardView } from './components/layout/AppShell';
-import { ProfileManager } from './components/dashboard/ProfileManager';
+import { ClassesDashboard } from './components/dashboard/ClassesDashboard';
 
 import './styles/PrintStyles.css';
 
@@ -36,8 +37,12 @@ function App() {
   const showHeader = useWorksheetStore((state) => state.showHeader);
   const setShowHeader = useWorksheetStore((state) => state.setShowHeader);
   const setTitle = useWorksheetStore((state) => state.setTitle);
+  const classId = useWorksheetStore((state) => state.classId);
+  const setClassId = useWorksheetStore((state) => state.setClassId);
 
   const saveCurrentWorksheet = useWorkspaceStore((s) => s.saveCurrentWorksheet);
+  const classProfiles = useWorkspaceStore((s) => s.classProfiles);
+  const loadClassProfiles = useWorkspaceStore((s) => s.loadClassProfiles);
   const currentView = useWorkspaceStore((s) => s.currentView);
   const setCurrentView = useWorkspaceStore((s) => s.setCurrentView);
   const isAiSidebarOpen = useWorkspaceStore((s) => s.isAiSidebarOpen);
@@ -59,12 +64,17 @@ function App() {
   const [showAIWizard, setShowAIWizard] = useState(false);
   const [showDesignEditor, setShowDesignEditor] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showSourcesManager, setShowSourcesManager] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', themeMode === 'dark');
   }, [themeMode]);
+
+  useEffect(() => {
+    void loadClassProfiles();
+  }, [loadClassProfiles]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -132,7 +142,7 @@ function App() {
             />
           )}
           {currentView === 'dashboard' && dashboardView === 'profiles' && (
-            <ProfileManager />
+            <ClassesDashboard />
           )}
         </AppShell>
         <SettingsModal
@@ -161,6 +171,9 @@ function App() {
       <TopBar
         title={title}
         onTitleChange={setTitle}
+        classId={classId}
+        classOptions={classProfiles.map((entry) => ({ id: entry.id, name: entry.name }))}
+        onClassChange={setClassId}
         onBackToDashboard={handleBackToDashboard}
         onSave={handleSave}
         isSaving={isSaving}
@@ -173,6 +186,7 @@ function App() {
         onToggleAiSidebar={toggleAiSidebar}
         isOutlineOpen={isOutlineOpen}
         onToggleOutline={toggleOutline}
+        onOpenSources={() => setShowSourcesManager(true)}
       />
 
       <div className="lg:flex lg:items-stretch">
@@ -270,6 +284,11 @@ function App() {
         isOpen={isTemplateGalleryOpen}
         onClose={closeTemplateGallery}
         onOpenDesignEditor={() => setShowDesignEditor(true)}
+      />
+
+      <SourcesManagerModal
+        isOpen={showSourcesManager}
+        onClose={() => setShowSourcesManager(false)}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trash2, CheckSquare, Type, Grid3X3, Image, Columns, Calculator, Scissors } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import type { WorksheetMeta, TaskPreviewItem } from '../../store/dexieStore';
 
@@ -111,7 +112,7 @@ export const WorksheetCard: React.FC<WorksheetCardProps> = ({
     onDelete,
 }) => {
     const subjects = useProfileStore((s) => s.subjects);
-    const classes = useProfileStore((s) => s.classes);
+    const classes = useWorkspaceStore((s) => s.classProfiles);
     const brandColor = useSettingsStore((s) => s.brandColor);
     const schoolName = useSettingsStore((s) => s.schoolName);
 

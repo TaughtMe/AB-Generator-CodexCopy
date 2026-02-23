@@ -1,5 +1,18 @@
 import { create } from 'zustand';
-import type { Task, TaskType, Worksheet, LineStyle, ColumnsTask, ImagePlaceholderTask } from '../types/worksheet';
+import type {
+    Task,
+    TaskType,
+    Worksheet,
+    LineStyle,
+    ColumnsTask,
+    ColumnsLayout,
+    ImagePlaceholderTask,
+    LineaturTask,
+    MultipleChoiceOption,
+    ClozeGapStyle,
+} from '../types/worksheet';
+import type { ChatMessage } from '../types/ai';
+import type { WorksheetSource } from '../types/worksheet';
 import { getGridColumns } from '../utils/lineaturStyles';
 
 /**
@@ -29,18 +42,34 @@ interface WorksheetStore extends Worksheet {
     toggleTeacherMode: () => void;
     setTitle: (title: string) => void;
     setShowHeader: (show: boolean) => void;
+    setClassId: (classId: string | undefined) => void;
+    setChatHistory: (messages: ChatMessage[]) => void;
+    setSources: (sources: WorksheetSource[]) => void;
+    upsertSource: (source: WorksheetSource) => void;
+    removeSource: (sourceId: string) => void;
     /** Assign a task to a column slot */
     assignToColumn: (columnsId: string, slotIndex: 0 | 1, taskId: string | null) => void;
     /** Remove a child from its column and place it back in the root list */
     detachFromColumn: (columnsId: string, slotIndex: 0 | 1) => void;
     /** Lädt ein gespeichertes Arbeitsblatt (aus Dexie) */
-    loadFromRecord: (id: string, title: string, tasksById: Record<string, Task>, taskIds: string[]) => void;
+    loadFromRecord: (
+        id: string,
+        title: string,
+        tasksById: Record<string, Task>,
+        taskIds: string[],
+        chatHistory?: ChatMessage[],
+        sources?: WorksheetSource[],
+        classId?: string
+    ) => void;
     /** Setzt das Arbeitsblatt auf einen leeren Zustand zurück */
     resetWorksheet: () => void;
 }
 
 /** Default line style for new lineatur tasks */
 const DEFAULT_LINE_STYLE: LineStyle = 'grid-5mm';
+const VALID_LINE_STYLES: LineStyle[] = ['grid-5mm', 'grid-10mm', 'lines-8mm', 'primary-4-lines'];
+const VALID_COLUMNS_LAYOUTS: ColumnsLayout[] = ['50-50', '60-40', '40-60'];
+const VALID_CLOZE_GAP_STYLES: ClozeGapStyle[] = ['continuous', 'per-letter'];
 
 /**
  * Erzeugt ein neues Task-Objekt mit einer frischen UUID.
@@ -62,6 +91,7 @@ function createNewTask(type: TaskType): Task {
         case 'lineatur':
             return {
                 ...base, type: 'lineatur',
+                promptHtml: '',
                 lineStyle: DEFAULT_LINE_STYLE,
                 gridColumns: getGridColumns(DEFAULT_LINE_STYLE),
                 lineRows: 4,
@@ -86,6 +116,206 @@ function createNewTask(type: TaskType): Task {
     }
 }
 
+type TaskByType<T extends TaskType> = Extract<Task, { type: T }>;
+
+function createDefaultTaskOfType<T extends TaskType>(type: T): TaskByType<T> {
+    return createNewTask(type) as TaskByType<T>;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function cloneMultipleChoiceOptions(options: MultipleChoiceOption[]): MultipleChoiceOption[] {
+    return options.map((option, index) => ({
+        id: typeof option.id === 'string' && option.id.trim() ? option.id : crypto.randomUUID(),
+        text: typeof option.text === 'string' ? option.text : `Option ${index + 1}`,
+        isCorrect: Boolean(option.isCorrect),
+    }));
+}
+
+function normalizeMultipleChoiceOptionsForStore(
+    rawOptions: unknown,
+    fallbackOptions: MultipleChoiceOption[],
+    isTypeSwitch: boolean,
+): MultipleChoiceOption[] {
+    if (!Array.isArray(rawOptions)) {
+        return cloneMultipleChoiceOptions(fallbackOptions);
+    }
+
+    const normalized = rawOptions
+        .filter(isObjectRecord)
+        .map((option, index) => ({
+            id: typeof option.id === 'string' && option.id.trim() ? option.id : crypto.randomUUID(),
+            text: typeof option.text === 'string' ? option.text : `Option ${index + 1}`,
+            isCorrect: Boolean(option.isCorrect),
+        }));
+
+    // KI-Typwechsel produziert gelegentlich ein leeres options-Array.
+    // Dann behalten wir die Defaults des Zieltyps, damit der Editor stabil bleibt.
+    if (isTypeSwitch && normalized.length === 0) {
+        return cloneMultipleChoiceOptions(fallbackOptions);
+    }
+
+    return normalized;
+}
+
+function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: boolean): Task {
+    switch (task.type) {
+        case 'multiple-choice': {
+            const fallback: TaskByType<'multiple-choice'> = fallbackTask.type === 'multiple-choice'
+                ? fallbackTask
+                : createDefaultTaskOfType('multiple-choice');
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                question: typeof task.question === 'string' ? task.question : fallback.question,
+                options: normalizeMultipleChoiceOptionsForStore(task.options, fallback.options, isTypeSwitch),
+            };
+        }
+
+        case 'lineatur': {
+            const fallback: TaskByType<'lineatur'> = fallbackTask.type === 'lineatur'
+                ? fallbackTask
+                : createDefaultTaskOfType('lineatur');
+
+            const lineStyle = VALID_LINE_STYLES.includes(task.lineStyle as LineStyle)
+                ? (task.lineStyle as LineStyle)
+                : fallback.lineStyle;
+
+            const lineRows =
+                typeof task.lineRows === 'number' && Number.isFinite(task.lineRows)
+                    ? Math.max(1, Math.min(20, Math.round(task.lineRows)))
+                    : fallback.lineRows;
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                promptHtml: typeof task.promptHtml === 'string' ? task.promptHtml : fallback.promptHtml,
+                lineStyle,
+                lineRows,
+                gridColumns: getGridColumns(lineStyle),
+            };
+        }
+
+        case 'cloze': {
+            const fallback: TaskByType<'cloze'> = fallbackTask.type === 'cloze'
+                ? fallbackTask
+                : createDefaultTaskOfType('cloze');
+
+            const gapStyle = VALID_CLOZE_GAP_STYLES.includes(task.gapStyle as ClozeGapStyle)
+                ? (task.gapStyle as ClozeGapStyle)
+                : fallback.gapStyle;
+
+            const gapMultiplier =
+                typeof task.gapMultiplier === 'number' && Number.isFinite(task.gapMultiplier)
+                    ? task.gapMultiplier
+                    : fallback.gapMultiplier;
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                content: typeof task.content === 'string' ? task.content : fallback.content,
+                gapStyle,
+                gapMultiplier,
+            };
+        }
+
+        case 'image-placeholder': {
+            const fallback: TaskByType<'image-placeholder'> = fallbackTask.type === 'image-placeholder'
+                ? fallbackTask
+                : createDefaultTaskOfType('image-placeholder');
+
+            const imageId =
+                typeof task.imageId === 'number' && Number.isFinite(task.imageId)
+                    ? task.imageId
+                    : fallback.imageId;
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                caption: typeof task.caption === 'string' ? task.caption : fallback.caption,
+                imageId,
+                widthMm:
+                    typeof task.widthMm === 'number' && Number.isFinite(task.widthMm)
+                        ? Math.max(10, Math.round(task.widthMm))
+                        : fallback.widthMm,
+                heightMm:
+                    typeof task.heightMm === 'number' && Number.isFinite(task.heightMm)
+                        ? Math.max(10, Math.round(task.heightMm))
+                        : fallback.heightMm,
+            };
+        }
+
+        case 'math': {
+            const fallback: TaskByType<'math'> = fallbackTask.type === 'math'
+                ? fallbackTask
+                : createDefaultTaskOfType('math');
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                content: typeof task.content === 'string' ? task.content : fallback.content,
+            };
+        }
+
+        case 'columns': {
+            const fallback: TaskByType<'columns'> = fallbackTask.type === 'columns'
+                ? fallbackTask
+                : createDefaultTaskOfType('columns');
+
+            const children: [string | null, string | null] = Array.isArray(task.children)
+                ? [
+                    typeof task.children[0] === 'string' ? task.children[0] : null,
+                    typeof task.children[1] === 'string' ? task.children[1] : null,
+                ]
+                : [fallback.children[0], fallback.children[1]];
+
+            const layout = VALID_COLUMNS_LAYOUTS.includes(task.layout as ColumnsLayout)
+                ? (task.layout as ColumnsLayout)
+                : fallback.layout;
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                layout,
+                gapMm:
+                    typeof task.gapMm === 'number' && Number.isFinite(task.gapMm)
+                        ? Math.max(0, Math.round(task.gapMm))
+                        : fallback.gapMm,
+                children,
+            };
+        }
+
+        case 'instruction': {
+            const fallback: TaskByType<'instruction'> = fallbackTask.type === 'instruction'
+                ? fallbackTask
+                : createDefaultTaskOfType('instruction');
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                text: typeof task.text === 'string' ? task.text : fallback.text,
+            };
+        }
+
+        case 'page-break': {
+            const fallback: TaskByType<'page-break'> = fallbackTask.type === 'page-break'
+                ? fallbackTask
+                : createDefaultTaskOfType('page-break');
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+            };
+        }
+
+        default:
+            return task;
+    }
+}
+
 /**
  * Normalisiert Legacy-Persistenzdaten beim Laden.
  *
@@ -99,29 +329,92 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
     const normalized: Record<string, Task> = {};
 
     for (const [id, task] of Object.entries(tasksById)) {
-        if (task.type !== 'image-placeholder') {
-            normalized[id] = task;
+        if (task.type === 'image-placeholder') {
+            const imageTask = task as ImagePlaceholderTask & { imageId?: unknown };
+            const rawImageId = imageTask.imageId;
+            const numericImageId =
+                typeof rawImageId === 'number'
+                    ? rawImageId
+                    : typeof rawImageId === 'string'
+                        ? Number(rawImageId)
+                        : undefined;
+
+            normalized[id] = {
+                ...task,
+                imageId: typeof numericImageId === 'number' && Number.isFinite(numericImageId)
+                    ? numericImageId
+                    : undefined,
+            };
             continue;
         }
 
-        const imageTask = task as ImagePlaceholderTask & { imageId?: unknown };
-        const rawImageId = imageTask.imageId;
-        const numericImageId =
-            typeof rawImageId === 'number'
-                ? rawImageId
-                : typeof rawImageId === 'string'
-                    ? Number(rawImageId)
-                    : undefined;
+        if (task.type === 'lineatur') {
+            const lineTask = task as LineaturTask & {
+                promptHtml?: unknown;
+                lineRows?: unknown;
+                lineStyle?: unknown;
+                gridColumns?: unknown;
+            };
 
-        normalized[id] = {
-            ...task,
-            imageId: typeof numericImageId === 'number' && Number.isFinite(numericImageId)
-                ? numericImageId
-                : undefined,
-        };
+            const normalizedLineStyle =
+                typeof lineTask.lineStyle === 'string'
+                    ? (lineTask.lineStyle as LineStyle)
+                    : DEFAULT_LINE_STYLE;
+
+            normalized[id] = {
+                ...task,
+                promptHtml: typeof lineTask.promptHtml === 'string' ? lineTask.promptHtml : '',
+                lineRows:
+                    typeof lineTask.lineRows === 'number' && Number.isFinite(lineTask.lineRows)
+                        ? Math.max(1, Math.min(20, Math.round(lineTask.lineRows)))
+                        : 4,
+                lineStyle: normalizedLineStyle,
+                gridColumns:
+                    typeof lineTask.gridColumns === 'number' && lineTask.gridColumns > 0
+                        ? lineTask.gridColumns
+                        : getGridColumns(normalizedLineStyle),
+            } as Task;
+            continue;
+        }
+
+        normalized[id] = task;
     }
 
     return normalized;
+}
+
+function normalizeLegacyChatHistory(chatHistory?: unknown): ChatMessage[] {
+    if (!Array.isArray(chatHistory)) return [];
+
+    return chatHistory
+        .filter((entry): entry is { role: unknown; content: unknown } =>
+            typeof entry === 'object' && entry !== null && 'role' in entry && 'content' in entry
+        )
+        .map((entry): ChatMessage => ({
+            role: entry.role === 'assistant' ? 'assistant' : 'user',
+            content: typeof entry.content === 'string' ? entry.content : '',
+        }))
+        .filter((entry) => entry.content.trim().length > 0);
+}
+
+function normalizeLegacySources(sources?: unknown): WorksheetSource[] {
+    if (!Array.isArray(sources)) return [];
+
+    return sources
+        .filter((entry): entry is { id?: unknown; url?: unknown; title?: unknown } =>
+            typeof entry === 'object' && entry !== null
+        )
+        .map((entry) => {
+            const rawUrl = typeof entry.url === 'string' ? entry.url.trim() : '';
+            if (!rawUrl) return null;
+
+            return {
+                id: typeof entry.id === 'string' && entry.id.trim() ? entry.id : crypto.randomUUID(),
+                url: rawUrl,
+                title: typeof entry.title === 'string' ? entry.title : '',
+            } satisfies WorksheetSource;
+        })
+        .filter((entry): entry is WorksheetSource => entry !== null);
 }
 
 export const useWorksheetStore = create<WorksheetStore>((set) => ({
@@ -129,6 +422,9 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
     title: 'Neues Arbeitsblatt',
     tasksById: {},
     taskIds: [],
+    chatHistory: [],
+    sources: [],
+    classId: undefined,
     isTeacherMode: false,
     showHeader: false,
 
@@ -171,7 +467,20 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
 
         for (const taskData of tasks) {
             const id = crypto.randomUUID();
-            const task = { ...taskData, id } as Task;
+            const normalizedTaskData = taskData.type === 'lineatur'
+                ? {
+                    ...taskData,
+                    promptHtml: typeof (taskData as Partial<LineaturTask>).promptHtml === 'string'
+                        ? (taskData as Partial<LineaturTask>).promptHtml
+                        : '',
+                    lineRows:
+                        typeof (taskData as Partial<LineaturTask>).lineRows === 'number'
+                            ? Math.max(1, Math.min(20, Math.round((taskData as Partial<LineaturTask>).lineRows as number)))
+                            : 4,
+                }
+                : taskData;
+
+            const task = { ...normalizedTaskData, id } as Task;
             newTasksById[id] = task;
             newTaskIds.push(id);
         }
@@ -194,19 +503,27 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         const task = state.tasksById[id];
         if (!task) return state;
 
-        // If lineStyle changes, recalculate gridColumns
-        let finalUpdates = { ...updates };
-        if (task.type === 'lineatur' && 'lineStyle' in updates && updates.lineStyle) {
-            finalUpdates = {
-                ...finalUpdates,
-                gridColumns: getGridColumns(updates.lineStyle as LineStyle),
-            };
-        }
+        const requestedType = typeof updates.type === 'string' ? updates.type : undefined;
+        const isTypeSwitch = Boolean(requestedType && requestedType !== task.type);
+
+        const baseTask: Task = isTypeSwitch
+            ? ({
+                ...createNewTask(requestedType as TaskType),
+                // Keep stable ID and common editor metadata when switching types.
+                id,
+                title: task.title,
+                showNumber: task.showNumber,
+                accentColor: task.accentColor,
+            } as Task)
+            : task;
+
+        let finalTask = { ...baseTask, ...updates } as Task;
+        finalTask = sanitizeTaskForStore(finalTask, baseTask, isTypeSwitch);
 
         return {
             tasksById: {
                 ...state.tasksById,
-                [id]: { ...task, ...finalUpdates } as Task,
+                [id]: finalTask,
             },
         };
     }),
@@ -261,15 +578,39 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
 
     setShowHeader: (show) => set({ showHeader: show }),
 
+    setClassId: (classId) => set({ classId: classId?.trim() || undefined }),
+
+    setChatHistory: (messages) => set({ chatHistory: messages }),
+
+    setSources: (sources) => set({ sources }),
+
+    upsertSource: (source) => set((state) => {
+        const existingIndex = state.sources.findIndex((entry) => entry.id === source.id);
+        if (existingIndex === -1) {
+            return { sources: [...state.sources, source] };
+        }
+
+        const next = [...state.sources];
+        next[existingIndex] = source;
+        return { sources: next };
+    }),
+
+    removeSource: (sourceId) => set((state) => ({
+        sources: state.sources.filter((entry) => entry.id !== sourceId),
+    })),
+
     /**
      * Lädt ein Arbeitsblatt aus Persistenz und wendet Legacy-Normalisierung an,
      * bevor der Zustand in den Editor injiziert wird.
      */
-    loadFromRecord: (id, title, tasksById, taskIds) => set({
+    loadFromRecord: (id, title, tasksById, taskIds, chatHistory, sources, classId) => set({
         id,
         title,
         tasksById: normalizeLegacyTaskData(tasksById),
         taskIds,
+        chatHistory: normalizeLegacyChatHistory(chatHistory),
+        sources: normalizeLegacySources(sources),
+        classId: typeof classId === 'string' && classId.trim() ? classId : undefined,
     }),
 
     resetWorksheet: () => set({
@@ -277,6 +618,9 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         title: 'Neues Arbeitsblatt',
         tasksById: {},
         taskIds: [],
+        chatHistory: [],
+        sources: [],
+        classId: undefined,
     }),
 
     /**

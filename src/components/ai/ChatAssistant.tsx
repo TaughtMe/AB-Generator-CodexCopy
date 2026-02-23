@@ -2,14 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Loader2, Send, Sparkles } from 'lucide-react';
 import {
     compileWorksheetPromptFromChat,
-    generateChatAssistantReply,
     generateTasksFromCompiledPrompt,
     getActiveProviderLabel,
     isActiveProviderConfigured,
 } from '../../services/aiService';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
-import type { ChatMessage } from '../../types/ai';
+import { useSettingsStore } from '../../store/settingsStore';
 
 interface ChatAssistantProps {
     onBack: () => void;
@@ -17,9 +16,16 @@ interface ChatAssistantProps {
 
 export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
     const chatMessages = useWorkspaceStore((s) => s.chatMessages);
-    const addChatMessage = useWorkspaceStore((s) => s.addChatMessage);
-    const clearChat = useWorkspaceStore((s) => s.clearChat);
+    const isChatLoading = useWorkspaceStore((s) => s.isChatLoading);
+    const chatError = useWorkspaceStore((s) => s.chatError);
+    const chatStatusNotice = useWorkspaceStore((s) => s.chatStatusNotice);
+    const sendChatMessage = useWorkspaceStore((s) => s.sendChatMessage);
+    const startNewChat = useWorkspaceStore((s) => s.startNewChat);
+    const setChatMessages = useWorkspaceStore((s) => s.setChatMessages);
+    const seedGreetingIfEmpty = useWorkspaceStore((s) => s.seedGreetingIfEmpty);
+    const setChatError = useWorkspaceStore((s) => s.setChatError);
     const setCurrentView = useWorkspaceStore((s) => s.setCurrentView);
+    const saveCurrentWorksheet = useWorkspaceStore((s) => s.saveCurrentWorksheet);
     const setIsChatGenerating = useWorkspaceStore((s) => s.setIsChatGenerating);
     const isChatGenerating = useWorkspaceStore((s) => s.isChatGenerating);
 
@@ -27,79 +33,66 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
     const resetWorksheet = useWorksheetStore((s) => s.resetWorksheet);
 
     const [input, setInput] = useState('');
-    const [isReplyLoading, setIsReplyLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const historyRef = useRef<HTMLDivElement>(null);
-    const didSeedGreetingRef = useRef(false);
+    const submitOnEnter = useSettingsStore((s) => s.submitOnEnter);
 
     const providerReady = useMemo(() => isActiveProviderConfigured(), []);
 
     useEffect(() => {
-        if (didSeedGreetingRef.current) return;
-        if (chatMessages.length > 0) return;
+        seedGreetingIfEmpty();
+    }, [seedGreetingIfEmpty]);
 
-        addChatMessage({
-            role: 'assistant',
-            content: 'Hallo! Ich helfe dir beim Planen deines Arbeitsblatts. Nenne mir zuerst Thema, Klasse und gewünschte Aufgabentypen.',
-        });
-        didSeedGreetingRef.current = true;
-    }, [addChatMessage, chatMessages.length]);
-
-    const pushAssistantMessage = (content: string) => {
-        addChatMessage({ role: 'assistant', content });
+    useEffect(() => {
         queueMicrotask(() => {
             historyRef.current?.scrollTo({ top: historyRef.current.scrollHeight, behavior: 'smooth' });
         });
-    };
+    }, [chatMessages.length, isChatLoading]);
 
     const handleStartNewConversation = () => {
-        if (isReplyLoading || isChatGenerating) return;
-
-        setError(null);
-        clearChat();
-        didSeedGreetingRef.current = false;
+        if (isChatLoading || isChatGenerating) return;
+        startNewChat();
     };
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         const trimmed = input.trim();
-        if (!trimmed || isReplyLoading || isChatGenerating) return;
-
-        setError(null);
+        if (!trimmed || isChatLoading || isChatGenerating) return;
         setInput('');
+        await sendChatMessage(trimmed);
+    };
 
-        const userMessage: ChatMessage = { role: 'user', content: trimmed };
-        addChatMessage(userMessage);
+    const handleInputKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (!submitOnEnter) return;
+        if (e.key !== 'Enter' || e.shiftKey) return;
 
-        const nextMessages = [...chatMessages, userMessage];
+        e.preventDefault();
+        const trimmed = input.trim();
+        if (!trimmed || isChatLoading || isChatGenerating) return;
 
-        setIsReplyLoading(true);
-        try {
-            const reply = await generateChatAssistantReply(nextMessages);
-            pushAssistantMessage(reply || 'Ich habe dazu gerade keine gute Antwort. Kannst du es bitte anders formulieren?');
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unbekannter Fehler bei der KI-Antwort.');
-        } finally {
-            setIsReplyLoading(false);
-        }
+        setInput('');
+        await sendChatMessage(trimmed);
     };
 
     const handleGenerateWorksheet = async () => {
-        if (isChatGenerating || isReplyLoading) return;
-
-        setError(null);
+        if (isChatGenerating || isChatLoading) return;
+        setChatError(null);
         setIsChatGenerating(true);
 
         try {
+            const chatSnapshot = chatMessages
+                .map((message) => ({ ...message, content: message.content.trim() }))
+                .filter((message) => message.content.length > 0);
+
             const compiledPrompt = compileWorksheetPromptFromChat(chatMessages);
             const generatedTasks = await generateTasksFromCompiledPrompt(compiledPrompt);
 
             resetWorksheet();
             addTasksFromAI(generatedTasks);
-            clearChat();
+            setChatMessages(chatSnapshot);
+            await saveCurrentWorksheet();
             setCurrentView('editor');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Arbeitsblatt konnte nicht erstellt werden.');
+            setChatError(err instanceof Error ? err.message : 'Arbeitsblatt konnte nicht erstellt werden.');
         } finally {
             setIsChatGenerating(false);
         }
@@ -117,7 +110,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                     </button>
                     <button
                         onClick={handleStartNewConversation}
-                        disabled={isReplyLoading || isChatGenerating}
+                        disabled={isChatLoading || isChatGenerating}
                         className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Neues Gespräch
@@ -126,7 +119,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
 
                 <button
                     onClick={handleGenerateWorksheet}
-                    disabled={chatMessages.length === 0 || isChatGenerating || isReplyLoading}
+                    disabled={chatMessages.length === 0 || isChatGenerating || isChatLoading}
                     className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 transition-colors shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isChatGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -168,7 +161,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                         </div>
                     ))}
 
-                    {isReplyLoading && (
+                    {isChatLoading && (
                         <div className="flex justify-start">
                             <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md bg-white/90 dark:bg-slate-800/90 px-3 py-2 text-xs text-slate-500">
                                 <Loader2 size={13} className="animate-spin" /> KI denkt nach...
@@ -184,9 +177,15 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                         </div>
                     )}
 
-                    {error && (
+                    {chatError && (
                         <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                            {error}
+                            {chatError}
+                        </div>
+                    )}
+
+                    {chatStatusNotice && (
+                        <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                            {chatStatusNotice}
                         </div>
                     )}
 
@@ -194,14 +193,15 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                         <textarea
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={handleInputKeyDown}
                             rows={1}
                             placeholder="Nachricht an den KI-Assistenten..."
-                            disabled={!providerReady || isReplyLoading || isChatGenerating}
+                            disabled={!providerReady || isChatLoading || isChatGenerating}
                             className="flex-1 h-10 max-h-24 resize-none rounded-full bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                         />
                         <button
                             type="submit"
-                            disabled={!providerReady || !input.trim() || isReplyLoading || isChatGenerating}
+                            disabled={!providerReady || !input.trim() || isChatLoading || isChatGenerating}
                             className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
                             aria-label="Nachricht senden"
                         >
