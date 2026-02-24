@@ -36,7 +36,7 @@ import {
     generateTaskRevisionResult,
     type AIClassContext,
 } from '../services/aiService';
-import type { Task, WorksheetSource } from '../types/worksheet';
+import type { Task, WorksheetSource, WorksheetVariant } from '../types/worksheet';
 import type { ClassProfile } from '../types/profiles';
 import { normalizeDesignSnapshot, type DesignSnapshot } from '../types/designTemplate';
 
@@ -150,6 +150,8 @@ type AbgenWorksheetExportPayload = {
         title: string;
         tasksById: Record<string, Task>;
         taskIds: string[];
+        variants?: WorksheetVariant[];
+        activeVariantId?: string;
         chatHistory: ChatMessage[];
         sources: WorksheetSource[];
         subjectId?: string;
@@ -167,6 +169,8 @@ type AbgenWorksheetImportData = {
     title: string;
     tasksById: Record<string, Task>;
     taskIds: string[];
+    variants?: WorksheetVariant[];
+    activeVariantId?: string;
     chatHistory: ChatMessage[];
     sources: WorksheetSource[];
     subjectId?: string;
@@ -208,6 +212,18 @@ function remapTaskImageIds(tasksById: Record<string, Task>, imageIdMap: Map<numb
     return cloned;
 }
 
+function remapVariantImageIds(
+    variants: WorksheetVariant[] | undefined,
+    imageIdMap: Map<number, number>,
+): WorksheetVariant[] | undefined {
+    if (!variants || imageIdMap.size === 0) return variants;
+    return variants.map((variant) => ({
+        ...variant,
+        tasksById: remapTaskImageIds(variant.tasksById, imageIdMap),
+        taskIds: [...variant.taskIds],
+    }));
+}
+
 async function blobToBase64(blob: Blob): Promise<string> {
     const buffer = await blob.arrayBuffer();
     const bytes = new Uint8Array(buffer);
@@ -230,6 +246,11 @@ async function buildEmbeddedImageAssetsForWorksheetExport(
     design: DesignSnapshot,
 ): Promise<AbgenEmbeddedImageAsset[]> {
     const imageIds = new Set<number>(collectWorksheetImageIds(record.tasksById));
+    for (const variant of record.variants ?? []) {
+        for (const imageId of collectWorksheetImageIds(variant.tasksById)) {
+            imageIds.add(imageId);
+        }
+    }
     if (typeof design.logoImageId === 'number' && Number.isFinite(design.logoImageId)) {
         imageIds.add(design.logoImageId);
     }
@@ -302,6 +323,36 @@ function cloneWorksheetDataWithFreshIds(input: {
     };
 }
 
+function cloneWorksheetVariantsWithFreshIds(
+    variants: WorksheetVariant[] | undefined,
+): { variants?: WorksheetVariant[]; variantIdMap: Map<string, string> } {
+    if (!variants || variants.length === 0) {
+        return { variants: undefined, variantIdMap: new Map() };
+    }
+
+    const variantIdMap = new Map<string, string>();
+    const clonedVariants = variants.map((variant) => {
+        const cloned = cloneWorksheetDataWithFreshIds({
+            title: '',
+            tasksById: variant.tasksById,
+            taskIds: variant.taskIds,
+            chatHistory: [],
+            sources: [],
+        });
+        const nextVariantId = crypto.randomUUID();
+        variantIdMap.set(variant.id, nextVariantId);
+
+        return {
+            id: nextVariantId,
+            label: variant.label,
+            tasksById: cloned.tasksById,
+            taskIds: cloned.taskIds,
+        };
+    });
+
+    return { variants: clonedVariants, variantIdMap };
+}
+
 function parseAbgenWorksheetJson(raw: string): AbgenWorksheetImportData {
     let parsed: unknown;
     try {
@@ -328,10 +379,15 @@ function parseAbgenWorksheetJson(raw: string): AbgenWorksheetImportData {
     }
 
     if (!isObjectRecord(worksheet.tasksById)) {
-        throw new Error('tasksById ist ungültig.');
+        if (!Array.isArray(worksheet.variants)) {
+            throw new Error('tasksById ist ungültig.');
+        }
     }
 
-    if (!Array.isArray(worksheet.taskIds) || !worksheet.taskIds.every((id) => typeof id === 'string')) {
+    if (
+        worksheet.taskIds !== undefined
+        && (!Array.isArray(worksheet.taskIds) || !worksheet.taskIds.every((id) => typeof id === 'string'))
+    ) {
         throw new Error('taskIds ist ungültig.');
     }
 
@@ -341,6 +397,32 @@ function parseAbgenWorksheetJson(raw: string): AbgenWorksheetImportData {
 
     if (worksheet.sources !== undefined && !Array.isArray(worksheet.sources)) {
         throw new Error('sources ist ungültig.');
+    }
+
+    let variants: WorksheetVariant[] | undefined;
+    if (worksheet.variants !== undefined) {
+        if (!Array.isArray(worksheet.variants)) {
+            throw new Error('variants ist ungültig.');
+        }
+
+        variants = worksheet.variants.map((entry) => {
+            if (!isObjectRecord(entry)) {
+                throw new Error('Eine Variante ist ungültig.');
+            }
+            if (!isObjectRecord(entry.tasksById)) {
+                throw new Error('variant.tasksById ist ungültig.');
+            }
+            if (!Array.isArray(entry.taskIds) || !entry.taskIds.every((id) => typeof id === 'string')) {
+                throw new Error('variant.taskIds ist ungültig.');
+            }
+
+            return {
+                id: typeof entry.id === 'string' && entry.id.trim() ? entry.id : crypto.randomUUID(),
+                label: typeof entry.label === 'string' && entry.label.trim() ? entry.label.trim() : 'Variante',
+                tasksById: deepClonePlainObject(entry.tasksById as Record<string, Task>),
+                taskIds: [...entry.taskIds],
+            } satisfies WorksheetVariant;
+        });
     }
 
     const design = worksheet.design && isObjectRecord(worksheet.design)
@@ -385,8 +467,13 @@ function parseAbgenWorksheetJson(raw: string): AbgenWorksheetImportData {
         title: typeof worksheet.title === 'string' && worksheet.title.trim()
             ? worksheet.title.trim()
             : 'Importiertes Arbeitsblatt',
-        tasksById: deepClonePlainObject(worksheet.tasksById as Record<string, Task>),
-        taskIds: [...worksheet.taskIds],
+        tasksById: deepClonePlainObject((worksheet.tasksById ?? {}) as Record<string, Task>),
+        taskIds: Array.isArray(worksheet.taskIds) ? [...worksheet.taskIds] : [],
+        variants,
+        activeVariantId:
+            typeof worksheet.activeVariantId === 'string' && worksheet.activeVariantId.trim()
+                ? worksheet.activeVariantId.trim()
+                : undefined,
         chatHistory: deepClonePlainObject((worksheet.chatHistory ?? []) as ChatMessage[]),
         sources: deepClonePlainObject((worksheet.sources ?? []) as WorksheetSource[]),
         subjectId:
@@ -407,10 +494,12 @@ function buildDuplicatedWorksheetRecord(record: WorksheetRecord): {
     title: string;
     tasksById: Record<string, Task>;
     taskIds: string[];
+    variants?: WorksheetVariant[];
+    activeVariantId?: string;
     chatHistory: ChatMessage[];
     sources: WorksheetSource[];
 } {
-    return cloneWorksheetDataWithFreshIds({
+    const cloned = cloneWorksheetDataWithFreshIds({
         title: record.title,
         tasksById: record.tasksById,
         taskIds: record.taskIds,
@@ -418,6 +507,15 @@ function buildDuplicatedWorksheetRecord(record: WorksheetRecord): {
         sources: record.sources ?? [],
         titleSuffix: ' (Kopie)',
     });
+
+    const { variants, variantIdMap } = cloneWorksheetVariantsWithFreshIds(record.variants);
+    const activeVariantId = record.activeVariantId ? variantIdMap.get(record.activeVariantId) : undefined;
+
+    return {
+        ...cloned,
+        variants,
+        activeVariantId: activeVariantId ?? variants?.[0]?.id,
+    };
 }
 
 function sanitizeWorksheetExportFilename(title: string): string {
@@ -449,6 +547,8 @@ async function createWorksheetExportPayload(
             title: record.title,
             tasksById: deepClonePlainObject(record.tasksById),
             taskIds: deepClonePlainObject(record.taskIds),
+            variants: record.variants ? deepClonePlainObject(record.variants) : undefined,
+            activeVariantId: record.activeVariantId,
             chatHistory: deepClonePlainObject(record.chatHistory ?? []),
             sources: deepClonePlainObject(record.sources ?? []),
             subjectId: record.subjectId,
@@ -606,6 +706,7 @@ interface WorkspaceActions {
     seedGreetingIfEmpty: () => void;
     startNewChat: () => void;
     sendChatMessage: (text: string) => Promise<void>;
+    createDifferentiatedVariantFromPrompt: (instruction: string, label?: string) => Promise<boolean>;
     setWorksheetSources: (sources: WorksheetSource[]) => Promise<void>;
     upsertWorksheetSource: (source: WorksheetSource) => Promise<void>;
     removeWorksheetSource: (sourceId: string) => Promise<void>;
@@ -672,6 +773,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 undefined,
                 ws.classId,
                 options.thumbnail,
+                ws.variants,
+                ws.activeVariantId,
             ],
             options,
         );
@@ -825,6 +928,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 record.chatHistory,
                 record.sources,
                 record.classId,
+                record.variants,
+                record.activeVariantId,
             );
             set({
                 currentWorksheetId: id,
@@ -876,6 +981,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             original.subjectId,
             original.classId,
             original.thumbnailBlob,
+            duplicated.variants,
+            duplicated.activeVariantId,
         );
 
         await get().loadRecent();
@@ -938,6 +1045,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         const importedTasksById = imageIdMap.size > 0
             ? remapTaskImageIds(parsed.tasksById, imageIdMap)
             : parsed.tasksById;
+        const importedVariants = imageIdMap.size > 0
+            ? remapVariantImageIds(parsed.variants, imageIdMap)
+            : parsed.variants;
 
         let importedDesign = parsed.design;
         if (importedDesign && typeof importedDesign.logoImageId === 'number') {
@@ -954,6 +1064,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             chatHistory: parsed.chatHistory,
             sources: parsed.sources,
         });
+        const { variants: importedClonedVariants, variantIdMap: importedVariantIdMap } =
+            cloneWorksheetVariantsWithFreshIds(importedVariants);
+        const importedActiveVariantId =
+            (parsed.activeVariantId ? importedVariantIdMap.get(parsed.activeVariantId) : undefined)
+            ?? importedClonedVariants?.[0]?.id;
 
         await saveWorksheet(
             imported.id,
@@ -964,6 +1079,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             imported.sources,
             parsed.subjectId,
             parsed.classId,
+            undefined,
+            importedClonedVariants,
+            importedActiveVariantId,
         );
 
         if (importedDesign) {
@@ -1171,6 +1289,108 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 chatError: err instanceof Error ? err.message : 'Unbekannter Fehler bei der KI-Antwort.',
                 chatStatusNotice: null,
             });
+        }
+    },
+
+    createDifferentiatedVariantFromPrompt: async (instruction, label) => {
+        const trimmedInstruction = instruction.trim();
+        if (!trimmedInstruction) return false;
+
+        const state = get();
+        if (state.isChatLoading || state.isChatGenerating) return false;
+
+        set({
+            isChatLoading: true,
+            chatError: null,
+            chatStatusNotice: null,
+        });
+
+        try {
+            const wsStore = useWorksheetStore.getState();
+            let aiClassContext: AIClassContext | undefined;
+
+            if (wsStore.classId) {
+                let classProfile = get().getClassProfileById(wsStore.classId);
+                if (!classProfile) {
+                    classProfile = await getClassProfile(wsStore.classId);
+                    if (classProfile) {
+                        const resolvedProfile = classProfile;
+                        set((prev) => ({
+                            classProfiles: [resolvedProfile, ...prev.classProfiles.filter((entry) => entry.id !== resolvedProfile.id)],
+                        }));
+                    }
+                }
+                aiClassContext = buildAIClassContextFromProfile(classProfile);
+            }
+
+            const sourceVariant = wsStore.variants.find((variant) => variant.id === wsStore.activeVariantId) ?? wsStore.variants[0];
+            if (!sourceVariant) {
+                throw new Error('Keine aktive Variante verfügbar.');
+            }
+
+            const revision = await generateTaskRevisionResult(
+                [{ role: 'user', content: trimmedInstruction }],
+                wsStore.tasksById,
+                wsStore.taskIds,
+                wsStore.sources,
+                aiClassContext,
+            );
+
+            if (revision.operations.length === 0) {
+                set({
+                    isChatLoading: false,
+                    chatStatusNotice: 'Keine Änderungen aus der KI-Antwort ableitbar. Keine neue Variante erstellt.',
+                });
+                return false;
+            }
+
+            const existingLabels = new Set(wsStore.variants.map((variant) => variant.label));
+            const requestedBaseLabel = label?.trim() || `${sourceVariant.label} (KI)`;
+            let nextLabel = requestedBaseLabel;
+            let counter = 2;
+            while (existingLabels.has(nextLabel)) {
+                nextLabel = `${requestedBaseLabel} ${counter}`;
+                counter += 1;
+            }
+
+            wsStore.addVariant(nextLabel, 'duplicate-active');
+
+            let updatedCount = 0;
+            let addedCount = 0;
+            for (const operation of revision.operations) {
+                const currentWs = useWorksheetStore.getState();
+                if (operation.action === 'update_task') {
+                    if (!currentWs.tasksById[operation.taskId]) continue;
+                    currentWs.updateTask(operation.taskId, operation.updates as Partial<Task>);
+                    updatedCount += 1;
+                    continue;
+                }
+
+                if (operation.action === 'add_task') {
+                    if (operation.payload) {
+                        currentWs.addTasksFromAI([operation.payload]);
+                    } else {
+                        currentWs.addTask(operation.type);
+                    }
+                    addedCount += 1;
+                }
+            }
+
+            await persistCurrentWorksheetWithStatus();
+
+            set({
+                isChatLoading: false,
+                chatStatusNotice:
+                    `Neue Variante "${nextLabel}" erstellt (${updatedCount} aktualisiert, ${addedCount} hinzugefügt).`,
+            });
+            return true;
+        } catch (err) {
+            set({
+                isChatLoading: false,
+                chatError: err instanceof Error ? err.message : 'Fehler bei der KI-Differenzierung.',
+                chatStatusNotice: null,
+            });
+            return false;
         }
     },
 

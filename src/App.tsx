@@ -13,6 +13,7 @@ import { Dashboard } from './components/dashboard/Dashboard';
 import { DesignEditor } from './components/dashboard/DesignEditor';
 import { TemplateGallery } from './components/dashboard/TemplateGallery';
 import { TopBar } from './components/editor/TopBar';
+import { VariantTabs } from './components/editor/VariantTabs';
 import { FloatingToolbar } from './components/editor/FloatingToolbar';
 import { WorksheetCanvas } from './components/editor/WorksheetCanvas';
 import { SourcesManagerModal } from './components/editor/SourcesManagerModal';
@@ -27,12 +28,19 @@ function App() {
   const title = useWorksheetStore((state) => state.title);
   const taskIds = useWorksheetStore((state) => state.taskIds);
   const tasksById = useWorksheetStore((state) => state.tasksById);
+  const variants = useWorksheetStore((state) => state.variants);
+  const activeVariantId = useWorksheetStore((state) => state.activeVariantId);
   const insertTaskAt = useWorksheetStore((state) => state.insertTaskAt);
   const addTasksFromAI = useWorksheetStore((state) => state.addTasksFromAI);
   const updateTask = useWorksheetStore((state) => state.updateTask);
   const removeTask = useWorksheetStore((state) => state.removeTask);
   const reorderTasks = useWorksheetStore((state) => state.reorderTasks);
   const duplicateTask = useWorksheetStore((state) => state.duplicateTask);
+  const setActiveVariant = useWorksheetStore((state) => state.setActiveVariant);
+  const addVariant = useWorksheetStore((state) => state.addVariant);
+  const renameVariant = useWorksheetStore((state) => state.renameVariant);
+  const reorderVariants = useWorksheetStore((state) => state.reorderVariants);
+  const removeVariant = useWorksheetStore((state) => state.removeVariant);
   const isTeacherMode = useWorksheetStore((state) => state.isTeacherMode);
   const toggleTeacherMode = useWorksheetStore((state) => state.toggleTeacherMode);
   const showHeader = useWorksheetStore((state) => state.showHeader);
@@ -150,6 +158,17 @@ function App() {
     updateTask(id, { showNumber: !current });
   };
 
+  const handleAddVariant = () => {
+    const existingLabels = new Set(variants.map((variant) => variant.label));
+    let index = variants.length + 1;
+    let label = `Niveau ${index}`;
+    while (existingLabels.has(label)) {
+      index += 1;
+      label = `Niveau ${index}`;
+    }
+    addVariant(label, 'duplicate-active');
+  };
+
   /* ── Dashboard View (mit AppShell + Sidebar) ── */
   if (currentView !== 'editor') {
     return (
@@ -224,6 +243,16 @@ function App() {
         isOutlineOpen={isOutlineOpen}
         onToggleOutline={toggleOutline}
         onOpenSources={() => setShowSourcesManager(true)}
+      />
+
+      <VariantTabs
+        variants={variants}
+        activeVariantId={activeVariantId}
+        onSelectVariant={setActiveVariant}
+        onAddVariant={handleAddVariant}
+        onRenameVariant={renameVariant}
+        onReorderVariants={reorderVariants}
+        onRemoveVariant={removeVariant}
       />
 
       <div className="lg:flex lg:items-stretch">

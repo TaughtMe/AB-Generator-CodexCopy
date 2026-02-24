@@ -3,6 +3,8 @@ import type {
     Task,
     TaskType,
     Worksheet,
+    WorksheetVariant,
+    WorksheetTaskState,
     LineStyle,
     ColumnsTask,
     ColumnsLayout,
@@ -39,6 +41,11 @@ interface WorksheetStore extends Worksheet {
     removeTask: (id: string) => void;
     reorderTasks: (taskIds: string[]) => void;
     duplicateTask: (id: string) => void;
+    setActiveVariant: (variantId: string) => void;
+    addVariant: (label: string, mode?: 'empty' | 'duplicate-active') => void;
+    renameVariant: (variantId: string, label: string) => void;
+    reorderVariants: (variantIds: string[]) => void;
+    removeVariant: (variantId: string) => void;
     toggleTeacherMode: () => void;
     setTitle: (title: string) => void;
     setShowHeader: (show: boolean) => void;
@@ -59,7 +66,9 @@ interface WorksheetStore extends Worksheet {
         taskIds: string[],
         chatHistory?: ChatMessage[],
         sources?: WorksheetSource[],
-        classId?: string
+        classId?: string,
+        variants?: WorksheetVariant[],
+        activeVariantId?: string,
     ) => void;
     /** Setzt das Arbeitsblatt auf einen leeren Zustand zurück */
     resetWorksheet: () => void;
@@ -417,11 +426,91 @@ function normalizeLegacySources(sources?: unknown): WorksheetSource[] {
         .filter((entry): entry is WorksheetSource => entry !== null);
 }
 
+function createWorksheetVariant(
+    label: string,
+    taskState?: Partial<WorksheetTaskState>,
+): WorksheetVariant {
+    return {
+        id: crypto.randomUUID(),
+        label: label.trim() || 'Variante',
+        tasksById: taskState?.tasksById ? normalizeLegacyTaskData(taskState.tasksById) : {},
+        taskIds: Array.isArray(taskState?.taskIds) ? [...taskState.taskIds] : [],
+    };
+}
+
+function normalizeWorksheetVariantsInput(
+    tasksById: Record<string, Task>,
+    taskIds: string[],
+    variants?: WorksheetVariant[],
+    activeVariantId?: string,
+): { variants: WorksheetVariant[]; activeVariantId: string; tasksById: Record<string, Task>; taskIds: string[] } {
+    const normalizedVariants = Array.isArray(variants)
+        ? variants
+            .filter((variant): variant is WorksheetVariant => Boolean(variant && typeof variant === 'object'))
+            .map((variant, index) => ({
+                id: typeof variant.id === 'string' && variant.id.trim() ? variant.id : crypto.randomUUID(),
+                label: typeof variant.label === 'string' && variant.label.trim() ? variant.label : `Variante ${index + 1}`,
+                tasksById: normalizeLegacyTaskData(variant.tasksById ?? {}),
+                taskIds: Array.isArray(variant.taskIds) ? [...variant.taskIds] : [],
+            }))
+        : [];
+
+    if (normalizedVariants.length === 0) {
+        normalizedVariants.push(createWorksheetVariant('Standard', {
+            tasksById: normalizeLegacyTaskData(tasksById ?? {}),
+            taskIds: Array.isArray(taskIds) ? [...taskIds] : [],
+        }));
+    }
+
+    const resolvedActiveVariant = normalizedVariants.find((variant) => variant.id === activeVariantId) ?? normalizedVariants[0];
+
+    return {
+        variants: normalizedVariants,
+        activeVariantId: resolvedActiveVariant.id,
+        tasksById: resolvedActiveVariant.tasksById,
+        taskIds: resolvedActiveVariant.taskIds,
+    };
+}
+
+function getActiveVariantIndex(state: Pick<WorksheetStore, 'variants' | 'activeVariantId'>): number {
+    const index = state.variants.findIndex((variant) => variant.id === state.activeVariantId);
+    return index >= 0 ? index : 0;
+}
+
+function syncActiveVariantTaskState(
+    state: WorksheetStore,
+    nextTaskState: WorksheetTaskState,
+    activeVariantId = state.activeVariantId,
+    variantsOverride?: WorksheetVariant[],
+): Pick<WorksheetStore, 'variants' | 'activeVariantId' | 'tasksById' | 'taskIds'> {
+    const variants = variantsOverride ? [...variantsOverride] : [...state.variants];
+    const variantIndex = variants.findIndex((variant) => variant.id === activeVariantId);
+
+    if (variantIndex >= 0) {
+        variants[variantIndex] = {
+            ...variants[variantIndex],
+            tasksById: nextTaskState.tasksById,
+            taskIds: nextTaskState.taskIds,
+        };
+    }
+
+    return {
+        variants,
+        activeVariantId,
+        tasksById: nextTaskState.tasksById,
+        taskIds: nextTaskState.taskIds,
+    };
+}
+
+const INITIAL_WORKSHEET_VARIANT = createWorksheetVariant('Standard');
+
 export const useWorksheetStore = create<WorksheetStore>((set) => ({
+    variants: [INITIAL_WORKSHEET_VARIANT],
+    activeVariantId: INITIAL_WORKSHEET_VARIANT.id,
     id: crypto.randomUUID(),
     title: 'Neues Arbeitsblatt',
-    tasksById: {},
-    taskIds: [],
+    tasksById: INITIAL_WORKSHEET_VARIANT.tasksById,
+    taskIds: INITIAL_WORKSHEET_VARIANT.taskIds,
     chatHistory: [],
     sources: [],
     classId: undefined,
@@ -432,11 +521,14 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
      * Erstellt einen Root-Task und hängt ihn an das Ende von `taskIds`.
      */
     addTask: (type: TaskType) => set((state) => {
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
         const newTask = createNewTask(type);
-        return {
-            tasksById: { ...state.tasksById, [newTask.id]: newTask },
-            taskIds: [...state.taskIds, newTask.id],
+        const nextTaskState = {
+            tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
+            taskIds: [...activeVariant.taskIds, newTask.id],
         };
+        return syncActiveVariantTaskState(state, nextTaskState);
     }),
 
     /**
@@ -444,14 +536,16 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
      * index = 0 → ganz oben, index >= taskIds.length → am Ende.
      */
     insertTaskAt: (type: TaskType, index: number) => set((state) => {
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
         const newTask = createNewTask(type);
-        const newTaskIds = [...state.taskIds];
+        const newTaskIds = [...activeVariant.taskIds];
         const clampedIndex = Math.max(0, Math.min(index, newTaskIds.length));
         newTaskIds.splice(clampedIndex, 0, newTask.id);
-        return {
-            tasksById: { ...state.tasksById, [newTask.id]: newTask },
+        return syncActiveVariantTaskState(state, {
+            tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
             taskIds: newTaskIds,
-        };
+        });
     }),
 
     /**
@@ -462,8 +556,10 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
      * in `columns.children` passiert explizit über `assignToColumn`.
      */
     addTasksFromAI: (tasks) => set((state) => {
-        const newTasksById = { ...state.tasksById };
-        const newTaskIds = [...state.taskIds];
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
+        const newTasksById = { ...activeVariant.tasksById };
+        const newTaskIds = [...activeVariant.taskIds];
 
         for (const taskData of tasks) {
             const id = crypto.randomUUID();
@@ -485,10 +581,10 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             newTaskIds.push(id);
         }
 
-        return {
+        return syncActiveVariantTaskState(state, {
             tasksById: newTasksById,
             taskIds: newTaskIds,
-        };
+        });
     }),
 
     /**
@@ -500,7 +596,9 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
      *   nachgeführt, damit Editor- und Export-Raster konsistent bleiben.
      */
     updateTask: (id, updates) => set((state) => {
-        const task = state.tasksById[id];
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
+        const task = activeVariant.tasksById[id];
         if (!task) return state;
 
         const requestedType = typeof updates.type === 'string' ? updates.type : undefined;
@@ -520,12 +618,13 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         let finalTask = { ...baseTask, ...updates } as Task;
         finalTask = sanitizeTaskForStore(finalTask, baseTask, isTypeSwitch);
 
-        return {
+        return syncActiveVariantTaskState(state, {
             tasksById: {
-                ...state.tasksById,
+                ...activeVariant.tasksById,
                 [id]: finalTask,
             },
-        };
+            taskIds: activeVariant.taskIds,
+        });
     }),
 
     /**
@@ -537,7 +636,9 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
      *   `columns.children`-Slots, um dangling references zu vermeiden.
      */
     removeTask: (id) => set((state) => {
-        const { [id]: removed, ...remainingTasks } = state.tasksById;
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
+        const { [id]: removed, ...remainingTasks } = activeVariant.tasksById;
 
         // If the removed task is a columns container, also remove its children
         if (removed && removed.type === 'columns') {
@@ -564,13 +665,16 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             }
         }
 
-        return {
+        return syncActiveVariantTaskState(state, {
             tasksById: remainingTasks,
-            taskIds: state.taskIds.filter((taskId) => taskId !== id),
-        };
+            taskIds: activeVariant.taskIds.filter((taskId) => taskId !== id),
+        });
     }),
 
-    reorderTasks: (taskIds) => set({ taskIds }),
+    reorderTasks: (taskIds) => set((state) => syncActiveVariantTaskState(state, {
+        tasksById: state.tasksById,
+        taskIds,
+    })),
 
     toggleTeacherMode: () => set((s) => ({ isTeacherMode: !s.isTeacherMode })),
 
@@ -603,24 +707,34 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
      * Lädt ein Arbeitsblatt aus Persistenz und wendet Legacy-Normalisierung an,
      * bevor der Zustand in den Editor injiziert wird.
      */
-    loadFromRecord: (id, title, tasksById, taskIds, chatHistory, sources, classId) => set({
-        id,
-        title,
-        tasksById: normalizeLegacyTaskData(tasksById),
-        taskIds,
-        chatHistory: normalizeLegacyChatHistory(chatHistory),
-        sources: normalizeLegacySources(sources),
-        classId: typeof classId === 'string' && classId.trim() ? classId : undefined,
+    loadFromRecord: (id, title, tasksById, taskIds, chatHistory, sources, classId, variants, activeVariantId) => set(() => {
+        const normalized = normalizeWorksheetVariantsInput(tasksById, taskIds, variants, activeVariantId);
+        return {
+            id,
+            title,
+            variants: normalized.variants,
+            activeVariantId: normalized.activeVariantId,
+            tasksById: normalized.tasksById,
+            taskIds: normalized.taskIds,
+            chatHistory: normalizeLegacyChatHistory(chatHistory),
+            sources: normalizeLegacySources(sources),
+            classId: typeof classId === 'string' && classId.trim() ? classId : undefined,
+        };
     }),
 
-    resetWorksheet: () => set({
-        id: crypto.randomUUID(),
-        title: 'Neues Arbeitsblatt',
-        tasksById: {},
-        taskIds: [],
-        chatHistory: [],
-        sources: [],
-        classId: undefined,
+    resetWorksheet: () => set(() => {
+        const standardVariant = createWorksheetVariant('Standard');
+        return {
+            id: crypto.randomUUID(),
+            title: 'Neues Arbeitsblatt',
+            variants: [standardVariant],
+            activeVariantId: standardVariant.id,
+            tasksById: standardVariant.tasksById,
+            taskIds: standardVariant.taskIds,
+            chatHistory: [],
+            sources: [],
+            classId: undefined,
+        };
     }),
 
     /**
@@ -632,7 +746,9 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
      * - Damit zeigen neue Slots nie auf alte Child-Objekte.
      */
     duplicateTask: (id) => set((state) => {
-        const original = state.tasksById[id];
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
+        const original = activeVariant.tasksById[id];
         if (!original) return state;
 
         const newId = crypto.randomUUID();
@@ -655,12 +771,12 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             const extraTasks: Record<string, Task> = {};
             for (let s = 0; s < 2; s++) {
                 const childId = cols.children[s as 0 | 1];
-                if (childId && state.tasksById[childId]) {
+                if (childId && activeVariant.tasksById[childId]) {
                     const childCloneId = crypto.randomUUID();
                     extraTasks[childCloneId] = {
-                        ...state.tasksById[childId],
+                        ...activeVariant.tasksById[childId],
                         id: childCloneId,
-                        title: `${state.tasksById[childId].title}`,
+                        title: `${activeVariant.tasksById[childId].title}`,
                     } as Task;
                     newChildren[s as 0 | 1] = childCloneId;
                 }
@@ -671,13 +787,13 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
                 title: `${original.title} (Kopie)`,
                 children: newChildren,
             };
-            const insertIndex = state.taskIds.indexOf(id) + 1;
-            const newTaskIds = [...state.taskIds];
+            const insertIndex = activeVariant.taskIds.indexOf(id) + 1;
+            const newTaskIds = [...activeVariant.taskIds];
             newTaskIds.splice(insertIndex, 0, newId);
-            return {
-                tasksById: { ...state.tasksById, [newId]: cloned, ...extraTasks },
+            return syncActiveVariantTaskState(state, {
+                tasksById: { ...activeVariant.tasksById, [newId]: cloned, ...extraTasks },
                 taskIds: newTaskIds,
-            };
+            });
         } else {
             cloned = {
                 ...original,
@@ -686,13 +802,104 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             } as Task;
         }
 
-        const insertIndex = state.taskIds.indexOf(id) + 1;
-        const newTaskIds = [...state.taskIds];
+        const insertIndex = activeVariant.taskIds.indexOf(id) + 1;
+        const newTaskIds = [...activeVariant.taskIds];
         newTaskIds.splice(insertIndex, 0, newId);
 
-        return {
-            tasksById: { ...state.tasksById, [newId]: cloned },
+        return syncActiveVariantTaskState(state, {
+            tasksById: { ...activeVariant.tasksById, [newId]: cloned },
             taskIds: newTaskIds,
+        });
+    }),
+
+    setActiveVariant: (variantId) => set((state) => {
+        const target = state.variants.find((variant) => variant.id === variantId);
+        if (!target) return state;
+        return {
+            activeVariantId: target.id,
+            tasksById: target.tasksById,
+            taskIds: target.taskIds,
+        };
+    }),
+
+    addVariant: (label, mode = 'duplicate-active') => set((state) => {
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        const nextVariant = createWorksheetVariant(
+            label,
+            mode === 'duplicate-active' && activeVariant
+                ? {
+                    tasksById:
+                        typeof structuredClone === 'function'
+                            ? structuredClone(activeVariant.tasksById)
+                            : JSON.parse(JSON.stringify(activeVariant.tasksById)),
+                    taskIds: [...activeVariant.taskIds],
+                }
+                : undefined,
+        );
+        const variants = [...state.variants, nextVariant];
+        return {
+            ...syncActiveVariantTaskState(state, {
+                tasksById: nextVariant.tasksById,
+                taskIds: nextVariant.taskIds,
+            }, nextVariant.id, variants),
+        };
+    }),
+
+    renameVariant: (variantId, label) => set((state) => {
+        const nextLabel = label.trim();
+        if (!nextLabel) return state;
+
+        const index = state.variants.findIndex((variant) => variant.id === variantId);
+        if (index === -1) return state;
+
+        const variants = [...state.variants];
+        variants[index] = { ...variants[index], label: nextLabel };
+        return { variants };
+    }),
+
+    reorderVariants: (variantIds) => set((state) => {
+        if (!Array.isArray(variantIds) || variantIds.length !== state.variants.length) return state;
+
+        const byId = new Map(state.variants.map((variant) => [variant.id, variant]));
+        const nextVariants: WorksheetVariant[] = [];
+
+        for (const id of variantIds) {
+            const variant = byId.get(id);
+            if (!variant) return state;
+            nextVariants.push(variant);
+        }
+
+        const activeVariant = nextVariants.find((variant) => variant.id === state.activeVariantId) ?? nextVariants[0];
+        if (!activeVariant) return state;
+
+        return {
+            variants: nextVariants,
+            activeVariantId: activeVariant.id,
+            tasksById: activeVariant.tasksById,
+            taskIds: activeVariant.taskIds,
+        };
+    }),
+
+    removeVariant: (variantId) => set((state) => {
+        if (state.variants.length <= 1) return state;
+
+        const removeIndex = state.variants.findIndex((variant) => variant.id === variantId);
+        if (removeIndex === -1) return state;
+
+        const nextVariants = state.variants.filter((variant) => variant.id !== variantId);
+        const fallbackIndex = Math.max(0, removeIndex - 1);
+        const nextActiveVariant =
+            state.activeVariantId === variantId
+                ? (nextVariants[fallbackIndex] ?? nextVariants[0])
+                : (nextVariants.find((variant) => variant.id === state.activeVariantId) ?? nextVariants[0]);
+
+        if (!nextActiveVariant) return state;
+
+        return {
+            variants: nextVariants,
+            activeVariantId: nextActiveVariant.id,
+            tasksById: nextActiveVariant.tasksById,
+            taskIds: nextActiveVariant.taskIds,
         };
     }),
 
@@ -705,26 +912,28 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
      *   gleichzeitig als Root-Task und Slot-Task erscheinen.
      */
     assignToColumn: (columnsId, slotIndex, taskId) => set((state) => {
-        const container = state.tasksById[columnsId];
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
+        const container = activeVariant.tasksById[columnsId];
         if (!container || container.type !== 'columns') return state;
         const cols = container as ColumnsTask;
         const newChildren: [string | null, string | null] = [...cols.children];
 
         // If a task is being assigned, create it fresh in tasksById if missing
-        if (taskId && !state.tasksById[taskId]) return state;
+        if (taskId && !activeVariant.tasksById[taskId]) return state;
 
         newChildren[slotIndex] = taskId;
         const updatedContainer = { ...cols, children: newChildren };
 
         // Remove the assigned task from root taskIds (it's now inside the container)
         const newTaskIds = taskId
-            ? state.taskIds.filter((id) => id !== taskId)
-            : state.taskIds;
+            ? activeVariant.taskIds.filter((id) => id !== taskId)
+            : activeVariant.taskIds;
 
-        return {
-            tasksById: { ...state.tasksById, [columnsId]: updatedContainer },
+        return syncActiveVariantTaskState(state, {
+            tasksById: { ...activeVariant.tasksById, [columnsId]: updatedContainer },
             taskIds: newTaskIds,
-        };
+        });
     }),
 
     /**
@@ -735,7 +944,9 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
      * möglich und die Reihenfolge bleibt für Nutzer nachvollziehbar.
      */
     detachFromColumn: (columnsId, slotIndex) => set((state) => {
-        const container = state.tasksById[columnsId];
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
+        const container = activeVariant.tasksById[columnsId];
         if (!container || container.type !== 'columns') return state;
         const cols = container as ColumnsTask;
         const childId = cols.children[slotIndex];
@@ -746,13 +957,13 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         const updatedContainer = { ...cols, children: newChildren };
 
         // Insert child back into root list (right after the container)
-        const containerIdx = state.taskIds.indexOf(columnsId);
-        const newTaskIds = [...state.taskIds];
+        const containerIdx = activeVariant.taskIds.indexOf(columnsId);
+        const newTaskIds = [...activeVariant.taskIds];
         newTaskIds.splice(containerIdx + 1, 0, childId);
 
-        return {
-            tasksById: { ...state.tasksById, [columnsId]: updatedContainer },
+        return syncActiveVariantTaskState(state, {
+            tasksById: { ...activeVariant.tasksById, [columnsId]: updatedContainer },
             taskIds: newTaskIds,
-        };
+        });
     }),
 }));

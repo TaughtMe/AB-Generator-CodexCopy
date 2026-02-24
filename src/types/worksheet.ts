@@ -76,11 +76,23 @@ export interface InstructionTask extends BaseTask {
 
 export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask;
 
+export interface WorksheetTaskState {
+    tasksById: Record<string, Task>;
+    taskIds: string[];
+}
+
+export interface WorksheetVariant extends WorksheetTaskState {
+    id: string;
+    label: string;
+}
+
 export interface Worksheet {
     id: string;
     title: string;
     tasksById: Record<string, Task>;
     taskIds: string[];
+    variants: WorksheetVariant[];
+    activeVariantId: string;
     chatHistory: ChatMessage[];
     sources: WorksheetSource[];
     classId?: string;

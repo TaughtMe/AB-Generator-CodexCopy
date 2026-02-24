@@ -207,11 +207,18 @@ export const WorksheetCard: React.FC<WorksheetCardProps> = ({
                 </h4>
 
                 <div className="mt-auto flex items-center justify-between">
-                    {badgeLabel && (
-                        <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full ${colors.bg} ${colors.text}`}>
-                            {badgeLabel}
-                        </span>
-                    )}
+                    <div className="flex items-center gap-1 min-w-0">
+                        {badgeLabel && (
+                            <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full ${colors.bg} ${colors.text}`}>
+                                {badgeLabel}
+                            </span>
+                        )}
+                        {meta.variantCount > 1 && (
+                            <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                                {meta.variantCount} Niveaus
+                            </span>
+                        )}
+                    </div>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-auto">
                         {timeAgo(meta.updatedAt)}
                     </span>

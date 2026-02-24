@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Task } from '../types/worksheet';
+import type { Task, WorksheetVariant } from '../types/worksheet';
 import type { ChatMessage } from '../types/ai';
 import type { WorksheetSource } from '../types/worksheet';
 import type { ClassProfile } from '../types/profiles';
@@ -31,6 +31,8 @@ export interface WorksheetRecord {
     title: string;
     tasksById: Record<string, Task>;
     taskIds: string[];
+    variants?: WorksheetVariant[];
+    activeVariantId?: string;
     chatHistory: ChatMessage[];
     sources: WorksheetSource[];
     /** Optionale Zuordnung zu einem Fach (profileStore Subject-ID) */
@@ -54,6 +56,7 @@ export interface WorksheetMeta {
     id: string;
     title: string;
     taskCount: number;
+    variantCount: number;
     subjectId?: string;
     classId?: string;
     createdAt: Date;
@@ -492,7 +495,9 @@ export async function saveWorksheet(
     sources: WorksheetSource[],
     subjectId?: string,
     classId?: string,
-    thumbnailBlob?: Blob
+    thumbnailBlob?: Blob,
+    variants?: WorksheetVariant[],
+    activeVariantId?: string,
 ): Promise<void> {
     const existing = await db.worksheets.get(id);
     const now = new Date();
@@ -508,6 +513,8 @@ export async function saveWorksheet(
         subjectId: subjectId ?? existing?.subjectId,
         classId: classIdWasProvided ? classId : existing?.classId,
         thumbnailBlob: thumbnailBlob ?? existing?.thumbnailBlob,
+        variants: variants ?? existing?.variants,
+        activeVariantId: activeVariantId ?? existing?.activeVariantId,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
     });
@@ -554,10 +561,14 @@ export async function listRecentWorksheets(
     records = records.slice(0, limit);
 
     return records.map((rec) => {
-        const { id, title, taskIds, tasksById, subjectId, classId, createdAt, updatedAt } = rec;
+        const { id, title, subjectId, classId, createdAt, updatedAt } = rec;
+        const variants = Array.isArray(rec.variants) ? rec.variants : [];
+        const activeVariant = variants.find((variant) => variant.id === rec.activeVariantId) ?? variants[0];
+        const effectiveTaskIds = activeVariant?.taskIds ?? rec.taskIds;
+        const effectiveTasksById = activeVariant?.tasksById ?? rec.tasksById;
         // Build a compact preview from the first 4 tasks
-        const taskPreview: TaskPreviewItem[] = taskIds.slice(0, 4).map((tid) => {
-            const t = tasksById[tid];
+        const taskPreview: TaskPreviewItem[] = effectiveTaskIds.slice(0, 4).map((tid) => {
+            const t = effectiveTasksById[tid];
             if (!t) return { type: 'unknown', label: '' };
             let label = t.title || '';
             switch (t.type) {
@@ -594,7 +605,8 @@ export async function listRecentWorksheets(
         return {
             id,
             title,
-            taskCount: taskIds.length,
+            taskCount: effectiveTaskIds.length,
+            variantCount: Math.max(1, variants.length),
             subjectId,
             classId,
             createdAt,
