@@ -8,7 +8,15 @@ import {
     Sparkles,
     List,
     Link,
+    Cloud,
+    Check,
+    Loader2,
+    AlertCircle,
+    Share2,
 } from 'lucide-react';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 export interface TopBarProps {
     title: string;
@@ -22,6 +30,11 @@ export interface TopBarProps {
     hasTasks: boolean;
     onExportDocx: () => void;
     onExportPDF: () => void;
+    onExportAbgen: () => Promise<void> | void;
+    onShareAbgen?: () => Promise<void> | void;
+    canShareAbgen?: boolean;
+    isAbgenExporting?: boolean;
+    isAbgenSharing?: boolean;
     isDarkMode: boolean;
     onToggleThemeMode: () => void;
     isAiSidebarOpen: boolean;
@@ -43,6 +56,11 @@ export function TopBar({
     hasTasks,
     onExportDocx,
     onExportPDF,
+    onExportAbgen,
+    onShareAbgen,
+    canShareAbgen = false,
+    isAbgenExporting = false,
+    isAbgenSharing = false,
     isDarkMode,
     onToggleThemeMode,
     isAiSidebarOpen,
@@ -52,6 +70,9 @@ export function TopBar({
     onOpenSources,
 }: TopBarProps) {
     const hasMissingClassSelection = Boolean(classId) && !classOptions.some((entry) => entry.id === classId);
+    const autoSaveStatus = useWorkspaceStore((state) => state.autoSaveStatus);
+    const effectiveSaveStatus = isSaving ? 'saving' : autoSaveStatus;
+    const showSaveIndicator = effectiveSaveStatus !== 'idle';
 
     return (
         <header className="no-print sticky top-0 z-30 backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/80 dark:border-slate-800/80 shadow-sm">
@@ -63,7 +84,7 @@ export function TopBar({
                         className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
                         title="Zurück zum Dashboard"
                     >
-                        <ArrowLeft size={14} />
+                        <ArrowLeft className={ICON_SIZES[14]} />
                         <span className="hidden sm:inline">Dashboard</span>
                     </button>
 
@@ -79,7 +100,7 @@ export function TopBar({
                         }`}
                         title={isOutlineOpen ? 'Gliederung ausblenden' : 'Gliederung einblenden'}
                     >
-                        <List size={15} />
+                        <List className={ICON_SIZES[15]} />
                     </button>
 
                     <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60" />
@@ -114,15 +135,66 @@ export function TopBar({
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-1">
+                    {showSaveIndicator && (
+                        <div
+                            className={`hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-medium ${
+                                effectiveSaveStatus === 'error'
+                                    ? 'border-red-200 text-red-600 dark:border-red-900/50 dark:text-red-300 bg-red-50/70 dark:bg-red-900/20'
+                                    : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 bg-white/70 dark:bg-slate-800/70'
+                            }`}
+                            title={effectiveSaveStatus === 'saving' ? 'Automatisches Speichern läuft' : 'Speicherstatus'}
+                        >
+                            {effectiveSaveStatus === 'saving' ? (
+                                <Loader2 className={`${ICON_SIZES[12]} animate-spin`} />
+                            ) : effectiveSaveStatus === 'error' ? (
+                                <AlertCircle className={ICON_SIZES[12]} />
+                            ) : (
+                                <>
+                                    <Cloud className={ICON_SIZES[12]} />
+                                    <Check className={`${ICON_SIZES[10]} -ml-1`} />
+                                </>
+                            )}
+                            <span>
+                                {effectiveSaveStatus === 'saving'
+                                    ? 'Speichert...'
+                                    : effectiveSaveStatus === 'error'
+                                        ? 'Speicherfehler'
+                                        : 'Gespeichert'}
+                            </span>
+                        </div>
+                    )}
+
                     <button
                         onClick={onSave}
                         disabled={!hasTasks || isSaving}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
                         title="Arbeitsblatt speichern"
                     >
-                        <Save size={14} />
+                        <Save className={ICON_SIZES[14]} />
                         <span>{isSaving ? '...' : 'Speichern'}</span>
                     </button>
+
+                    <button
+                        onClick={onExportAbgen}
+                        disabled={!hasTasks || isAbgenExporting || isAbgenSharing}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
+                        title="Als .abgen-Datei exportieren"
+                    >
+                        <FileDown className={ICON_SIZES[14]} />
+                        <span>{isAbgenExporting ? '...' : '.abgen'}</span>
+                    </button>
+
+                    {canShareAbgen && onShareAbgen && (
+                        <button
+                            onClick={onShareAbgen}
+                            disabled={!hasTasks || isAbgenExporting || isAbgenSharing}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
+                            title="Als .abgen-Datei teilen"
+                        >
+                            <Share2 className={ICON_SIZES[14]} />
+                            <span>{isAbgenSharing ? '...' : 'Teilen'}</span>
+                        </button>
+                    )}
 
                     <button
                         onClick={onExportDocx}
@@ -130,7 +202,7 @@ export function TopBar({
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
                         title="Als Word-Datei exportieren"
                     >
-                        <FileDown size={14} />
+                        <FileDown className={ICON_SIZES[14]} />
                         <span>.docx</span>
                     </button>
 
@@ -140,7 +212,7 @@ export function TopBar({
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
                         title="Als PDF exportieren (Druckdialog)"
                     >
-                        <Printer size={14} />
+                        <Printer className={ICON_SIZES[14]} />
                         <span>PDF</span>
                     </button>
 
@@ -149,7 +221,7 @@ export function TopBar({
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer active:scale-95"
                         title="Quellen verwalten"
                     >
-                        <Link size={14} />
+                        <Link className={ICON_SIZES[14]} />
                         <span>Quellen</span>
                     </button>
 
@@ -162,17 +234,18 @@ export function TopBar({
                         }`}
                         title={isAiSidebarOpen ? 'KI-Chat ausblenden' : 'KI-Chat einblenden'}
                     >
-                        <Sparkles size={14} />
+                        <Sparkles className={ICON_SIZES[14]} />
                         <span className="hidden xl:inline">KI-Chat</span>
                     </button>
 
-                    <button
+                    <IconButton
                         onClick={onToggleThemeMode}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        size="md"
+                        className="rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                         title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
                     >
-                        {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
-                    </button>
+                        {isDarkMode ? <Sun className={ICON_SIZES[15]} /> : <Moon className={ICON_SIZES[15]} />}
+                    </IconButton>
                 </div>
             </div>
         </header>

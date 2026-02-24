@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Task, TaskType } from '../../types/worksheet';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    OutlineNavigator – Linke Seitenleiste im Editor.
@@ -111,7 +113,7 @@ const OutlineItem: React.FC<OutlineItemProps> = ({ id, task, taskNumber, isActiv
                 {...listeners}
                 className="cursor-grab active:cursor-grabbing p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors shrink-0"
             >
-                <GripVertical size={12} />
+                <GripVertical className={ICON_SIZES[12]} />
             </div>
 
             {/* Nummer */}
@@ -122,7 +124,7 @@ const OutlineItem: React.FC<OutlineItemProps> = ({ id, task, taskNumber, isActiv
             )}
 
             {/* Icon */}
-            <Icon size={13} className="shrink-0" />
+            <Icon className={`${ICON_SIZES[13]} shrink-0`} />
 
             {/* Titel (abgeschnitten wenn zu lang) */}
             <span className="truncate flex-1 font-medium">
@@ -206,13 +208,14 @@ export const OutlineNavigator: React.FC<OutlineNavigatorProps> = ({
                 <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 tracking-wide uppercase">
                     Gliederung
                 </h3>
-                <button
+                <IconButton
                     onClick={onClose}
-                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    size="sm"
+                    className="rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Gliederung schließen"
                 >
-                    <X size={14} />
-                </button>
+                    <X className={ICON_SIZES[14]} />
+                </IconButton>
             </div>
 
             {/* Scrollbare Task-Liste */}
@@ -250,7 +253,7 @@ export const OutlineNavigator: React.FC<OutlineNavigatorProps> = ({
                         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
                             {activeTask ? (
                                 <div className="flex items-center gap-2 px-2 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium shadow-lg border border-blue-200 dark:border-blue-700">
-                                    {React.createElement(TASK_ICON[activeTask.type] ?? FileText, { size: 13 })}
+                                    {React.createElement(TASK_ICON[activeTask.type] ?? FileText, { className: `${ICON_SIZES[13]} shrink-0` })}
                                     <span className="truncate">
                                         {activeTask.title || TASK_LABEL[activeTask.type]}
                                     </span>

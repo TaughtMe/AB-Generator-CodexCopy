@@ -4,6 +4,7 @@ import {
     Divide, Radical, Superscript, Subscript, X, ChevronDown,
     Sigma,
 } from 'lucide-react';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    MathInput – LaTeX Editor with Toolbar & Live Preview
@@ -26,12 +27,12 @@ interface Snippet {
 /* ── Toolbar Snippets ── */
 
 const SNIPPETS: Snippet[] = [
-    { label: 'Bruch', icon: <Divide size={14} />, latex: '\\frac{}{}', cursorOffset: 6 },
-    { label: 'Wurzel', icon: <Radical size={14} />, latex: '\\sqrt{}', cursorOffset: 6 },
-    { label: 'Potenz', icon: <Superscript size={14} />, latex: '^{}', cursorOffset: 2 },
-    { label: 'Index', icon: <Subscript size={14} />, latex: '_{}', cursorOffset: 2 },
-    { label: 'Mal', icon: <X size={14} />, latex: '\\cdot ', cursorOffset: 6 },
-    { label: 'Summe', icon: <Sigma size={14} />, latex: '\\sum_{i=1}^{n}', cursorOffset: 6 },
+    { label: 'Bruch', icon: <Divide className={ICON_SIZES[14]} />, latex: '\\frac{}{}', cursorOffset: 6 },
+    { label: 'Wurzel', icon: <Radical className={ICON_SIZES[14]} />, latex: '\\sqrt{}', cursorOffset: 6 },
+    { label: 'Potenz', icon: <Superscript className={ICON_SIZES[14]} />, latex: '^{}', cursorOffset: 2 },
+    { label: 'Index', icon: <Subscript className={ICON_SIZES[14]} />, latex: '_{}', cursorOffset: 2 },
+    { label: 'Mal', icon: <X className={ICON_SIZES[14]} />, latex: '\\cdot ', cursorOffset: 6 },
+    { label: 'Summe', icon: <Sigma className={ICON_SIZES[14]} />, latex: '\\sum_{i=1}^{n}', cursorOffset: 6 },
     { label: 'Integral', latex: '\\int_{}^{}', cursorOffset: 6 },
 ];
 
@@ -117,7 +118,7 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                         className="flex items-center gap-0.5 px-1.5 py-1 rounded text-[11px] font-medium bg-worksheet-field text-worksheet-ink hover:bg-slate-100 border border-worksheet-border transition-colors cursor-pointer"
                     >
                         <span>αβγ</span>
-                        <ChevronDown size={10} />
+                        <ChevronDown className={ICON_SIZES[10]} />
                     </button>
                     {showGreek && (
                         <div className="absolute top-full left-0 mt-1 z-50 grid grid-cols-7 gap-0.5 p-1.5 rounded-lg bg-worksheet-paper border border-worksheet-border shadow-xl">

@@ -74,7 +74,7 @@ export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task }) => {
                         max={20}
                         value={lineRows}
                         onChange={handleRowsChange}
-                        className="w-20 h-1 bg-worksheet-border rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        className="w-20 cursor-pointer accent-blue-500"
                     />
                     <span className="text-xs font-bold text-blue-600 tabular-nums w-5 text-right">
                         {lineRows}

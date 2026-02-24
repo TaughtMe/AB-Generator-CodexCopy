@@ -3,6 +3,7 @@ import { Columns, Plus, X, ArrowLeftRight } from 'lucide-react';
 import type { ColumnsTask, ColumnsLayout, TaskType } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { TaskEditorRenderer } from './TaskRegistry';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ──────────────────────────────────────────────────
    ColumnsEditor – Zweispaltiges Layout (MVP)
@@ -93,7 +94,7 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({ task }) => {
                         className="no-print absolute top-1 right-1 z-10 p-0.5 rounded bg-red-50 text-red-400 hover:text-red-600 opacity-0 group-hover/slot:opacity-100 transition-opacity cursor-pointer"
                         title="Aus Spalte entfernen"
                     >
-                        <X size={12} />
+                        <X className={ICON_SIZES[12]} />
                     </button>
                     <TaskEditorRenderer task={childTask} />
                 </div>
@@ -112,7 +113,7 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({ task }) => {
                             onClick={() => setOpenSlot(openSlot === slotIndex ? null : slotIndex)}
                             className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors cursor-pointer"
                         >
-                            <Plus size={12} />
+                            <Plus className={ICON_SIZES[12]} />
                             Aufgabe einfügen
                         </button>
                         {openSlot === slotIndex && (
@@ -138,7 +139,7 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({ task }) => {
         <div className="columns-task">
             {/* Controls (hidden in print) */}
             <div className="no-print flex items-center gap-2 mb-2">
-                <Columns size={14} className="text-worksheet-inkLight" />
+                <Columns className={`${ICON_SIZES[14]} text-worksheet-inkLight`} />
                 <span className="text-[10px] font-medium text-worksheet-inkLight uppercase tracking-wider">
                     Zweispaltig
                 </span>
@@ -160,7 +161,7 @@ export const ColumnsEditor: React.FC<ColumnsEditorProps> = ({ task }) => {
                     className="p-1 rounded text-worksheet-inkLight hover:text-worksheet-ink hover:bg-worksheet-field transition-colors cursor-pointer"
                     title="Spalten tauschen"
                 >
-                    <ArrowLeftRight size={12} />
+                    <ArrowLeftRight className={ICON_SIZES[12]} />
                 </button>
             </div>
 

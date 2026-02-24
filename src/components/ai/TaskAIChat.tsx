@@ -3,6 +3,7 @@ import { Send, Loader2, Check, X, Sparkles } from 'lucide-react';
 import { modifyTask } from '../../services/aiService';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import type { Task } from '../../types/worksheet';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    TaskAIChat – Per-Task KI-Assistent
@@ -19,7 +20,7 @@ interface TaskAIChatProps {
 const AISkeletonLoader: React.FC = () => (
     <div className="space-y-2 animate-pulse">
         <div className="flex items-center gap-2">
-            <Sparkles size={14} className="text-purple-400" />
+            <Sparkles className={`${ICON_SIZES[14]} text-purple-400`} />
             <span className="text-xs text-purple-400 font-medium">KI denkt nach...</span>
         </div>
         <div className="space-y-1.5">
@@ -85,7 +86,7 @@ export const TaskAIChat: React.FC<TaskAIChatProps> = ({ task, onClose }) => {
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-1.5 bg-purple-100/60 border-b border-purple-200/60">
                 <div className="flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-purple-500" />
+                    <Sparkles className={`${ICON_SIZES[12]} text-purple-500`} />
                     <span className="text-[11px] font-semibold text-purple-700">
                         KI-Assistent
                     </span>
@@ -94,7 +95,7 @@ export const TaskAIChat: React.FC<TaskAIChatProps> = ({ task, onClose }) => {
                     onClick={onClose}
                     className="p-0.5 hover:bg-purple-200 rounded transition-colors cursor-pointer text-purple-400 hover:text-purple-600"
                 >
-                    <X size={12} />
+                    <X className={ICON_SIZES[12]} />
                 </button>
             </div>
 
@@ -140,13 +141,13 @@ export const TaskAIChat: React.FC<TaskAIChatProps> = ({ task, onClose }) => {
                                 onClick={applyChanges}
                                 className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors cursor-pointer"
                             >
-                                <Check size={12} /> Übernehmen
+                                <Check className={ICON_SIZES[12]} /> Übernehmen
                             </button>
                             <button
                                 onClick={discardChanges}
                                 className="flex items-center gap-1 px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-md transition-colors cursor-pointer"
                             >
-                                <X size={12} /> Verwerfen
+                                <X className={ICON_SIZES[12]} /> Verwerfen
                             </button>
                         </div>
                     </div>
@@ -169,7 +170,7 @@ export const TaskAIChat: React.FC<TaskAIChatProps> = ({ task, onClose }) => {
                             disabled={!instruction.trim() || isLoading}
                             className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            {isLoading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                            {isLoading ? <Loader2 className={`${ICON_SIZES[12]} animate-spin`} /> : <Send className={ICON_SIZES[12]} />}
                         </button>
                     </form>
                 )}

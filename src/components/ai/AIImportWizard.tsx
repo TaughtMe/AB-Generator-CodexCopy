@@ -19,6 +19,8 @@ import { useLocalModels } from '../../hooks/useLocalModels';
 import { useOpenAIModels } from '../../hooks/useOpenAIModels';
 import { useGeminiModels } from '../../hooks/useGeminiModels';
 import type { Task } from '../../types/worksheet';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    AIImportWizard – KI-gestützter Aufgaben-Import
@@ -184,7 +186,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                 <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                     <div className="flex items-center gap-2">
                         <div className="p-1.5 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg">
-                            <Sparkles size={16} className="text-white" />
+                            <Sparkles className={`${ICON_SIZES[16]} text-white`} />
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
@@ -197,12 +199,13 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                             </p>
                         </div>
                     </div>
-                    <button
+                    <IconButton
                         onClick={handleClose}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        size="md"
+                        className="rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
-                        <X size={18} className="text-slate-400" />
-                    </button>
+                        <X className={`${ICON_SIZES[18]} text-slate-400`} />
+                    </IconButton>
                 </div>
 
                 {/* Body */}
@@ -211,7 +214,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                     {/* ═══ API Key Warning ═══ */}
                     {!providerReady && (
                         <div className="flex items-start gap-2.5 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                            <XCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
+                            <XCircle className={`${ICON_SIZES[16]} text-red-500 mt-0.5 shrink-0`} />
                             <div className="text-xs text-red-600 dark:text-red-400">
                                 <p className="font-semibold">KI nicht vollständig konfiguriert</p>
                                 <p className="mt-0.5">
@@ -224,7 +227,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                     {/* ═══ Error ═══ */}
                     {error && (
                         <div className="flex items-start gap-2.5 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                            <AlertCircle size={16} className="text-amber-500 mt-0.5 shrink-0" />
+                            <AlertCircle className={`${ICON_SIZES[16]} text-amber-500 mt-0.5 shrink-0`} />
                             <div className="text-xs text-amber-700 dark:text-amber-400">
                                 <p className="font-semibold">Fehler</p>
                                 <p className="mt-0.5">{error}</p>
@@ -238,7 +241,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                             {/* ── SEKTION 1: Kontext ── */}
                             <div className="space-y-3">
                                 <h3 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                                    <BookOpen size={12} />
+                                    <BookOpen className={ICON_SIZES[12]} />
                                     Kontext
                                 </h3>
 
@@ -282,7 +285,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                             {/* ── SEKTION 2: Input ── */}
                             <div className="space-y-3">
                                 <h3 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                                    <GraduationCap size={12} />
+                                    <GraduationCap className={ICON_SIZES[12]} />
                                     Thema & Material
                                 </h3>
 
@@ -306,23 +309,24 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                                     />
                                     {screenshotBase64 ? (
                                         <div className="flex items-center gap-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                                            <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                                            <CheckCircle className={`${ICON_SIZES[14]} text-emerald-500 shrink-0`} />
                                             <span className="text-xs text-emerald-700 dark:text-emerald-400 truncate flex-1">
                                                 {screenshotName}
                                             </span>
-                                            <button
+                                            <IconButton
                                                 onClick={() => { setScreenshotBase64(null); setScreenshotName(null); }}
-                                                className="p-1 text-emerald-500 hover:text-red-500 transition-colors cursor-pointer"
+                                                size="sm"
+                                                className="text-emerald-500 hover:text-red-500"
                                             >
-                                                <Trash2 size={12} />
-                                            </button>
+                                                <Trash2 className={ICON_SIZES[12]} />
+                                            </IconButton>
                                         </div>
                                     ) : (
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
                                             className="flex items-center gap-2 w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-slate-400 transition-all cursor-pointer"
                                         >
-                                            <Upload size={14} />
+                                            <Upload className={ICON_SIZES[14]} />
                                             Bild/Screenshot hochladen (optional)
                                         </button>
                                     )}
@@ -332,7 +336,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                             {/* ── SEKTION 3: Steuerung ── */}
                             <div className="space-y-3">
                                 <h3 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                                    <SlidersHorizontal size={12} />
+                                    <SlidersHorizontal className={ICON_SIZES[12]} />
                                     Steuerung
                                 </h3>
 
@@ -381,7 +385,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                                 {/* Model Selection */}
                                 <div>
                                     <label className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                                        <Cpu size={10} />
+                                        <Cpu className={ICON_SIZES[10]} />
                                         KI-Modell
                                     </label>
                                     <div className="flex gap-1.5">
@@ -394,7 +398,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                                                     : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                                                     }`}
                                             >
-                                                {activeConfig.model === value && <CheckCircle size={12} />}
+                                                {activeConfig.model === value && <CheckCircle className={ICON_SIZES[12]} />}
                                                 {label}
                                                 <span className="text-[9px] opacity-60">({desc})</span>
                                             </button>
@@ -410,9 +414,9 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                         <div className="flex flex-col items-center justify-center py-12 space-y-4">
                             <div className="relative">
                                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg">
-                                    <Sparkles size={28} className="text-white animate-pulse" />
+                                    <Sparkles className={`${ICON_SIZES[28]} text-white animate-pulse`} />
                                 </div>
-                                <Loader2 size={20} className="absolute -bottom-1 -right-1 text-purple-500 animate-spin" />
+                                <Loader2 className={`${ICON_SIZES[20]} absolute -bottom-1 -right-1 text-purple-500 animate-spin`} />
                             </div>
                             <div className="text-center">
                                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -429,7 +433,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                     {phase === 'results' && (
                         <div className="space-y-3">
                             <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle size={16} className="text-emerald-500" />
+                                <CheckCircle className={`${ICON_SIZES[16]} text-emerald-500`} />
                                 <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                                     {generatedTasks.length} Aufgaben generiert
                                 </span>
@@ -484,7 +488,7 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                                 disabled={!canGenerate}
                                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-sm hover:shadow flex items-center gap-1.5"
                             >
-                                <Sparkles size={13} />
+                                <Sparkles className={ICON_SIZES[13]} />
                                 Generieren
                             </button>
                         </>

@@ -195,12 +195,8 @@ export async function replaceClassProfileRecords(records: ClassProfileRecord[]):
 }
 
 export async function clearAllIndexedDbData(): Promise<void> {
-    await db.transaction('rw', db.images, db.worksheets, db.designTemplates, db.classProfiles, async () => {
-        await db.images.clear();
-        await db.worksheets.clear();
-        await db.designTemplates.clear();
-        await db.classProfiles.clear();
-    });
+    await db.delete();
+    await db.open();
 }
 
 /* ══════════════════════════════════════════════════

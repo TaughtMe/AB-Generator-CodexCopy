@@ -23,6 +23,7 @@ import {
     upsertDesignTemplateByName,
     type WorksheetMeta,
     type WorksheetFilter,
+    type WorksheetRecord,
 } from './dexieStore';
 import { useWorksheetStore } from './worksheetStore';
 import type { ChatMessage } from '../types/ai';
@@ -37,6 +38,7 @@ import {
 } from '../services/aiService';
 import type { Task, WorksheetSource } from '../types/worksheet';
 import type { ClassProfile } from '../types/profiles';
+import { normalizeDesignSnapshot, type DesignSnapshot } from '../types/designTemplate';
 
 const CHAT_GREETING = 'Hallo! Ich helfe dir beim Planen deines Arbeitsblatts. Nenne mir zuerst Thema, Klasse und gewünschte Aufgabentypen.';
 const LEGACY_CLASS_MIGRATION_FLAG = 'ab-generator-classprofiles-migrated-v1';
@@ -127,6 +129,385 @@ function buildAIClassContextFromProfile(profile?: ClassProfile): AIClassContext 
     };
 }
 
+const ABGEN_WORKSHEET_SCHEMA_V1 = 1;
+const ABGEN_WORKSHEET_SCHEMA_V2 = 2;
+const ABGEN_LATEST_WORKSHEET_SCHEMA_VERSION = ABGEN_WORKSHEET_SCHEMA_V2;
+
+type AbgenEmbeddedImageAsset = {
+    id: number;
+    name: string;
+    mimeType: string;
+    dataBase64: string;
+};
+
+type AbgenWorksheetExportPayload = {
+    app: 'ab-generator';
+    kind: 'worksheet';
+    schemaVersion: number;
+    exportedAt: string;
+    worksheet: {
+        originalId: string;
+        title: string;
+        tasksById: Record<string, Task>;
+        taskIds: string[];
+        chatHistory: ChatMessage[];
+        sources: WorksheetSource[];
+        subjectId?: string;
+        classId?: string;
+        createdAt?: string;
+        updatedAt?: string;
+        design?: Partial<DesignSnapshot>;
+    };
+    assets?: {
+        images: AbgenEmbeddedImageAsset[];
+    };
+};
+
+type AbgenWorksheetImportData = {
+    title: string;
+    tasksById: Record<string, Task>;
+    taskIds: string[];
+    chatHistory: ChatMessage[];
+    sources: WorksheetSource[];
+    subjectId?: string;
+    classId?: string;
+    design?: DesignSnapshot;
+    embeddedImages?: AbgenEmbeddedImageAsset[];
+};
+
+function deepClonePlainObject<T>(value: T): T {
+    if (typeof structuredClone === 'function') {
+        return structuredClone(value);
+    }
+    return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function collectWorksheetImageIds(tasksById: Record<string, Task>): number[] {
+    const ids = new Set<number>();
+    for (const task of Object.values(tasksById)) {
+        if (task.type !== 'image-placeholder') continue;
+        if (typeof task.imageId === 'number' && Number.isFinite(task.imageId)) {
+            ids.add(task.imageId);
+        }
+    }
+    return [...ids];
+}
+
+function remapTaskImageIds(tasksById: Record<string, Task>, imageIdMap: Map<number, number>): Record<string, Task> {
+    const cloned = deepClonePlainObject(tasksById);
+    for (const task of Object.values(cloned)) {
+        if (task.type !== 'image-placeholder') continue;
+        if (typeof task.imageId !== 'number') continue;
+        const remapped = imageIdMap.get(task.imageId);
+        task.imageId = remapped;
+    }
+    return cloned;
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+    const buffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary);
+}
+
+function base64ToBlob(dataBase64: string, mimeType: string): Blob {
+    const binary = atob(dataBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mimeType || 'application/octet-stream' });
+}
+
+async function buildEmbeddedImageAssetsForWorksheetExport(
+    record: WorksheetRecord,
+    design: DesignSnapshot,
+): Promise<AbgenEmbeddedImageAsset[]> {
+    const imageIds = new Set<number>(collectWorksheetImageIds(record.tasksById));
+    if (typeof design.logoImageId === 'number' && Number.isFinite(design.logoImageId)) {
+        imageIds.add(design.logoImageId);
+    }
+
+    const assets: AbgenEmbeddedImageAsset[] = [];
+    for (const imageId of imageIds) {
+        const image = await getImage(imageId);
+        if (!image) continue;
+        assets.push({
+            id: imageId,
+            name: image.name,
+            mimeType: image.blob.type || 'application/octet-stream',
+            dataBase64: await blobToBase64(image.blob),
+        });
+    }
+
+    return assets;
+}
+
+function cloneWorksheetDataWithFreshIds(input: {
+    title: string;
+    tasksById: Record<string, Task>;
+    taskIds: string[];
+    chatHistory: ChatMessage[];
+    sources: WorksheetSource[];
+    titleSuffix?: string;
+}): {
+    id: string;
+    title: string;
+    tasksById: Record<string, Task>;
+    taskIds: string[];
+    chatHistory: ChatMessage[];
+    sources: WorksheetSource[];
+} {
+    const nextWorksheetId = crypto.randomUUID();
+    const allTaskIds = Object.keys(input.tasksById);
+    const taskIdMap: Record<string, string> = Object.fromEntries(
+        allTaskIds.map((taskId) => [taskId, crypto.randomUUID()]),
+    );
+
+    const nextTasksById: Record<string, Task> = {};
+
+    for (const [taskId, task] of Object.entries(input.tasksById)) {
+        const clonedTask = deepClonePlainObject(task);
+        clonedTask.id = taskIdMap[taskId] ?? crypto.randomUUID();
+
+        if (clonedTask.type === 'multiple-choice') {
+            clonedTask.options = clonedTask.options.map((option) => ({
+                ...option,
+                id: crypto.randomUUID(),
+            }));
+        }
+
+        if (clonedTask.type === 'columns') {
+            clonedTask.children = clonedTask.children.map((childId) => (
+                childId ? (taskIdMap[childId] ?? null) : null
+            )) as [string | null, string | null];
+        }
+
+        nextTasksById[clonedTask.id] = clonedTask;
+    }
+
+    return {
+        id: nextWorksheetId,
+        title: `${input.title}${input.titleSuffix ?? ''}`,
+        tasksById: nextTasksById,
+        taskIds: input.taskIds.map((taskId) => taskIdMap[taskId]).filter(Boolean),
+        chatHistory: deepClonePlainObject(input.chatHistory ?? []),
+        sources: deepClonePlainObject(input.sources ?? []),
+    };
+}
+
+function parseAbgenWorksheetJson(raw: string): AbgenWorksheetImportData {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch {
+        throw new Error('Die Datei ist kein gültiges JSON.');
+    }
+
+    if (!isObjectRecord(parsed)) {
+        throw new Error('Die Datei enthält kein gültiges Objekt.');
+    }
+
+    if (parsed.app !== 'ab-generator' || parsed.kind !== 'worksheet') {
+        throw new Error('Dies ist keine gültige .abgen-Arbeitsblattdatei.');
+    }
+
+    if (parsed.schemaVersion !== ABGEN_WORKSHEET_SCHEMA_V1 && parsed.schemaVersion !== ABGEN_WORKSHEET_SCHEMA_V2) {
+        throw new Error('Dieses .abgen-Format wird nicht unterstützt.');
+    }
+
+    const worksheet = parsed.worksheet;
+    if (!isObjectRecord(worksheet)) {
+        throw new Error('Der Arbeitsblatt-Block ist ungültig.');
+    }
+
+    if (!isObjectRecord(worksheet.tasksById)) {
+        throw new Error('tasksById ist ungültig.');
+    }
+
+    if (!Array.isArray(worksheet.taskIds) || !worksheet.taskIds.every((id) => typeof id === 'string')) {
+        throw new Error('taskIds ist ungültig.');
+    }
+
+    if (worksheet.chatHistory !== undefined && !Array.isArray(worksheet.chatHistory)) {
+        throw new Error('chatHistory ist ungültig.');
+    }
+
+    if (worksheet.sources !== undefined && !Array.isArray(worksheet.sources)) {
+        throw new Error('sources ist ungültig.');
+    }
+
+    const design = worksheet.design && isObjectRecord(worksheet.design)
+        ? normalizeDesignSnapshot(worksheet.design as Partial<DesignSnapshot>)
+        : undefined;
+
+    let embeddedImages: AbgenEmbeddedImageAsset[] | undefined;
+    if (parsed.schemaVersion === ABGEN_WORKSHEET_SCHEMA_V2) {
+        const assets = parsed.assets;
+        if (assets !== undefined) {
+            if (!isObjectRecord(assets) || !Array.isArray(assets.images)) {
+                throw new Error('assets.images ist ungültig.');
+            }
+
+            embeddedImages = assets.images.map((entry) => {
+                if (!isObjectRecord(entry)) {
+                    throw new Error('Ein eingebettetes Bild ist ungültig.');
+                }
+                if (typeof entry.id !== 'number' || !Number.isFinite(entry.id)) {
+                    throw new Error('Bild-ID im Asset ist ungültig.');
+                }
+                if (typeof entry.name !== 'string') {
+                    throw new Error('Bildname im Asset ist ungültig.');
+                }
+                if (typeof entry.mimeType !== 'string') {
+                    throw new Error('Bild-MIME-Type im Asset ist ungültig.');
+                }
+                if (typeof entry.dataBase64 !== 'string') {
+                    throw new Error('Bilddaten im Asset sind ungültig.');
+                }
+                return {
+                    id: entry.id,
+                    name: entry.name,
+                    mimeType: entry.mimeType,
+                    dataBase64: entry.dataBase64,
+                };
+            });
+        }
+    }
+
+    return {
+        title: typeof worksheet.title === 'string' && worksheet.title.trim()
+            ? worksheet.title.trim()
+            : 'Importiertes Arbeitsblatt',
+        tasksById: deepClonePlainObject(worksheet.tasksById as Record<string, Task>),
+        taskIds: [...worksheet.taskIds],
+        chatHistory: deepClonePlainObject((worksheet.chatHistory ?? []) as ChatMessage[]),
+        sources: deepClonePlainObject((worksheet.sources ?? []) as WorksheetSource[]),
+        subjectId:
+            typeof worksheet.subjectId === 'string' && worksheet.subjectId.trim()
+                ? worksheet.subjectId.trim()
+                : undefined,
+        classId:
+            typeof worksheet.classId === 'string' && worksheet.classId.trim()
+                ? worksheet.classId.trim()
+                : undefined,
+        design,
+        embeddedImages,
+    };
+}
+
+function buildDuplicatedWorksheetRecord(record: WorksheetRecord): {
+    id: string;
+    title: string;
+    tasksById: Record<string, Task>;
+    taskIds: string[];
+    chatHistory: ChatMessage[];
+    sources: WorksheetSource[];
+} {
+    return cloneWorksheetDataWithFreshIds({
+        title: record.title,
+        tasksById: record.tasksById,
+        taskIds: record.taskIds,
+        chatHistory: record.chatHistory ?? [],
+        sources: record.sources ?? [],
+        titleSuffix: ' (Kopie)',
+    });
+}
+
+function sanitizeWorksheetExportFilename(title: string): string {
+    const base = title
+        .replace(/[^a-zA-Z0-9äöüÄÖÜß\s_-]/g, '')
+        .trim()
+        .replace(/\s+/g, ' ');
+    return `${base || 'Arbeitsblatt'}.abgen`;
+}
+
+async function createWorksheetExportPayload(
+    record: WorksheetRecord,
+    version: 1 | 2 = ABGEN_LATEST_WORKSHEET_SCHEMA_VERSION,
+): Promise<AbgenWorksheetExportPayload> {
+    const design = useSettingsStore.getState().getDesignSnapshot();
+    const normalizedDesign = normalizeDesignSnapshot(design);
+    const includeEmbeddedImages = version >= ABGEN_WORKSHEET_SCHEMA_V2;
+    const embeddedImages = includeEmbeddedImages
+        ? await buildEmbeddedImageAssetsForWorksheetExport(record, normalizedDesign)
+        : [];
+
+    return {
+        app: 'ab-generator',
+        kind: 'worksheet',
+        schemaVersion: version,
+        exportedAt: new Date().toISOString(),
+        worksheet: {
+            originalId: record.id,
+            title: record.title,
+            tasksById: deepClonePlainObject(record.tasksById),
+            taskIds: deepClonePlainObject(record.taskIds),
+            chatHistory: deepClonePlainObject(record.chatHistory ?? []),
+            sources: deepClonePlainObject(record.sources ?? []),
+            subjectId: record.subjectId,
+            classId: record.classId,
+            createdAt: record.createdAt?.toISOString(),
+            updatedAt: record.updatedAt?.toISOString(),
+            design: normalizedDesign,
+        },
+        assets: includeEmbeddedImages ? { images: embeddedImages } : undefined,
+    };
+}
+
+async function createWorksheetExportArtifact(
+    record: WorksheetRecord,
+    version: 1 | 2 = ABGEN_LATEST_WORKSHEET_SCHEMA_VERSION,
+): Promise<{
+    filename: string;
+    json: string;
+    blob: Blob;
+}> {
+    const payload = await createWorksheetExportPayload(record, version);
+    const json = JSON.stringify(payload, null, 2);
+    return {
+        filename: sanitizeWorksheetExportFilename(record.title),
+        json,
+        blob: new Blob([json], { type: 'application/json;charset=utf-8' }),
+    };
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string): void {
+    if (typeof document === 'undefined' || typeof URL === 'undefined') {
+        throw new Error('Download ist in dieser Umgebung nicht verfügbar.');
+    }
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+}
+
+function canShareFiles(): boolean {
+    if (typeof navigator === 'undefined' || typeof File === 'undefined') return false;
+    if (typeof navigator.share !== 'function') return false;
+
+    const canShareFn = (navigator as Navigator & { canShare?: (data?: ShareData) => boolean }).canShare;
+    if (typeof canShareFn !== 'function') return false;
+
+    try {
+        const file = new File(['{}'], 'test.abgen', { type: 'application/json' });
+        return canShareFn.call(navigator, { files: [file] });
+    } catch {
+        return false;
+    }
+}
+
 /* ══════════════════════════════════════════════════
    workspaceStore.ts – Workspace / Worksheet Management
    Verbindet worksheetStore (In-Memory) mit Dexie (Persistenz).
@@ -157,9 +538,22 @@ interface WorkspaceState {
     isTemplateLoading: boolean;
     isTemplateGalleryOpen: boolean;
     editingTemplateId: string | null;
+    autoSaveStatus: WorkspaceAutoSaveStatus;
 }
 
 export type WorkspaceView = 'dashboard' | 'ai-chat' | 'editor';
+export type WorkspaceAutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+type PersistWorksheetOptions = {
+    refreshRecent?: boolean;
+    setCurrentWorksheetId?: boolean;
+};
+
+type PersistCurrentWorksheetOptions = PersistWorksheetOptions & {
+    thumbnail?: Blob;
+    chatHistory?: ChatMessage[];
+    sources?: WorksheetSource[];
+};
 
 interface WorkspaceActions {
     loadClassProfiles: () => Promise<void>;
@@ -191,6 +585,16 @@ interface WorkspaceActions {
     createNewWorksheet: () => void;
     /** Löscht ein Arbeitsblatt aus Dexie und aktualisiert die Liste */
     removeWorksheet: (id: string) => Promise<void>;
+    /** Dupliziert ein gespeichertes Arbeitsblatt inkl. frischer Task-IDs */
+    duplicateWorksheet: (id: string) => Promise<string | null>;
+    /** Exportiert ein gespeichertes Arbeitsblatt als .abgen-Datei (default: V2) */
+    exportWorksheet: (id: string, version?: 1 | 2) => Promise<void>;
+    /** Teilt ein gespeichertes Arbeitsblatt als .abgen-Datei via Web Share API */
+    shareWorksheet: (id: string) => Promise<boolean>;
+    /** UI-Helfer für bedingte Anzeige des nativen Teilen-Buttons */
+    canShareWorksheetFiles: () => boolean;
+    /** Importiert ein Arbeitsblatt aus einer .abgen-Datei und speichert es mit neuen IDs */
+    importWorksheet: (file: File) => Promise<string | null>;
     setCurrentView: (view: WorkspaceView) => void;
     addChatMessage: (message: ChatMessage) => void;
     setChatMessages: (messages: ChatMessage[]) => void;
@@ -223,7 +627,57 @@ interface WorkspaceActions {
 
 type WorkspaceStore = WorkspaceState & WorkspaceActions;
 
-export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
+export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
+    let latestPersistOperationId = 0;
+
+    const persistWorksheetRecordWithStatus = async (
+        params: Parameters<typeof saveWorksheet>,
+        options: PersistWorksheetOptions = {},
+    ): Promise<void> => {
+        const operationId = ++latestPersistOperationId;
+        set({ autoSaveStatus: 'saving' });
+
+        try {
+            await saveWorksheet(...params);
+
+            if (options.setCurrentWorksheetId) {
+                set({ currentWorksheetId: params[0] });
+            }
+
+            if (options.refreshRecent) {
+                await get().loadRecent();
+            }
+
+            if (operationId === latestPersistOperationId) {
+                set({ autoSaveStatus: 'saved' });
+            }
+        } catch (error) {
+            if (operationId === latestPersistOperationId) {
+                set({ autoSaveStatus: 'error' });
+            }
+            throw error;
+        }
+    };
+
+    const persistCurrentWorksheetWithStatus = async (options: PersistCurrentWorksheetOptions = {}): Promise<void> => {
+        const ws = useWorksheetStore.getState();
+        await persistWorksheetRecordWithStatus(
+            [
+                ws.id,
+                ws.title,
+                ws.tasksById,
+                ws.taskIds,
+                options.chatHistory ?? ws.chatHistory,
+                options.sources ?? ws.sources,
+                undefined,
+                ws.classId,
+                options.thumbnail,
+            ],
+            options,
+        );
+    };
+
+    return ({
     recentWorksheets: [],
     classProfiles: [],
     currentWorksheetId: null,
@@ -245,6 +699,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     isTemplateLoading: false,
     isTemplateGalleryOpen: false,
     editingTemplateId: null,
+    autoSaveStatus: 'idle',
 
     loadClassProfiles: async () => {
         set({ isClassProfilesLoading: true, classProfilesError: null });
@@ -345,21 +800,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     },
 
     saveCurrentWorksheet: async (thumbnail?: Blob) => {
-        const ws = useWorksheetStore.getState();
-        await saveWorksheet(
-            ws.id,
-            ws.title,
-            ws.tasksById,
-            ws.taskIds,
-            ws.chatHistory,
-            ws.sources,
-            undefined,
-            ws.classId,
+        await persistCurrentWorksheetWithStatus({
             thumbnail,
-        );
-        set({ currentWorksheetId: ws.id });
-        // Refresh recent list
-        await get().loadRecent();
+            setCurrentWorksheetId: true,
+            refreshRecent: true,
+        });
     },
 
     openWorksheet: async (id: string) => {
@@ -388,6 +833,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
                 chatStatusNotice: null,
                 isChatLoading: false,
                 isLoading: false,
+                autoSaveStatus: 'saved',
             });
             return true;
         } catch {
@@ -405,12 +851,127 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
             chatError: null,
             chatStatusNotice: null,
             isChatLoading: false,
+            autoSaveStatus: 'idle',
         });
     },
 
     removeWorksheet: async (id: string) => {
         await deleteWorksheet(id);
         await get().loadRecent();
+    },
+
+    duplicateWorksheet: async (id: string) => {
+        const original = await loadWorksheet(id);
+        if (!original) return null;
+
+        const duplicated = buildDuplicatedWorksheetRecord(original);
+
+        await saveWorksheet(
+            duplicated.id,
+            duplicated.title,
+            duplicated.tasksById,
+            duplicated.taskIds,
+            duplicated.chatHistory,
+            duplicated.sources,
+            original.subjectId,
+            original.classId,
+            original.thumbnailBlob,
+        );
+
+        await get().loadRecent();
+        return duplicated.id;
+    },
+
+    exportWorksheet: async (id: string, version = ABGEN_LATEST_WORKSHEET_SCHEMA_VERSION) => {
+        const record = await loadWorksheet(id);
+        if (!record) {
+            throw new Error('WORKSHEET_NOT_FOUND');
+        }
+
+        const { blob, filename } = await createWorksheetExportArtifact(record, version);
+        triggerBrowserDownload(blob, filename);
+    },
+
+    shareWorksheet: async (id: string) => {
+        const record = await loadWorksheet(id);
+        if (!record) {
+            throw new Error('WORKSHEET_NOT_FOUND');
+        }
+
+        if (!canShareFiles()) {
+            return false;
+        }
+
+        const { blob, filename } = await createWorksheetExportArtifact(record, ABGEN_LATEST_WORKSHEET_SCHEMA_VERSION);
+        const file = new File([blob], filename, { type: blob.type || 'application/json' });
+
+        try {
+            await navigator.share({
+                title: record.title,
+                text: `Arbeitsblatt: ${record.title}`,
+                files: [file],
+            });
+            return true;
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                return false;
+            }
+            throw error;
+        }
+    },
+
+    canShareWorksheetFiles: () => canShareFiles(),
+
+    importWorksheet: async (file) => {
+        const raw = await file.text();
+        const parsed = parseAbgenWorksheetJson(raw);
+        const imageIdMap = new Map<number, number>();
+
+        if (parsed.embeddedImages && parsed.embeddedImages.length > 0) {
+            for (const asset of parsed.embeddedImages) {
+                const blob = base64ToBlob(asset.dataBase64, asset.mimeType);
+                const newImageId = await addImage(asset.name || `import-${asset.id}`, blob);
+                imageIdMap.set(asset.id, newImageId);
+            }
+        }
+
+        const importedTasksById = imageIdMap.size > 0
+            ? remapTaskImageIds(parsed.tasksById, imageIdMap)
+            : parsed.tasksById;
+
+        let importedDesign = parsed.design;
+        if (importedDesign && typeof importedDesign.logoImageId === 'number') {
+            importedDesign = {
+                ...importedDesign,
+                logoImageId: imageIdMap.get(importedDesign.logoImageId) ?? null,
+            };
+        }
+
+        const imported = cloneWorksheetDataWithFreshIds({
+            title: parsed.title,
+            tasksById: importedTasksById,
+            taskIds: parsed.taskIds,
+            chatHistory: parsed.chatHistory,
+            sources: parsed.sources,
+        });
+
+        await saveWorksheet(
+            imported.id,
+            parsed.title,
+            imported.tasksById,
+            imported.taskIds,
+            imported.chatHistory,
+            imported.sources,
+            parsed.subjectId,
+            parsed.classId,
+        );
+
+        if (importedDesign) {
+            useSettingsStore.getState().applyDesignSnapshot(importedDesign);
+        }
+
+        await get().loadRecent();
+        return imported.id;
     },
 
     setCurrentView: (view) => {
@@ -422,17 +983,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         useWorksheetStore.getState().setChatHistory(messages);
         set({ chatMessages: messages });
         void (async () => {
-            const ws = useWorksheetStore.getState();
-            await saveWorksheet(
-                ws.id,
-                ws.title,
-                ws.tasksById,
-                ws.taskIds,
-                ws.chatHistory,
-                ws.sources,
-                undefined,
-                ws.classId,
-            );
+            await persistCurrentWorksheetWithStatus();
         })();
     },
 
@@ -440,17 +991,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         useWorksheetStore.getState().setChatHistory(messages);
         set({ chatMessages: messages });
         void (async () => {
-            const ws = useWorksheetStore.getState();
-            await saveWorksheet(
-                ws.id,
-                ws.title,
-                ws.tasksById,
-                ws.taskIds,
-                ws.chatHistory,
-                ws.sources,
-                undefined,
-                ws.classId,
-            );
+            await persistCurrentWorksheetWithStatus();
         })();
     },
 
@@ -458,17 +999,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         useWorksheetStore.getState().setChatHistory([]);
         set({ chatMessages: [] });
         void (async () => {
-            const ws = useWorksheetStore.getState();
-            await saveWorksheet(
-                ws.id,
-                ws.title,
-                ws.tasksById,
-                ws.taskIds,
-                ws.chatHistory,
-                ws.sources,
-                undefined,
-                ws.classId,
-            );
+            await persistCurrentWorksheetWithStatus();
         })();
     },
 
@@ -494,17 +1025,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
             const seeded = [{ role: 'assistant', content: CHAT_GREETING } as ChatMessage];
             useWorksheetStore.getState().setChatHistory(seeded);
             void (async () => {
-                const ws = useWorksheetStore.getState();
-                await saveWorksheet(
-                    ws.id,
-                    ws.title,
-                    ws.tasksById,
-                    ws.taskIds,
-                    ws.chatHistory,
-                    ws.sources,
-                    undefined,
-                    ws.classId,
-                );
+                await persistCurrentWorksheetWithStatus();
             })();
             return {
                 chatMessages: seeded,
@@ -524,17 +1045,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
             isChatLoading: false,
         });
         void (async () => {
-            const ws = useWorksheetStore.getState();
-            await saveWorksheet(
-                ws.id,
-                ws.title,
-                ws.tasksById,
-                ws.taskIds,
-                ws.chatHistory,
-                ws.sources,
-                undefined,
-                ws.classId,
-            );
+            await persistCurrentWorksheetWithStatus();
         })();
     },
 
@@ -557,16 +1068,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
             chatStatusNotice: null,
         });
 
-        void saveWorksheet(
-            wsStore.id,
-            wsStore.title,
-            wsStore.tasksById,
-            wsStore.taskIds,
-            nextMessages,
-            wsStore.sources,
-            undefined,
-            wsStore.classId,
-        );
+        void persistCurrentWorksheetWithStatus({ chatHistory: nextMessages });
 
         try {
             const latestWorksheet = useWorksheetStore.getState();
@@ -662,17 +1164,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
                 chatStatusNotice: revisionApplied ? 'Änderungen wurden ins Arbeitsblatt übernommen.' : null,
             });
 
-            const wsAfterReply = useWorksheetStore.getState();
-            await saveWorksheet(
-                wsAfterReply.id,
-                wsAfterReply.title,
-                wsAfterReply.tasksById,
-                wsAfterReply.taskIds,
-                wsAfterReply.chatHistory,
-                wsAfterReply.sources,
-                undefined,
-                wsAfterReply.classId,
-            );
+            await persistCurrentWorksheetWithStatus();
         } catch (err) {
             set({
                 isChatLoading: false,
@@ -684,47 +1176,17 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     setWorksheetSources: async (sources) => {
         useWorksheetStore.getState().setSources(sources);
-        const ws = useWorksheetStore.getState();
-        await saveWorksheet(
-            ws.id,
-            ws.title,
-            ws.tasksById,
-            ws.taskIds,
-            ws.chatHistory,
-            sources,
-            undefined,
-            ws.classId,
-        );
+        await persistCurrentWorksheetWithStatus({ sources });
     },
 
     upsertWorksheetSource: async (source) => {
         useWorksheetStore.getState().upsertSource(source);
-        const ws = useWorksheetStore.getState();
-        await saveWorksheet(
-            ws.id,
-            ws.title,
-            ws.tasksById,
-            ws.taskIds,
-            ws.chatHistory,
-            ws.sources,
-            undefined,
-            ws.classId,
-        );
+        await persistCurrentWorksheetWithStatus();
     },
 
     removeWorksheetSource: async (sourceId) => {
         useWorksheetStore.getState().removeSource(sourceId);
-        const ws = useWorksheetStore.getState();
-        await saveWorksheet(
-            ws.id,
-            ws.title,
-            ws.tasksById,
-            ws.taskIds,
-            ws.chatHistory,
-            ws.sources,
-            undefined,
-            ws.classId,
-        );
+        await persistCurrentWorksheetWithStatus();
     },
 
     toggleAiSidebar: () => {
@@ -881,4 +1343,5 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     clearTemplateEdit: () => {
         set({ editingTemplateId: null });
     },
-}));
+    });
+});

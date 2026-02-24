@@ -5,7 +5,10 @@ import { PROVIDER_LABELS, PROVIDER_MODEL_OPTIONS } from '../../services/ai/model
 import { useLocalModels } from '../../hooks/useLocalModels';
 import { useGeminiModels } from '../../hooks/useGeminiModels';
 import { useOpenAIModels } from '../../hooks/useOpenAIModels';
-import { exportLocalBackup, hardResetLocalData, importLocalBackup } from '../../utils/dataManagement';
+import { exportLocalBackup, importLocalBackup } from '../../utils/dataManagement';
+import { clearAllIndexedDbData } from '../../store/dexieStore';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 type SettingsTab = 'display' | 'ai' | 'chat' | 'data' | 'legal';
 
@@ -29,6 +32,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const [dataActionError, setDataActionError] = useState<string | null>(null);
     const [dataActionInfo, setDataActionInfo] = useState<string | null>(null);
     const [isDataActionRunning, setIsDataActionRunning] = useState(false);
+    const [isConfirmingReset, setIsConfirmingReset] = useState(false);
     const backupFileInputRef = useRef<HTMLInputElement | null>(null);
 
     const aiProvider = useSettingsStore((state) => state.aiProvider);
@@ -44,6 +48,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const setThemeMode = useSettingsStore((state) => state.setThemeMode);
     const setChatModelPreference = useSettingsStore((state) => state.setChatModelPreference);
     const setSubmitOnEnter = useSettingsStore((state) => state.setSubmitOnEnter);
+    const restartOnboarding = useSettingsStore((state) => state.restartOnboarding);
 
     const activeConfig = providers[aiProvider];
     const { models: detectedLocalModels } = useLocalModels(activeConfig.baseUrl ?? '', isOpen && aiProvider === 'local');
@@ -71,6 +76,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const effectiveChatModel = chatPreference === 'auto' ? activeConfig.model : chatPreference;
 
     async function handleBackupDownload() {
+        setIsConfirmingReset(false);
         setDataActionError(null);
         setDataActionInfo(null);
         setIsDataActionRunning(true);
@@ -85,6 +91,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
 
     function handleRestoreClick() {
+        setIsConfirmingReset(false);
         setDataActionError(null);
         setDataActionInfo(null);
         backupFileInputRef.current?.click();
@@ -95,6 +102,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         event.target.value = '';
         if (!file) return;
 
+        setIsConfirmingReset(false);
         setDataActionError(null);
         setDataActionInfo('Backup wird wiederhergestellt. Die Seite wird danach neu geladen.');
         setIsDataActionRunning(true);
@@ -108,18 +116,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     async function handleDeleteAllLocalData() {
         setDataActionError(null);
-        setDataActionInfo(null);
-        const shouldReset = window.confirm('Alle lokalen Daten wirklich löschen? Dieser Schritt kann nicht rückgängig gemacht werden.');
-        if (!shouldReset) return;
+        if (!isConfirmingReset) {
+            setIsConfirmingReset(true);
+            setDataActionInfo('Erneut klicken, um alle lokalen Daten endgültig zu löschen.');
+            return;
+        }
 
+        setIsConfirmingReset(false);
         setDataActionInfo('Lokale Daten werden gelöscht. Die Seite wird danach neu geladen.');
         setIsDataActionRunning(true);
         try {
-            await hardResetLocalData();
+            await clearAllIndexedDbData();
+            await Promise.resolve().then(() => {
+                localStorage.clear();
+            });
+            window.location.reload();
         } catch (error) {
             setDataActionError(error instanceof Error ? error.message : 'Lokale Daten konnten nicht gelöscht werden.');
             setIsDataActionRunning(false);
         }
+    }
+
+    function handleRestartOnboarding() {
+        onClose();
+        restartOnboarding();
     }
 
     if (!isOpen) return null;
@@ -134,13 +154,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Globale Einstellungen</h2>
                         <p className="text-[11px] text-slate-500">Zentral für Dashboard, Editor und KI-Funktionen.</p>
                     </div>
-                    <button
+                    <IconButton
                         onClick={onClose}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        size="md"
+                        className="rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
                         title="Schließen"
                     >
-                        <X size={18} />
-                    </button>
+                        <X className={ICON_SIZES[18]} />
+                    </IconButton>
                 </div>
 
                 <div className="h-[calc(82vh-57px)] flex">
@@ -158,7 +179,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                                         }`}
                                     >
-                                        <Icon size={16} />
+                                        <Icon className={ICON_SIZES[16]} />
                                         {label}
                                     </button>
                                 );
@@ -181,7 +202,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
                                         }`}
                                     >
-                                        <Sun size={18} className="text-amber-500" />
+                                        <Sun className={`${ICON_SIZES[18]} text-amber-500`} />
                                         <div className="text-left">
                                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Light Mode</p>
                                             <p className="text-xs text-slate-500">Heller Hintergrund</p>
@@ -196,11 +217,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
                                         }`}
                                     >
-                                        <Moon size={18} className="text-indigo-500" />
+                                        <Moon className={`${ICON_SIZES[18]} text-indigo-500`} />
                                         <div className="text-left">
                                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Dark Mode</p>
                                             <p className="text-xs text-slate-500">Dunkler Hintergrund</p>
                                         </div>
+                                    </button>
+                                </div>
+
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50/60 dark:bg-slate-800/40">
+                                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Onboarding & Hilfe</p>
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        Starte die Einführung erneut, wenn du die wichtigsten Bereiche der App noch einmal sehen möchtest.
+                                    </p>
+                                    <button
+                                        onClick={handleRestartOnboarding}
+                                        className="mt-3 px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                                    >
+                                        Tour erneut starten
                                     </button>
                                 </div>
                             </div>
@@ -359,9 +393,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         <button
                                             onClick={handleDeleteAllLocalData}
                                             disabled={isDataActionRunning}
-                                            className="px-3 py-2 text-xs rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            className={`px-3 py-2 text-xs rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                                                isConfirmingReset
+                                                    ? 'border-red-600 bg-red-600 text-white hover:bg-red-700 motion-safe:animate-pulse'
+                                                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                            }`}
                                         >
-                                            Alle lokalen Daten löschen
+                                            {isConfirmingReset ? 'Wirklich löschen?' : 'Alle lokalen Daten löschen'}
                                         </button>
                                     </div>
 

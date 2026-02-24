@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { ExternalLink, Plus, Trash2, X } from 'lucide-react';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 interface SourcesManagerModalProps {
     isOpen: boolean;
@@ -82,13 +84,14 @@ export const SourcesManagerModal: React.FC<SourcesManagerModalProps> = ({ isOpen
                         <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Quellen zum Arbeitsblatt</h2>
                         <p className="text-[11px] text-slate-500">Links für Recherche und Urheberrecht dokumentieren.</p>
                     </div>
-                    <button
+                    <IconButton
                         onClick={onClose}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        size="md"
+                        className="rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
                         title="Schließen"
                     >
-                        <X size={18} />
-                    </button>
+                        <X className={ICON_SIZES[18]} />
+                    </IconButton>
                 </div>
 
                 <div className="p-5 space-y-4">
@@ -111,7 +114,7 @@ export const SourcesManagerModal: React.FC<SourcesManagerModalProps> = ({ isOpen
                             onClick={handleAddSource}
                             className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors cursor-pointer"
                         >
-                            <Plus size={14} /> Hinzufügen
+                            <Plus className={ICON_SIZES[14]} /> Hinzufügen
                         </button>
                     </div>
 
@@ -144,18 +147,19 @@ export const SourcesManagerModal: React.FC<SourcesManagerModalProps> = ({ isOpen
                                                 rel="noreferrer"
                                                 className="text-xs text-blue-600 hover:text-blue-700 inline-flex items-center gap-1 truncate"
                                             >
-                                                <ExternalLink size={12} />
+                                                <ExternalLink className={ICON_SIZES[12]} />
                                                 <span className="truncate">{source.url}</span>
                                             </a>
                                         </div>
 
-                                        <button
+                                        <IconButton
                                             onClick={() => handleDeleteSource(source.id)}
-                                            className="p-1.5 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors cursor-pointer"
+                                            size="md"
+                                            className="text-slate-400 hover:text-red-500 hover:bg-red-50"
                                             title="Quelle löschen"
                                         >
-                                            <Trash2 size={14} />
-                                        </button>
+                                            <Trash2 className={ICON_SIZES[14]} />
+                                        </IconButton>
                                     </li>
                                 ))}
                             </ul>

@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
+import { ICON_SIZES } from '../ui/iconSizes';
+import { AppFooter } from './AppFooter';
+import { LegalModals, type LegalModalType } from './LegalModals';
+import { useSettingsStore } from '../../store/settingsStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { OnboardingTour } from '../onboarding/OnboardingTour';
 
 /* ══════════════════════════════════════════════════
    AppShell.tsx – Das Basis-Layout ("Lehrer-Schreibtisch")
@@ -25,9 +31,32 @@ export const AppShell: React.FC<AppShellProps> = ({
     children,
 }) => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [activeLegalModal, setActiveLegalModal] = useState<LegalModalType | null>(null);
+    const [isOnboardingRunning, setIsOnboardingRunning] = useState(false);
+
+    const hasSeenOnboarding = useSettingsStore((state) => state.hasSeenOnboarding);
+    const completeOnboarding = useSettingsStore((state) => state.completeOnboarding);
+    const currentView = useWorkspaceStore((state) => state.currentView);
+
+    const shouldAutoStartOnboarding = !hasSeenOnboarding
+        && currentView === 'dashboard'
+        && activeView === 'dashboard';
+
+    useEffect(() => {
+        if (!shouldAutoStartOnboarding || isOnboardingRunning) return;
+        setIsOnboardingRunning(true);
+    }, [isOnboardingRunning, shouldAutoStartOnboarding]);
 
     return (
         <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
+            <OnboardingTour
+                run={isOnboardingRunning}
+                onComplete={() => {
+                    setIsOnboardingRunning(false);
+                    completeOnboarding();
+                }}
+            />
+
             {/* ── Mobile Overlay Backdrop ── */}
             {sidebarOpen && (
                 <div
@@ -66,11 +95,22 @@ export const AppShell: React.FC<AppShellProps> = ({
                     className="md:hidden fixed top-4 left-4 z-20 p-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-lg cursor-pointer"
                     aria-label="Menü öffnen"
                 >
-                    <Menu className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+                    <Menu className={`${ICON_SIZES[20]} text-slate-600 dark:text-slate-300`} />
                 </button>
 
-                {children}
+                <div className="min-h-screen flex flex-col">
+                    <div className="flex-1 min-h-0">
+                        {children}
+                    </div>
+
+                    <AppFooter onOpenLegalModal={(modal) => setActiveLegalModal(modal)} />
+                </div>
             </main>
+
+            <LegalModals
+                activeModal={activeLegalModal}
+                onClose={() => setActiveLegalModal(null)}
+            />
         </div>
     );
 };

@@ -41,6 +41,7 @@ interface SettingsState {
     providers: AIProviderSettings;
     chatModelPreferences: Record<AIProvider, string>;
     submitOnEnter: boolean;
+    hasSeenOnboarding: boolean;
     themeMode: ThemeMode;
     schoolType: string;
     subject: string;
@@ -65,6 +66,8 @@ interface SettingsActions {
     setProviderSelectedModelIds: (provider: AIProvider, ids: string[]) => void;
     setChatModelPreference: (provider: AIProvider, model: string) => void;
     setSubmitOnEnter: (value: boolean) => void;
+    completeOnboarding: () => void;
+    restartOnboarding: () => void;
     setThemeMode: (mode: ThemeMode) => void;
     toggleThemeMode: () => void;
     setSchoolType: (type: string) => void;
@@ -131,6 +134,7 @@ export const useSettingsStore = create<SettingsStore>()(
                 local: 'auto',
             },
             submitOnEnter: true,
+            hasSeenOnboarding: false,
             themeMode: 'light' as ThemeMode,
             schoolType: '',
             subject: '',
@@ -196,6 +200,8 @@ export const useSettingsStore = create<SettingsStore>()(
                     },
                 })),
             setSubmitOnEnter: (value) => set({ submitOnEnter: value }),
+            completeOnboarding: () => set({ hasSeenOnboarding: true }),
+            restartOnboarding: () => set({ hasSeenOnboarding: false }),
             setThemeMode: (mode) => set({ themeMode: mode }),
             toggleThemeMode: () =>
                 set((state) => ({
@@ -246,14 +252,22 @@ export const useSettingsStore = create<SettingsStore>()(
         }),
         {
             name: 'ab-generator-settings',
-            version: 7,
+            version: 8,
             migrate: (persistedState, version) => {
                 if (!persistedState || typeof persistedState !== 'object') {
                     return persistedState as SettingsStore;
                 }
 
-                if (version >= 7) {
+                if (version >= 8) {
                     return persistedState as SettingsStore;
+                }
+
+                if (version === 7) {
+                    const stateV7 = persistedState as SettingsStore;
+                    return {
+                        ...stateV7,
+                        hasSeenOnboarding: stateV7.hasSeenOnboarding ?? false,
+                    } as SettingsStore;
                 }
 
                 if (version === 6) {

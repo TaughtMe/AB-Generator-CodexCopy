@@ -3,6 +3,7 @@ import type { MultipleChoiceTask } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { Plus, Trash2, Check } from 'lucide-react';
 import { RichTextEditor } from '../editor/RichTextEditor';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 interface MultipleChoiceEditorProps {
     task: MultipleChoiceTask;
@@ -81,7 +82,7 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                                 data-correct={option.isCorrect}
                                 data-teacher={isTeacherMode}
                             >
-                                <Check size={14} strokeWidth={3} />
+                                <Check className={ICON_SIZES[14]} strokeWidth={3} />
                             </button>
 
                             {/* Print-only checkbox indicator */}
@@ -106,7 +107,7 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                                 className="shrink-0 p-1.5 text-worksheet-inkLight/60 hover:text-red-500 rounded transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover/option:opacity-100 no-print"
                                 title="Option entfernen"
                             >
-                                <Trash2 size={14} />
+                                <Trash2 className={ICON_SIZES[14]} />
                             </button>
                         </div>
                     ))}
@@ -118,7 +119,7 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                 onClick={addOption}
                 className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-600 font-medium transition-colors cursor-pointer no-print"
             >
-                <Plus size={16} /> Option hinzufügen
+                <Plus className={ICON_SIZES[16]} /> Option hinzufügen
             </button>
         </div>
     );

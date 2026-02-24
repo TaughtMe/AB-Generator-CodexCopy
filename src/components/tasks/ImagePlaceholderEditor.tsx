@@ -4,6 +4,7 @@ import { addImage, getImageUrl } from '../../store/dexieStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import type { ImagePlaceholderTask } from '../../types/worksheet';
 import { useImageUpload } from '../../hooks/useImageUpload';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    ImagePlaceholderEditor – Bild-Platzhalter Task
@@ -95,7 +96,7 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
                         className="no-print absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-lg"
                         title="Bild entfernen"
                     >
-                        <X size={14} />
+                        <X className={ICON_SIZES[14]} />
                     </button>
                 </div>
             ) : (
@@ -116,16 +117,16 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
                 >
                     {isUploading ? (
                         <>
-                            <Loader2 size={32} className="text-blue-500 animate-spin" />
+                            <Loader2 className={`${ICON_SIZES[32]} text-blue-500 animate-spin`} />
                             <span className="text-sm text-worksheet-inkLight">Wird hochgeladen...</span>
                         </>
                     ) : (
                         <>
                             <div className="p-3 bg-worksheet-field border border-worksheet-border rounded-full print:bg-transparent print:border-none">
                                 {isDragOver ? (
-                                    <Upload size={24} className="text-blue-500" />
+                                    <Upload className={`${ICON_SIZES[24]} text-blue-500`} />
                                 ) : (
-                                    <ImageIcon size={24} className="text-worksheet-inkLight" />
+                                    <ImageIcon className={`${ICON_SIZES[24]} text-worksheet-inkLight`} />
                                 )}
                             </div>
                             <div className="text-center">

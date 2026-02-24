@@ -23,6 +23,7 @@ import { ClassesDashboard } from './components/dashboard/ClassesDashboard';
 import './styles/PrintStyles.css';
 
 function App() {
+  const worksheetId = useWorksheetStore((state) => state.id);
   const title = useWorksheetStore((state) => state.title);
   const taskIds = useWorksheetStore((state) => state.taskIds);
   const tasksById = useWorksheetStore((state) => state.tasksById);
@@ -41,6 +42,9 @@ function App() {
   const setClassId = useWorksheetStore((state) => state.setClassId);
 
   const saveCurrentWorksheet = useWorkspaceStore((s) => s.saveCurrentWorksheet);
+  const exportWorksheet = useWorkspaceStore((s) => s.exportWorksheet);
+  const shareWorksheet = useWorkspaceStore((s) => s.shareWorksheet);
+  const canShareWorksheetFiles = useWorkspaceStore((s) => s.canShareWorksheetFiles);
   const classProfiles = useWorkspaceStore((s) => s.classProfiles);
   const loadClassProfiles = useWorkspaceStore((s) => s.loadClassProfiles);
   const currentView = useWorkspaceStore((s) => s.currentView);
@@ -67,6 +71,8 @@ function App() {
   const [showSourcesManager, setShowSourcesManager] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [isAbgenExporting, setIsAbgenExporting] = useState(false);
+  const [isAbgenSharing, setIsAbgenSharing] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', themeMode === 'dark');
@@ -93,6 +99,32 @@ function App() {
 
   const handleDocxExport = () => {
     exportToDocx(title, tasksById, taskIds, isTeacherMode);
+  };
+
+  const handleAbgenExport = async () => {
+    if (taskIds.length === 0) return;
+    setIsAbgenExporting(true);
+    try {
+      await saveCurrentWorksheet();
+      await exportWorksheet(worksheetId);
+    } catch (error) {
+      window.alert('ABGEN-Export fehlgeschlagen.\n\n' + String(error));
+    } finally {
+      setIsAbgenExporting(false);
+    }
+  };
+
+  const handleAbgenShare = async () => {
+    if (taskIds.length === 0) return;
+    setIsAbgenSharing(true);
+    try {
+      await saveCurrentWorksheet();
+      await shareWorksheet(worksheetId);
+    } catch (error) {
+      window.alert('ABGEN-Teilen fehlgeschlagen.\n\n' + String(error));
+    } finally {
+      setIsAbgenSharing(false);
+    }
   };
 
   const handleToggleHeaderDesign = () => {
@@ -180,6 +212,11 @@ function App() {
         hasTasks={taskIds.length > 0}
         onExportDocx={handleDocxExport}
         onExportPDF={handlePdfExport}
+        onExportAbgen={handleAbgenExport}
+        onShareAbgen={handleAbgenShare}
+        canShareAbgen={canShareWorksheetFiles()}
+        isAbgenExporting={isAbgenExporting}
+        isAbgenSharing={isAbgenSharing}
         isDarkMode={themeMode === 'dark'}
         onToggleThemeMode={toggleThemeMode}
         isAiSidebarOpen={isAiSidebarOpen}

@@ -3,6 +3,8 @@ import { BookOpen, LayoutDashboard, FolderOpen, Users, Settings, HelpCircle, Che
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { DashboardView } from './AppShell';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    Sidebar.tsx – Fixe linke Navigation
@@ -50,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         className="w-full flex items-center gap-3 px-3 py-2.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                     >
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
-                            <BookOpen size={14} className="text-white" />
+                            <BookOpen className={`${ICON_SIZES[14]} text-white`} />
                         </div>
                         <div className="flex-1 text-left min-w-0">
                             <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-none mb-0.5">
@@ -60,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 {contextLabel}
                             </p>
                         </div>
-                        <ChevronDown size={14} className="text-slate-400 shrink-0" />
+                        <ChevronDown className={`${ICON_SIZES[14]} text-slate-400 shrink-0`} />
                     </button>
 
                     {/* Kontext-Dropdown (öffnet bei Hover) */}
@@ -96,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* ── Navigation ── */}
-            <nav className="px-3 flex-1">
+            <nav className="px-3 flex-1" data-tour="sidebar-nav">
                 <ul className="space-y-0.5">
                     {NAV_ITEMS.map(({ id, label, icon: Icon, action }, index) => {
                         const isActive = !action && activeView === id;
@@ -113,7 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         }
                                     `}
                                 >
-                                    <Icon size={17} className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'} />
+                                    <Icon className={`${ICON_SIZES[17]} ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`} />
                                     {label}
                                 </button>
                             </li>
@@ -124,9 +126,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* ── Footer (Hilfe + Avatar) ── */}
             <div className="px-4 py-4 border-t border-slate-100 dark:border-slate-700/40 flex items-center justify-between">
-                <button className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer" title="Hilfe">
-                    <HelpCircle size={18} />
-                </button>
+                <IconButton
+                    size="lg"
+                    className="text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-600 dark:hover:text-slate-300"
+                    title="Hilfe"
+                >
+                    <HelpCircle className={ICON_SIZES[18]} />
+                </IconButton>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
                     <span className="text-[11px] font-bold text-white">L</span>
                 </div>

@@ -1,9 +1,10 @@
 import React from 'react';
-import { Trash2, CheckSquare, Type, Grid3X3, Image, Columns, Calculator, Scissors } from 'lucide-react';
+import { Trash2, CheckSquare, Type, Grid3X3, Image, Columns, Calculator, Scissors, Copy, MoreVertical, FileDown, Share2 } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import type { WorksheetMeta, TaskPreviewItem } from '../../store/dexieStore';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    WorksheetCard.tsx – Einzelne Dokumentenkarte
@@ -14,7 +15,14 @@ import type { WorksheetMeta, TaskPreviewItem } from '../../store/dexieStore';
 interface WorksheetCardProps {
     meta: WorksheetMeta;
     isDeleting: boolean;
+    isDuplicating: boolean;
+    isExporting: boolean;
+    isSharing: boolean;
+    canShare: boolean;
     onOpen: (id: string) => void;
+    onDuplicate: (e: React.MouseEvent, meta: WorksheetMeta) => void;
+    onExport: (e: React.MouseEvent, meta: WorksheetMeta) => void;
+    onShare: (e: React.MouseEvent, meta: WorksheetMeta) => void;
     onDelete: (e: React.MouseEvent, meta: WorksheetMeta) => void;
 }
 
@@ -50,14 +58,14 @@ function getColorForSubject(subjectId?: string): typeof subjectColors[0] {
 /** Icon per Task-Typ */
 function taskIcon(type: string) {
     switch (type) {
-        case 'multiple-choice': return <CheckSquare size={7} className="shrink-0" />;
-        case 'cloze': return <Type size={7} className="shrink-0" />;
-        case 'lineatur': return <Grid3X3 size={7} className="shrink-0" />;
-        case 'image-placeholder': return <Image size={7} className="shrink-0" />;
-        case 'columns': return <Columns size={7} className="shrink-0" />;
-        case 'math': return <Calculator size={7} className="shrink-0" />;
-        case 'page-break': return <Scissors size={7} className="shrink-0" />;
-        default: return <Type size={7} className="shrink-0" />;
+        case 'multiple-choice': return <CheckSquare className={`${ICON_SIZES[7]} shrink-0`} />;
+        case 'cloze': return <Type className={`${ICON_SIZES[7]} shrink-0`} />;
+        case 'lineatur': return <Grid3X3 className={`${ICON_SIZES[7]} shrink-0`} />;
+        case 'image-placeholder': return <Image className={`${ICON_SIZES[7]} shrink-0`} />;
+        case 'columns': return <Columns className={`${ICON_SIZES[7]} shrink-0`} />;
+        case 'math': return <Calculator className={`${ICON_SIZES[7]} shrink-0`} />;
+        case 'page-break': return <Scissors className={`${ICON_SIZES[7]} shrink-0`} />;
+        default: return <Type className={`${ICON_SIZES[7]} shrink-0`} />;
     }
 }
 
@@ -108,7 +116,14 @@ const MiniTaskLine: React.FC<{ item: TaskPreviewItem; index: number }> = ({ item
 export const WorksheetCard: React.FC<WorksheetCardProps> = ({
     meta,
     isDeleting,
+    isDuplicating,
+    isExporting,
+    isSharing,
+    canShare,
     onOpen,
+    onDuplicate,
+    onExport,
+    onShare,
     onDelete,
 }) => {
     const subjects = useProfileStore((s) => s.subjects);
@@ -120,17 +135,33 @@ export const WorksheetCard: React.FC<WorksheetCardProps> = ({
     const classProfile = meta.classId ? classes.find((c) => c.id === meta.classId) : null;
     const colors = getColorForSubject(meta.subjectId);
     const badgeLabel = [subject?.name, classProfile?.name].filter(Boolean).join(' · ');
+    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const menuRef = React.useRef<HTMLDivElement | null>(null);
+    const isBusy = isDeleting || isDuplicating || isExporting || isSharing;
 
     let taskNum = 0;
+
+    React.useEffect(() => {
+        if (!isMenuOpen) return;
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (!menuRef.current) return;
+            if (menuRef.current.contains(event.target as Node)) return;
+            setIsMenuOpen(false);
+        };
+
+        window.addEventListener('pointerdown', handlePointerDown);
+        return () => window.removeEventListener('pointerdown', handlePointerDown);
+    }, [isMenuOpen]);
 
     return (
         <div
             role="button"
             tabIndex={0}
-            onClick={() => !isDeleting && onOpen(meta.id)}
-            onKeyDown={(e) => { if (!isDeleting && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(meta.id); } }}
-            aria-disabled={isDeleting || undefined}
-            className={`group relative flex flex-col w-44 shrink-0 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/40 rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-blue-400/60 dark:hover:border-blue-500/40 transition-all duration-200 cursor-pointer text-left snap-start ${isDeleting ? 'opacity-40 pointer-events-none' : ''}`}
+            onClick={() => !isBusy && onOpen(meta.id)}
+            onKeyDown={(e) => { if (!isBusy && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(meta.id); } }}
+            aria-disabled={isBusy || undefined}
+            className={`group relative flex flex-col w-44 shrink-0 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/40 rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-blue-400/60 dark:hover:border-blue-500/40 transition-all duration-200 cursor-pointer text-left snap-start ${isBusy ? 'opacity-60' : ''}`}
         >
             {/* ── Thumbnail: Screenshot oder Fallback ── */}
             <div className="relative w-full h-28 bg-slate-50 dark:bg-slate-900 overflow-hidden">
@@ -187,14 +218,80 @@ export const WorksheetCard: React.FC<WorksheetCardProps> = ({
                 </div>
             </div>
 
-            {/* ── Löschen ── */}
-            <button
-                onClick={(e) => onDelete(e, meta)}
-                className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 bg-black/30 hover:bg-red-600 text-white transition-all cursor-pointer"
-                title="Löschen"
-            >
-                <Trash2 size={12} />
-            </button>
+            {/* ── Aktionen (Dropdown) ── */}
+            <div ref={menuRef} className="absolute top-2 right-2 z-20">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (isBusy) return;
+                        setIsMenuOpen((open) => !open);
+                    }}
+                    className="p-1 rounded-md bg-black/30 hover:bg-black/45 text-white transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    title="Aktionen"
+                    aria-label="Aktionen öffnen"
+                    aria-expanded={isMenuOpen}
+                    disabled={isBusy}
+                >
+                    <MoreVertical className={ICON_SIZES[12]} />
+                </button>
+
+                {isMenuOpen && (
+                    <div
+                        className="mt-1 w-40 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={(e) => {
+                                setIsMenuOpen(false);
+                                onDuplicate(e, meta);
+                            }}
+                            disabled={isBusy}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            <Copy className={ICON_SIZES[12]} />
+                            <span>{isDuplicating ? 'Dupliziere...' : 'Duplizieren'}</span>
+                        </button>
+
+                        <button
+                            onClick={(e) => {
+                                setIsMenuOpen(false);
+                                onExport(e, meta);
+                            }}
+                            disabled={isBusy}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            <FileDown className={ICON_SIZES[12]} />
+                            <span>{isExporting ? 'Exportiere...' : 'Exportieren (.abgen)'}</span>
+                        </button>
+
+                        {canShare && (
+                            <button
+                                onClick={(e) => {
+                                    setIsMenuOpen(false);
+                                    onShare(e, meta);
+                                }}
+                                disabled={isBusy}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                <Share2 className={ICON_SIZES[12]} />
+                                <span>{isSharing ? 'Teile...' : 'Teilen'}</span>
+                            </button>
+                        )}
+
+                        <button
+                            onClick={(e) => {
+                                setIsMenuOpen(false);
+                                onDelete(e, meta);
+                            }}
+                            disabled={isBusy}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            <Trash2 className={ICON_SIZES[12]} />
+                            <span>Löschen</span>
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

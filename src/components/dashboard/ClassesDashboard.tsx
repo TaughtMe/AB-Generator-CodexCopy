@@ -3,6 +3,8 @@ import { BookOpen, Users, Plus, X, Pencil, Save, Trash2 } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { ClassProfile } from '../../types/profiles';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 interface ClassFormState {
     name: string;
@@ -141,18 +143,19 @@ export const ClassesDashboard: React.FC = () => {
                     <section className="p-5 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 rounded-xl">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                                <BookOpen size={16} className="text-blue-500" />
+                                <BookOpen className={`${ICON_SIZES[16]} text-blue-500`} />
                                 <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                     Faecher ({subjects.length})
                                 </h3>
                             </div>
-                            <button
+                            <IconButton
                                 onClick={() => setShowSubjectForm((v) => !v)}
-                                className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-500 cursor-pointer transition-colors"
+                                size="md"
+                                className="rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-500"
                                 title="Fach hinzufuegen"
                             >
-                                {showSubjectForm ? <X size={15} /> : <Plus size={15} />}
-                            </button>
+                                {showSubjectForm ? <X className={ICON_SIZES[15]} /> : <Plus className={ICON_SIZES[15]} />}
+                            </IconButton>
                         </div>
 
                         {subjects.length === 0 && !showSubjectForm ? (
@@ -165,13 +168,14 @@ export const ClassesDashboard: React.FC = () => {
                                         className="group/chip inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg"
                                     >
                                         {subject.name}
-                                        <button
+                                        <IconButton
                                             onClick={() => removeSubject(subject.id)}
-                                            className="opacity-0 group-hover/chip:opacity-100 hover:text-red-500 cursor-pointer transition-opacity"
+                                            size="sm"
+                                            className="opacity-0 group-hover/chip:opacity-100 hover:text-red-500 transition-opacity"
                                             title="Entfernen"
                                         >
-                                            <X size={11} />
-                                        </button>
+                                            <X className={ICON_SIZES[11]} />
+                                        </IconButton>
                                     </span>
                                 ))}
                             </div>
@@ -207,7 +211,7 @@ export const ClassesDashboard: React.FC = () => {
 
                     <section className="p-5 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 rounded-xl">
                         <div className="flex items-center gap-2 mb-3">
-                            <Users size={16} className="text-emerald-500" />
+                            <Users className={`${ICON_SIZES[16]} text-emerald-500`} />
                             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                 Klassenprofile ({classProfiles.length})
                             </h3>
@@ -246,20 +250,22 @@ export const ClassesDashboard: React.FC = () => {
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
-                                                    <button
+                                                    <IconButton
                                                         onClick={() => handleEditClass(profile)}
-                                                        className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"
+                                                        size="md"
+                                                        className="rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                                                         title="Bearbeiten"
                                                     >
-                                                        <Pencil size={14} />
-                                                    </button>
-                                                    <button
+                                                        <Pencil className={ICON_SIZES[14]} />
+                                                    </IconButton>
+                                                    <IconButton
                                                         onClick={() => void handleDeleteClass(profile)}
-                                                        className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 cursor-pointer"
+                                                        size="md"
+                                                        className="rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400"
                                                         title="Löschen"
                                                     >
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                                        <Trash2 className={ICON_SIZES[14]} />
+                                                    </IconButton>
                                                 </div>
                                             </div>
                                         </div>
@@ -284,7 +290,7 @@ export const ClassesDashboard: React.FC = () => {
                             onClick={resetClassForm}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
                         >
-                            <Plus size={13} /> Neu
+                            <Plus className={ICON_SIZES[13]} /> Neu
                         </button>
                     </div>
 
@@ -356,7 +362,7 @@ export const ClassesDashboard: React.FC = () => {
                                 disabled={isSavingClass || !classForm.name.trim()}
                                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <Save size={15} /> {isSavingClass ? 'Speichere ...' : editingClassId ? 'Aenderungen speichern' : 'Klassenprofil anlegen'}
+                                <Save className={ICON_SIZES[15]} /> {isSavingClass ? 'Speichere ...' : editingClassId ? 'Aenderungen speichern' : 'Klassenprofil anlegen'}
                             </button>
                             {editingClassId && (
                                 <button

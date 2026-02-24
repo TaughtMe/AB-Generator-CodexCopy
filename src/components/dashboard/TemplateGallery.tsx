@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { X, LayoutTemplate, Trash2, Pencil } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { DesignTemplate } from '../../types/designTemplate';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 interface TemplateGalleryProps {
     isOpen: boolean;
@@ -105,12 +107,13 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
                             Gespeicherte Design-Vorlagen verwalten
                         </p>
                     </div>
-                    <button
+                    <IconButton
                         onClick={onClose}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        size="md"
+                        className="rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
-                        <X size={18} className="text-slate-400" />
-                    </button>
+                        <X className={`${ICON_SIZES[18]} text-slate-400`} />
+                    </IconButton>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
@@ -128,7 +131,7 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
 
                     {!errorMessage && designTemplates.length === 0 && (
                         <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-700/40 rounded-2xl bg-white/50 dark:bg-slate-800/20">
-                            <LayoutTemplate size={34} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                            <LayoutTemplate className={`${ICON_SIZES[34]} mx-auto text-slate-300 dark:text-slate-600 mb-3`} />
                             <p className="text-sm text-slate-500 dark:text-slate-400">Noch keine Vorlagen gespeichert.</p>
                         </div>
                     )}
@@ -161,7 +164,7 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
                                                     disabled={isBusy}
                                                     className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 text-xs rounded-lg bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                                 >
-                                                    <Pencil size={12} />
+                                                    <Pencil className={ICON_SIZES[12]} />
                                                     {isEditing ? 'Lädt...' : 'Bearbeiten'}
                                                 </button>
 
@@ -171,7 +174,7 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
                                                     className="px-2.5 py-2 text-xs rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                                     title="Vorlage löschen"
                                                 >
-                                                    <Trash2 size={13} />
+                                                    <Trash2 className={ICON_SIZES[13]} />
                                                 </button>
                                             </div>
                                         </div>

@@ -6,6 +6,8 @@ import { useImageUpload } from '../../hooks/useImageUpload';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { validateTemplateName } from '../../types/designTemplate';
 import { CURATED_FONTS, loadGoogleFont, preloadCuratedFonts } from '../../utils/googleFonts';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    DesignEditor – Arbeitsblatt-Design konfigurieren
@@ -208,7 +210,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                 <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                     <div className="flex items-center gap-2">
                         <div className="p-1.5 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-lg">
-                            <Palette size={16} className="text-white" />
+                            <Palette className={`${ICON_SIZES[16]} text-white`} />
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
@@ -224,12 +226,13 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                             )}
                         </div>
                     </div>
-                    <button
+                    <IconButton
                         onClick={onClose}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        size="md"
+                        className="rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
-                        <X size={18} className="text-slate-400" />
-                    </button>
+                        <X className={`${ICON_SIZES[18]} text-slate-400`} />
+                    </IconButton>
                 </div>
 
                 {/* Split Panel */}
@@ -241,7 +244,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                         {/* Logo */}
                         <div>
                             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
-                                <FolderOpen size={12} />
+                                <FolderOpen className={ICON_SIZES[12]} />
                                 Gespeicherte Vorlagen
                             </label>
 
@@ -287,7 +290,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                     onClick={openSaveDialog}
                                     className="w-full mt-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors cursor-pointer"
                                 >
-                                    <Save size={13} />
+                                    <Save className={ICON_SIZES[13]} />
                                     {editingTemplate ? 'Vorlage aktualisieren' : 'Als Vorlage speichern'}
                                 </button>
                             </div>
@@ -298,7 +301,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                         {/* Logo */}
                         <div>
                             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
-                                <ImageIcon size={12} />
+                                <ImageIcon className={ICON_SIZES[12]} />
                                 Schul-Logo
                             </label>
 
@@ -310,12 +313,13 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                         alt="Logo"
                                         className="h-14 w-auto rounded-lg border border-slate-200 dark:border-slate-700 object-contain bg-white p-1"
                                     />
-                                    <button
+                                    <IconButton
                                         onClick={removeLogo}
-                                        className="absolute -top-1.5 -right-1.5 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full cursor-pointer shadow-sm"
+                                        size="sm"
+                                        className="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm"
                                     >
-                                        <Trash2 size={10} />
-                                    </button>
+                                        <Trash2 className={ICON_SIZES[10]} />
+                                    </IconButton>
                                 </div>
                             ) : (
                                 <>
@@ -348,7 +352,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                         onClick={() => fileInputRef.current?.click()}
                                         className="flex items-center gap-2 px-3 py-2 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-violet-400 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 transition-all cursor-pointer text-xs text-slate-500"
                                     >
-                                        <Upload size={14} />
+                                        <Upload className={ICON_SIZES[14]} />
                                         Bild hochladen
                                     </button>
                                 </>
@@ -385,7 +389,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                         {/* Header / Title / Task Color Toggles */}
                         <div>
                             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
-                                <Eye size={12} />
+                                <Eye className={ICON_SIZES[12]} />
                                 Anzeigeoptionen
                             </label>
                             <div className="space-y-2">
@@ -433,7 +437,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                         {/* Header Fields */}
                         <div>
                             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
-                                <Eye size={12} />
+                                <Eye className={ICON_SIZES[12]} />
                                 Kopfzeilen-Felder
                             </label>
                             <div className="space-y-2">
@@ -466,13 +470,13 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                         {/* Font Family */}
                         <div>
                             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                                <Type size={12} />
+                                <Type className={ICON_SIZES[12]} />
                                 Schriftart
                             </label>
 
                             {/* Suchfeld */}
                             <div className="relative mb-2">
-                                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <Search className={`${ICON_SIZES[12]} absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400`} />
                                 <input
                                     type="text"
                                     value={fontSearch}
@@ -523,7 +527,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                         {/* Brand Color */}
                         <div>
                             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
-                                <Palette size={12} />
+                                <Palette className={ICON_SIZES[12]} />
                                 Akzent-Farbe
                             </label>
                             <div className="grid grid-cols-6 gap-1.5">

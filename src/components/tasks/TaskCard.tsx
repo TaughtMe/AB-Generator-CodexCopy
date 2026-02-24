@@ -6,6 +6,8 @@ import { clsx } from 'clsx';
 import type { Task } from '../../types/worksheet';
 import { TaskAIChat } from '../ai/TaskAIChat';
 import { useSettingsStore } from '../../store/settingsStore';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /** Voreingestellte Akzentfarben für den per-Task Farbpicker */
 const TASK_COLOR_PRESETS = [
@@ -98,7 +100,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
                     {...listeners}
                     className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-slate-200 rounded transition-colors text-worksheet-inkLight"
                 >
-                    <GripVertical size={14} />
+                    <GripVertical className={ICON_SIZES[14]} />
                 </div>
 
                 {/* Task number + type */}
@@ -118,10 +120,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
                 <div className="ml-auto flex items-center gap-0.5">
                     {/* Per-Task Farbpicker */}
                     <div className="relative" ref={colorPickerRef}>
-                        <button
+                        <IconButton
                             onClick={() => setShowColorPicker(!showColorPicker)}
+                            size="sm"
                             className={clsx(
-                                "p-1 rounded transition-colors cursor-pointer",
+                                "transition-colors",
                                 task.accentColor
                                     ? "hover:bg-slate-100"
                                     : "text-worksheet-inkLight/60 hover:text-worksheet-inkLight hover:bg-worksheet-field"
@@ -131,9 +134,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
                             {task.accentColor ? (
                                 <div className="w-3 h-3 rounded-full border border-white shadow-sm" style={{ backgroundColor: task.accentColor }} />
                             ) : (
-                                <Palette size={12} />
+                                <Palette className={ICON_SIZES[12]} />
                             )}
-                        </button>
+                        </IconButton>
 
                         {/* Farbpicker-Dropdown */}
                         {showColorPicker && (
@@ -174,55 +177,60 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
                     </div>
 
                     {/* Toggle task numbering */}
-                    <button
+                    <IconButton
                         onClick={() => onToggleNumber(id)}
+                        size="sm"
                         className={clsx(
-                            "p-1 rounded transition-colors cursor-pointer",
+                            "transition-colors",
                             taskNumber !== null
                                 ? "text-blue-500/70 hover:text-blue-600 hover:bg-blue-50"
                                 : "text-worksheet-inkLight/60 hover:text-worksheet-inkLight hover:bg-worksheet-field"
                         )}
                         title={taskNumber !== null ? 'Nummerierung entfernen' : 'Nummerierung hinzufügen'}
                     >
-                        {taskNumber !== null ? <Hash size={12} /> : <EyeOff size={12} />}
-                    </button>
+                        {taskNumber !== null ? <Hash className={ICON_SIZES[12]} /> : <EyeOff className={ICON_SIZES[12]} />}
+                    </IconButton>
 
-                    <button
+                    <IconButton
                         onClick={() => setShowAIChat(!showAIChat)}
+                        size="sm"
                         className={clsx(
-                            "p-1 rounded transition-colors cursor-pointer",
+                            "transition-colors",
                             showAIChat
                                 ? "text-purple-500 bg-purple-50"
                                 : "text-worksheet-inkLight hover:text-purple-500 hover:bg-purple-50"
                         )}
                         title="KI-Assistent"
                     >
-                        <Sparkles size={12} />
-                    </button>
+                        <Sparkles className={ICON_SIZES[12]} />
+                    </IconButton>
 
-                    <button
+                    <IconButton
                         onClick={() => onDuplicate(id)}
-                        className="p-1 text-worksheet-inkLight hover:text-worksheet-ink rounded hover:bg-worksheet-field transition-colors cursor-pointer"
+                        size="sm"
+                        className="text-worksheet-inkLight hover:text-worksheet-ink hover:bg-worksheet-field"
                         title="Duplizieren"
                     >
-                        <Copy size={12} />
-                    </button>
+                        <Copy className={ICON_SIZES[12]} />
+                    </IconButton>
 
-                    <button
+                    <IconButton
                         onClick={() => onRemove(id)}
-                        className="p-1 text-worksheet-inkLight hover:text-red-500 rounded hover:bg-red-50 transition-colors cursor-pointer"
+                        size="sm"
+                        className="text-worksheet-inkLight hover:text-red-500 hover:bg-red-50"
                         title="Löschen"
                     >
-                        <Trash2 size={12} />
-                    </button>
+                        <Trash2 className={ICON_SIZES[12]} />
+                    </IconButton>
 
-                    <button
+                    <IconButton
                         onClick={() => setIsCollapsed((c) => !c)}
-                        className="p-1 text-worksheet-inkLight hover:text-worksheet-ink rounded hover:bg-worksheet-field transition-colors cursor-pointer"
+                        size="sm"
+                        className="text-worksheet-inkLight hover:text-worksheet-ink hover:bg-worksheet-field"
                         title={isCollapsed ? 'Ausklappen' : 'Einklappen'}
                     >
-                        {isCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-                    </button>
+                        {isCollapsed ? <ChevronDown className={ICON_SIZES[12]} /> : <ChevronUp className={ICON_SIZES[12]} />}
+                    </IconButton>
                 </div>
             </div>
 
@@ -247,4 +255,3 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
         </div>
     );
 };
-

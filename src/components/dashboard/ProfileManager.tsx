@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { BookOpen, Users, Plus, X } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
+import { IconButton } from '../ui/IconButton';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    ProfileManager.tsx – Fächer & Klassen verwalten
@@ -52,18 +54,19 @@ export const ProfileManager: React.FC = () => {
                 <div className="p-5 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 rounded-xl">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
-                            <BookOpen size={16} className="text-blue-500" />
+                            <BookOpen className={`${ICON_SIZES[16]} text-blue-500`} />
                             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                 Fächer ({subjects.length})
                             </h3>
                         </div>
-                        <button
+                        <IconButton
                             onClick={() => setShowSubjectForm(!showSubjectForm)}
-                            className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-500 cursor-pointer transition-colors"
+                            size="md"
+                            className="rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-500"
                             title="Fach hinzufügen"
                         >
-                            {showSubjectForm ? <X size={15} /> : <Plus size={15} />}
-                        </button>
+                            {showSubjectForm ? <X className={ICON_SIZES[15]} /> : <Plus className={ICON_SIZES[15]} />}
+                        </IconButton>
                     </div>
 
                     {/* Subject chips */}
@@ -74,13 +77,14 @@ export const ProfileManager: React.FC = () => {
                             {subjects.map((s) => (
                                 <span key={s.id} className="group/chip inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg">
                                     {s.name}
-                                    <button
+                                    <IconButton
                                         onClick={() => removeSubject(s.id)}
-                                        className="opacity-0 group-hover/chip:opacity-100 hover:text-red-500 cursor-pointer transition-opacity"
+                                        size="sm"
+                                        className="opacity-0 group-hover/chip:opacity-100 hover:text-red-500 transition-opacity"
                                         title="Entfernen"
                                     >
-                                        <X size={11} />
-                                    </button>
+                                        <X className={ICON_SIZES[11]} />
+                                    </IconButton>
                                 </span>
                             ))}
                         </div>
@@ -119,18 +123,19 @@ export const ProfileManager: React.FC = () => {
                 <div className="p-5 bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 rounded-xl">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
-                            <Users size={16} className="text-emerald-500" />
+                            <Users className={`${ICON_SIZES[16]} text-emerald-500`} />
                             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                 Klassen ({classes.length})
                             </h3>
                         </div>
-                        <button
+                        <IconButton
                             onClick={() => setShowClassForm(!showClassForm)}
-                            className="p-1.5 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-500 cursor-pointer transition-colors"
+                            size="md"
+                            className="rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-500"
                             title="Klasse hinzufügen"
                         >
-                            {showClassForm ? <X size={15} /> : <Plus size={15} />}
-                        </button>
+                            {showClassForm ? <X className={ICON_SIZES[15]} /> : <Plus className={ICON_SIZES[15]} />}
+                        </IconButton>
                     </div>
 
                     {/* Class chips */}
@@ -141,13 +146,14 @@ export const ProfileManager: React.FC = () => {
                             {classes.map((c) => (
                                 <span key={c.id} className="group/chip inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg">
                                     {c.name}
-                                    <button
+                                    <IconButton
                                         onClick={() => removeClassProfile(c.id)}
-                                        className="opacity-0 group-hover/chip:opacity-100 hover:text-red-500 cursor-pointer transition-opacity"
+                                        size="sm"
+                                        className="opacity-0 group-hover/chip:opacity-100 hover:text-red-500 transition-opacity"
                                         title="Entfernen"
                                     >
-                                        <X size={11} />
-                                    </button>
+                                        <X className={ICON_SIZES[11]} />
+                                    </IconButton>
                                 </span>
                             ))}
                         </div>

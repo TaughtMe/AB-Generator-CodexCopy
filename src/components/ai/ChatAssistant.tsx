@@ -9,6 +9,7 @@ import {
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 interface ChatAssistantProps {
     onBack: () => void;
@@ -106,7 +107,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                         onClick={onBack}
                         className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                     >
-                        <ArrowLeft size={14} /> Zurück zum Dashboard
+                        <ArrowLeft className={ICON_SIZES[14]} /> Zurück zum Dashboard
                     </button>
                     <button
                         onClick={handleStartNewConversation}
@@ -122,7 +123,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                     disabled={chatMessages.length === 0 || isChatGenerating || isChatLoading}
                     className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 transition-colors shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {isChatGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                    {isChatGenerating ? <Loader2 className={`${ICON_SIZES[16]} animate-spin`} /> : <Sparkles className={ICON_SIZES[16]} />}
                     ✨ Arbeitsblatt erstellen
                 </button>
             </div>
@@ -164,7 +165,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                     {isChatLoading && (
                         <div className="flex justify-start">
                             <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md bg-white/90 dark:bg-slate-800/90 px-3 py-2 text-xs text-slate-500">
-                                <Loader2 size={13} className="animate-spin" /> KI denkt nach...
+                                <Loader2 className={`${ICON_SIZES[13]} animate-spin`} /> KI denkt nach...
                             </div>
                         </div>
                     )}
@@ -205,7 +206,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                             className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
                             aria-label="Nachricht senden"
                         >
-                            <Send size={16} />
+                            <Send className={ICON_SIZES[16]} />
                         </button>
                     </form>
                 </div>

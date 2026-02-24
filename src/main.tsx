@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { UpdatePrompt } from './components/pwa/UpdatePrompt'
 import { loadGoogleFont } from './utils/googleFonts'
 import { useSettingsStore } from './store/settingsStore'
 
@@ -14,6 +15,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <App />
+      <UpdatePrompt />
     </ErrorBoundary>
   </StrictMode>,
 )

@@ -3,6 +3,7 @@ import type { ClozeTask, ClozeGapStyle } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { Info } from 'lucide-react';
 import { clsx } from 'clsx';
+import { ICON_SIZES } from '../ui/iconSizes';
 import {
     DEFAULT_CLOZE_GAP_MULTIPLIER,
     DEFAULT_CLOZE_GAP_STYLE,
@@ -168,7 +169,7 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task }) => {
         <div className="space-y-3">
             {/* ── Hinweis ── */}
             <div className="no-print flex items-start gap-2 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 print:bg-transparent print:border-none">
-                <Info size={14} className="mt-0.5 flex-shrink-0 text-blue-500" />
+                <Info className={`${ICON_SIZES[14]} mt-0.5 flex-shrink-0 text-blue-500`} />
                 <p className="text-xs text-blue-700 leading-relaxed">
                     <strong>Tipp:</strong> Setze Wörter in eckige Klammern (z.&nbsp;B.{' '}
                     <code className="bg-blue-100 rounded px-1">[Haus]</code>

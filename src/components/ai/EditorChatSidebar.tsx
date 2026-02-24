@@ -6,6 +6,7 @@ import {
 } from '../../services/aiService';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 export const EditorChatSidebar: React.FC = () => {
     const chatMessages = useWorkspaceStore((s) => s.chatMessages);
@@ -57,7 +58,7 @@ export const EditorChatSidebar: React.FC = () => {
         <aside className="h-full flex flex-col bg-white/70 dark:bg-slate-900/80 backdrop-blur-md shadow-xl">
             <div className="px-4 py-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                    <MessageSquare size={16} className="text-slate-500 dark:text-slate-300" />
+                    <MessageSquare className={`${ICON_SIZES[16]} text-slate-500 dark:text-slate-300`} />
                     <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">KI-Chatverlauf</h2>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -101,7 +102,7 @@ export const EditorChatSidebar: React.FC = () => {
                 {isChatLoading && (
                     <div className="flex justify-start">
                         <div className="inline-flex items-center gap-2 rounded-xl rounded-bl-md bg-white/85 dark:bg-slate-800/90 px-3 py-2 text-xs text-slate-500">
-                            <Loader2 size={12} className="animate-spin" /> KI denkt nach...
+                            <Loader2 className={`${ICON_SIZES[12]} animate-spin`} /> KI denkt nach...
                         </div>
                     </div>
                 )}
@@ -142,7 +143,7 @@ export const EditorChatSidebar: React.FC = () => {
                         className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         aria-label="Nachricht senden"
                     >
-                        <Send size={14} />
+                        <Send className={ICON_SIZES[14]} />
                     </button>
                 </form>
             </div>

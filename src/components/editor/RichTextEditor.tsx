@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -8,6 +8,7 @@ import {
     List, ListOrdered, Undo2, Redo2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    RichTextEditor – Wiederverwendbarer Tiptap-Editor
@@ -68,7 +69,7 @@ export function RichTextEditor({
             Placeholder.configure({ placeholder }),
         ],
         content: plainTextToHtml(value),
-        onUpdate: ({ editor: ed }: { editor: any }) => {
+        onUpdate: ({ editor: ed }: { editor: Editor }) => {
             onChange(ed.getHTML());
         },
         editorProps: {
@@ -199,7 +200,7 @@ function ToolbarButton({ icon: Icon, isActive, onClick, title, disabled }: Toolb
             )}
             title={title}
         >
-            <Icon size={14} />
+            <Icon className={ICON_SIZES[14]} />
         </button>
     );
 }

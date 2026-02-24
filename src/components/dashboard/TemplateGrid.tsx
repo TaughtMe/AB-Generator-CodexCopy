@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutTemplate, Palette, Trash2 } from 'lucide-react';
 import type { DesignTemplate } from '../../types/designTemplate';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 interface TemplateGridProps {
     templates: DesignTemplate[];
@@ -66,7 +67,7 @@ export const TemplateGrid: React.FC<TemplateGridProps> = ({
     if (templates.length === 0) {
         return (
             <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-700/40 rounded-2xl bg-white/50 dark:bg-slate-800/20">
-                <LayoutTemplate size={34} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                <LayoutTemplate className={`${ICON_SIZES[34]} mx-auto text-slate-300 dark:text-slate-600 mb-3`} />
                 <p className="text-sm text-slate-500 dark:text-slate-400">Noch keine Vorlagen gespeichert.</p>
                 <button
                     onClick={onOpenDesignEditor}
@@ -113,7 +114,7 @@ export const TemplateGrid: React.FC<TemplateGridProps> = ({
                             </div>
 
                             <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-3">
-                                <Palette size={12} />
+                                <Palette className={ICON_SIZES[12]} />
                                 <span>{template.design.brandColor}</span>
                                 <span>•</span>
                                 <span>
@@ -138,7 +139,7 @@ export const TemplateGrid: React.FC<TemplateGridProps> = ({
                                     className="px-2.5 py-2 text-xs rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                     title="Vorlage löschen"
                                 >
-                                    <Trash2 size={13} />
+                                    <Trash2 className={ICON_SIZES[13]} />
                                 </button>
                             </div>
                         </div>

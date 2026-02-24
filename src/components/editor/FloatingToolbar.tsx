@@ -7,6 +7,7 @@ import {
     ZoomOut,
     Plus,
 } from 'lucide-react';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 export interface FloatingToolbarProps {
     onOpenAIImport: () => void;
@@ -50,7 +51,7 @@ export function FloatingToolbar({
                 }`}
                 title={isPlacingNewTask ? 'Platzierung abbrechen' : 'Aufgabe hinzufügen – klicke dann in den Editor'}
             >
-                <Plus size={16} strokeWidth={2.2} className={isPlacingNewTask ? 'rotate-45 transition-transform' : 'transition-transform'} />
+                <Plus strokeWidth={2.2} className={isPlacingNewTask ? `${ICON_SIZES[16]} rotate-45 transition-transform` : `${ICON_SIZES[16]} transition-transform`} />
             </button>
 
             {/* Divider */}
@@ -62,7 +63,7 @@ export function FloatingToolbar({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full transition-all text-xs font-semibold cursor-pointer shadow-sm hover:shadow-md active:scale-95"
                 title="Aufgaben via KI importieren"
             >
-                <Sparkles size={13} />
+                <Sparkles className={ICON_SIZES[13]} />
                 <span>KI-Import</span>
             </button>
 
@@ -76,7 +77,7 @@ export function FloatingToolbar({
                 }`}
                 title={showHeader ? 'Design-Header aktiv' : 'Design-Header aktivieren'}
             >
-                <Palette size={13} />
+                <Palette className={ICON_SIZES[13]} />
                 <span>Design</span>
             </button>
 
@@ -90,7 +91,7 @@ export function FloatingToolbar({
                 }`}
                 title={isTeacherMode ? 'Lehrer-Modus (Lösungen sichtbar)' : 'Schüler-Modus (Lösungen ausgeblendet)'}
             >
-                {isTeacherMode ? <GraduationCap size={14} className="w-[14px] h-[14px] shrink-0" /> : <BookOpen size={14} className="w-[14px] h-[14px] shrink-0" />}
+                {isTeacherMode ? <GraduationCap className={`${ICON_SIZES[14]} shrink-0`} /> : <BookOpen className={`${ICON_SIZES[14]} shrink-0`} />}
                 <span>{isTeacherMode ? 'Lehrer' : 'Schüler'}</span>
             </button>
 
@@ -99,7 +100,7 @@ export function FloatingToolbar({
 
             {/* ── Zoom ── */}
             <div className="flex items-center gap-2">
-                <ZoomOut size={13} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                <ZoomOut className={`${ICON_SIZES[13]} text-slate-400 dark:text-slate-500 shrink-0`} />
                 <input
                     type="range"
                     min={50}
@@ -109,7 +110,7 @@ export function FloatingToolbar({
                     onChange={(event) => onZoomLevelChange(Number(event.target.value) / 100)}
                     className="w-28 h-1 bg-slate-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
-                <ZoomIn size={13} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                <ZoomIn className={`${ICON_SIZES[13]} text-slate-400 dark:text-slate-500 shrink-0`} />
                 <button
                     onClick={() => onZoomLevelChange(1)}
                     className="px-1.5 py-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors cursor-pointer tabular-nums min-w-[3rem] text-center"
@@ -121,4 +122,3 @@ export function FloatingToolbar({
         </div>
     );
 }
-

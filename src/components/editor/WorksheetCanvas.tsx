@@ -29,6 +29,7 @@ import { MultiPageContainer } from '../layout/MultiPageContainer';
 import { WorksheetHeader } from '../layout/WorksheetHeader';
 import { TaskEditorRenderer } from '../tasks/TaskRegistry';
 import { TaskCard } from '../tasks/TaskCard';
+import { ICON_SIZES } from '../ui/iconSizes';
 
 /* ══════════════════════════════════════════════════
    WorksheetCanvas – Editor-Fläche mit DnD + Placement-Modus.
@@ -297,7 +298,7 @@ export function WorksheetCanvas({
                                                 <div className="flex items-center gap-2">
                                                     <div className="flex-1 border-t-2 border-dashed border-worksheet-border" />
                                                     <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap bg-worksheet-field text-worksheet-inkLight border border-worksheet-border print:bg-transparent print:border-none">
-                                                        <Scissors size={10} />
+                                                        <Scissors className={ICON_SIZES[10]} />
                                                         Seitenumbruch
                                                     </span>
                                                     <div className="flex-1 border-t-2 border-dashed border-worksheet-border" />
@@ -306,7 +307,7 @@ export function WorksheetCanvas({
                                                         className="p-0.5 text-worksheet-inkLight hover:text-red-500 transition-colors cursor-pointer no-print"
                                                         title="Seitenumbruch entfernen"
                                                     >
-                                                        <Trash2 size={12} />
+                                                        <Trash2 className={ICON_SIZES[12]} />
                                                     </button>
                                                 </div>
                                             </div>
@@ -455,7 +456,7 @@ function PlacementTypeMenu({ y, options, onSelect, onClose }: PlacementTypeMenuP
                         className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-left group"
                     >
                         <div className="p-1.5 rounded-md bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors shrink-0">
-                            <Icon size={13} className="text-slate-500 group-hover:text-blue-600 transition-colors" />
+                            <Icon className={`${ICON_SIZES[13]} text-slate-500 group-hover:text-blue-600 transition-colors`} />
                         </div>
                         <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{label}</span>
                     </button>
@@ -474,7 +475,7 @@ function PlacementTypeMenu({ y, options, onSelect, onClose }: PlacementTypeMenuP
                         className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-left group"
                     >
                         <div className="p-1.5 rounded-md bg-slate-100 dark:bg-slate-700 group-hover:bg-violet-100 dark:group-hover:bg-violet-900/30 transition-colors shrink-0">
-                            <Icon size={13} className="text-slate-500 group-hover:text-violet-600 transition-colors" />
+                            <Icon className={`${ICON_SIZES[13]} text-slate-500 group-hover:text-violet-600 transition-colors`} />
                         </div>
                         <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{label}</span>
                     </button>
