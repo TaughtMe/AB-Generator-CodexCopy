@@ -4,6 +4,10 @@ import {
     getActiveProviderLabel,
     isActiveProviderConfigured,
 } from '../../services/aiService';
+import { PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
+import { useGeminiModels } from '../../hooks/useGeminiModels';
+import { useLocalModels } from '../../hooks/useLocalModels';
+import { useOpenAIModels } from '../../hooks/useOpenAIModels';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -38,26 +42,55 @@ export const EditorChatSidebar: React.FC = () => {
     const chatError = useWorkspaceStore((s) => s.chatError);
     const chatStatusNotice = useWorkspaceStore((s) => s.chatStatusNotice);
     const isChatGenerating = useWorkspaceStore((s) => s.isChatGenerating);
+    const aiSidebarDraft = useWorkspaceStore((s) => s.aiSidebarDraft);
     const sendChatMessage = useWorkspaceStore((s) => s.sendChatMessage);
     const createDifferentiatedVariantFromPrompt = useWorkspaceStore((s) => s.createDifferentiatedVariantFromPrompt);
     const startNewChat = useWorkspaceStore((s) => s.startNewChat);
     const seedGreetingIfEmpty = useWorkspaceStore((s) => s.seedGreetingIfEmpty);
+    const setAiSidebarDraft = useWorkspaceStore((s) => s.setAiSidebarDraft);
     const variants = useWorksheetStore((s) => s.variants);
     const activeVariantId = useWorksheetStore((s) => s.activeVariantId);
+    const aiProvider = useSettingsStore((s) => s.aiProvider);
+    const providers = useSettingsStore((s) => s.providers);
+    const chatModelPreferences = useSettingsStore((s) => s.chatModelPreferences);
+    const setChatModelPreference = useSettingsStore((s) => s.setChatModelPreference);
 
-    const [input, setInput] = useState('');
     const [isVariantPanelOpen, setIsVariantPanelOpen] = useState(false);
     const [variantPreset, setVariantPreset] = useState<VariantDifferentiationPreset>('simplify');
     const [variantInstruction, setVariantInstruction] = useState('');
     const [variantLabelInput, setVariantLabelInput] = useState('');
     const historyRef = useRef<HTMLDivElement>(null);
     const submitOnEnter = useSettingsStore((s) => s.submitOnEnter);
+    const input = aiSidebarDraft;
+    const setInput = setAiSidebarDraft;
 
-    const providerReady = useMemo(() => isActiveProviderConfigured(), []);
+    const providerReady = useMemo(() => isActiveProviderConfigured(), [aiProvider, providers]);
     const activeVariantLabel = useMemo(
         () => variants.find((variant) => variant.id === activeVariantId)?.label ?? 'Standard',
         [variants, activeVariantId],
     );
+    const activeConfig = providers[aiProvider];
+    const { models: detectedLocalModels } = useLocalModels(activeConfig.baseUrl ?? '', aiProvider === 'local');
+    const { models: detectedGeminiModels } = useGeminiModels(activeConfig.apiKey ?? '', aiProvider === 'gemini');
+    const { models: detectedOpenAIModels } = useOpenAIModels(
+        activeConfig.baseUrl ?? '',
+        activeConfig.apiKey ?? '',
+        aiProvider === 'openai',
+    );
+    const mergedGeminiModels = useMemo(
+        () =>
+            Array.from(
+                new Map([...detectedGeminiModels, ...PROVIDER_MODEL_OPTIONS.gemini].map((option) => [option.value, option])).values(),
+            ),
+        [detectedGeminiModels],
+    );
+    const chatModelOptions = useMemo(() => {
+        if (aiProvider === 'local' && detectedLocalModels.length > 0) return detectedLocalModels;
+        if (aiProvider === 'gemini' && mergedGeminiModels.length > 0) return mergedGeminiModels;
+        if (aiProvider === 'openai' && detectedOpenAIModels.length > 0) return detectedOpenAIModels;
+        return PROVIDER_MODEL_OPTIONS[aiProvider];
+    }, [aiProvider, detectedLocalModels, mergedGeminiModels, detectedOpenAIModels]);
+    const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
 
     useEffect(() => {
         if (!isVariantPanelOpen) return;
@@ -127,8 +160,8 @@ export const EditorChatSidebar: React.FC = () => {
     };
 
     return (
-        <aside className="h-full flex flex-col bg-white/70 dark:bg-slate-900/80 backdrop-blur-md shadow-xl">
-            <div className="px-4 py-3 flex items-center justify-between gap-2">
+        <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white/70 shadow-xl backdrop-blur-md dark:border-slate-700/70 dark:bg-slate-900/80">
+            <div className="shrink-0 px-4 py-3 flex items-center justify-between gap-2 border-b border-slate-200/70 dark:border-slate-800/80 bg-white/40 dark:bg-slate-900/40">
                 <div className="flex items-center gap-2">
                     <MessageSquare className={`${ICON_SIZES[16]} text-slate-500 dark:text-slate-300`} />
                     <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">KI-Chatverlauf</h2>
@@ -154,10 +187,29 @@ export const EditorChatSidebar: React.FC = () => {
                 </div>
             </div>
 
-            <div ref={historyRef} className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+            <div className="shrink-0 px-3 py-2 border-b border-slate-200/70 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30">
+                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    Chat-Modell ({getActiveProviderLabel()})
+                </label>
+                <select
+                    value={chatPreference}
+                    onChange={(e) => setChatModelPreference(aiProvider, e.target.value)}
+                    disabled={isChatLoading || isChatGenerating}
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 px-2.5 py-2 text-xs text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-60"
+                >
+                    <option value="auto">Auto (nutzt Standardmodell)</option>
+                    {chatModelOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            <div ref={historyRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                 {chatMessages.length === 0 && (
                     <div className="h-full flex items-center justify-center text-center px-4">
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
                             Hier erscheint dein KI-Chatverlauf. Schreibe rechts unten eine Nachricht, um weiterzumachen.
                         </p>
                     </div>
@@ -169,10 +221,10 @@ export const EditorChatSidebar: React.FC = () => {
                         className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                         <div
-                            className={`max-w-[92%] rounded-xl px-3 py-2 text-xs whitespace-pre-wrap ${
+                            className={`max-w-[88%] rounded-2xl border px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words shadow-sm ${
                                 message.role === 'user'
-                                    ? 'bg-blue-600 text-white rounded-br-md'
-                                    : 'bg-white/85 dark:bg-slate-800/90 text-slate-700 dark:text-slate-100 rounded-bl-md'
+                                    ? 'rounded-br-md border-transparent bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-md dark:from-purple-600 dark:to-fuchsia-600'
+                                    : 'rounded-bl-md border-slate-200/80 bg-white/90 text-slate-700 dark:border-slate-700/80 dark:bg-slate-800/90 dark:text-slate-100'
                             }`}
                         >
                             {message.content}
@@ -182,14 +234,14 @@ export const EditorChatSidebar: React.FC = () => {
 
                 {isChatLoading && (
                     <div className="flex justify-start">
-                        <div className="inline-flex items-center gap-2 rounded-xl rounded-bl-md bg-white/85 dark:bg-slate-800/90 px-3 py-2 text-xs text-slate-500">
+                        <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200/80 bg-white/90 px-3.5 py-2.5 text-sm text-slate-500 shadow-sm dark:border-slate-700/80 dark:bg-slate-800/90 dark:text-slate-300">
                             <Loader2 className={`${ICON_SIZES[12]} animate-spin`} /> KI denkt nach...
                         </div>
                     </div>
                 )}
             </div>
 
-            <div className="p-3 space-y-2">
+            <div className="shrink-0 border-t border-slate-200/70 bg-white/70 p-3 space-y-2 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-900/70">
                 {!providerReady && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-[11px] text-red-700">
                         KI nicht konfiguriert. Bitte Einstellungen für {getActiveProviderLabel()} prüfen.
@@ -208,7 +260,7 @@ export const EditorChatSidebar: React.FC = () => {
                     </div>
                 )}
 
-                <form onSubmit={handleSend} className="flex items-center gap-2 rounded-full bg-white/85 dark:bg-slate-800/85 backdrop-blur px-2 py-2">
+                <form onSubmit={handleSend} className="flex items-end gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-2 py-2 shadow-sm backdrop-blur dark:border-slate-700/80 dark:bg-slate-800/90">
                     <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
@@ -216,12 +268,12 @@ export const EditorChatSidebar: React.FC = () => {
                         rows={1}
                         placeholder="Nachricht an den KI-Assistenten..."
                         disabled={!providerReady || isChatLoading || isChatGenerating}
-                        className="flex-1 h-9 max-h-24 resize-none rounded-full bg-transparent px-3 py-2 text-xs text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
+                        className="flex-1 min-h-[40px] max-h-24 resize-none rounded-xl bg-transparent px-3 py-2 text-sm leading-5 text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                     />
                     <button
                         type="submit"
                         disabled={!providerReady || !input.trim() || isChatLoading || isChatGenerating}
-                        className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500 text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-teal-400 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer dark:bg-purple-600 dark:hover:bg-purple-500"
                         aria-label="Nachricht senden"
                     >
                         <Send className={ICON_SIZES[14]} />

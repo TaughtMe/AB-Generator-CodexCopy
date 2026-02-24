@@ -52,7 +52,7 @@ export const ActionHub: React.FC<ActionHubProps> = ({
                     </div>
                 </button>
 
-                {/* KI-Assistent starten */}
+                {/* KI-Planung starten */}
                 <button
                     onClick={onOpenAIChat}
                     data-tour="dashboard-ai-assistant"
@@ -67,8 +67,8 @@ export const ActionHub: React.FC<ActionHubProps> = ({
                         <Sparkles className={`${ICON_SIZES[28]} text-white`} />
                     </div>
                     <div className="relative">
-                        <h3 className="text-lg font-bold text-white leading-tight">KI-Assistent starten</h3>
-                        <p className="text-xs text-white/70 mt-1">Automatische Erstellung & Vorschläge.</p>
+                        <h3 className="text-lg font-bold text-white leading-tight">Mit KI planen</h3>
+                        <p className="text-xs text-white/70 mt-1">Planungschat vor der Arbeitsblatt-Erstellung.</p>
                     </div>
                 </button>
             </div>

@@ -4,6 +4,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ActionHub } from './ActionHub';
 import { FilterBar } from './FilterBar';
 import { WorksheetGrid } from './WorksheetGrid';
+import { PreCreationChatModal } from './PreCreationChatModal';
 import type { WorksheetMeta, WorksheetFilter } from '../../store/dexieStore';
 import { ICON_SIZES } from '../ui/iconSizes';
 
@@ -20,7 +21,7 @@ interface DashboardProps {
     onOpenSettings: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat, onOpenDesignEditor, onOpenSettings }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenDesignEditor, onOpenSettings }) => {
     const {
         recentWorksheets,
         loadRecent,
@@ -42,6 +43,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
     const [exportingId, setExportingId] = useState<string | null>(null);
     const [sharingId, setSharingId] = useState<string | null>(null);
     const [isImporting, setIsImporting] = useState(false);
+    const [isPreCreationChatOpen, setIsPreCreationChatOpen] = useState(false);
     const [fileInputKey, setFileInputKey] = useState(0);
     const importInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -119,6 +121,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
         importInputRef.current?.click();
     };
 
+    const handleOpenPreCreationChat = () => {
+        setIsPreCreationChatOpen(true);
+    };
+
     const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -166,7 +172,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
             {/* ── Aktions-Hub (oben) ── */}
             <ActionHub
                 onNewWorksheet={handleNewWorksheet}
-                onOpenAIChat={onOpenAIChat}
+                onOpenAIChat={handleOpenPreCreationChat}
                 onOpenDesignEditor={onOpenDesignEditor}
                 onBrowseTemplates={openTemplateGallery}
                 onImportWorksheet={handleOpenImportPicker}
@@ -203,6 +209,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
                     onDelete={handleDelete}
                 />
             </section>
+
+            <PreCreationChatModal
+                isOpen={isPreCreationChatOpen}
+                onClose={() => setIsPreCreationChatOpen(false)}
+                onOpenEditor={onOpenEditor}
+            />
         </div>
     );
 };

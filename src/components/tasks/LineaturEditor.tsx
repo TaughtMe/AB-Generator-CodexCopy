@@ -3,7 +3,6 @@ import type { LineaturTask } from '../../types/worksheet';
 import type { LineStyle } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { getLineaturBackground, getRowHeightMM, LINE_STYLE_LABELS } from '../../utils/lineaturStyles';
-import { RichTextEditor } from '../editor/RichTextEditor';
 
 interface LineaturEditorProps {
     task: LineaturTask;
@@ -31,18 +30,6 @@ export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task }) => {
 
     return (
         <div className="space-y-3">
-            <div>
-                <label className="block text-xs font-medium text-worksheet-inkLight mb-1.5 uppercase tracking-wider no-print">
-                    Aufgabentext
-                </label>
-                <RichTextEditor
-                    value={task.promptHtml}
-                    onChange={(html) => updateTask(task.id, { promptHtml: html } as Partial<LineaturTask>)}
-                    placeholder="Schreibe hier die Fragestellung für die offene Aufgabe…"
-                    minRows={2}
-                />
-            </div>
-
             {/* Compact Controls – no-print so they don't show on paper */}
             <div className="flex items-center gap-3 no-print flex-wrap">
                 {/* Style Selector */}

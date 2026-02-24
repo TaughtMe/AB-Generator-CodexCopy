@@ -2,8 +2,13 @@ import { create } from 'zustand';
 import {
     saveWorksheet,
     loadWorksheet,
-    deleteWorksheet,
+    deleteWorksheet as hardDeleteWorksheetRecord,
+    softDeleteWorksheet as softDeleteWorksheetRecord,
+    restoreWorksheet as restoreWorksheetRecord,
+    emptyTrash as emptyTrashRecords,
     listRecentWorksheets,
+    listTrashedWorksheets,
+    cleanupTrash,
     listClassProfiles,
     getClassProfile,
     createClassProfile as createClassProfileRecord,
@@ -127,6 +132,10 @@ function buildAIClassContextFromProfile(profile?: ClassProfile): AIClassContext 
         curriculumContext: profile.curriculumContext,
         studentProfile: profile.studentProfile || profile.characteristic || '',
     };
+}
+
+function isUnexpectedRevisionProgrammingError(error: unknown): boolean {
+    return error instanceof ReferenceError;
 }
 
 const ABGEN_WORKSHEET_SCHEMA_V1 = 1;
@@ -615,6 +624,7 @@ function canShareFiles(): boolean {
 
 interface WorkspaceState {
     recentWorksheets: WorksheetMeta[];
+    trashedWorksheets: WorksheetMeta[];
     classProfiles: ClassProfile[];
     currentWorksheetId: string | null;
     isLoading: boolean;
@@ -624,6 +634,7 @@ interface WorkspaceState {
     filter: WorksheetFilter;
     currentView: WorkspaceView;
     chatMessages: ChatMessage[];
+    aiSidebarDraft: string;
     isChatLoading: boolean;
     chatError: string | null;
     chatStatusNotice: string | null;
@@ -673,6 +684,8 @@ interface WorkspaceActions {
     getClassProfileById: (id: string) => ClassProfile | undefined;
     /** Lädt die "Zuletzt bearbeitet" Liste aus Dexie (mit optionalem Filter) */
     loadRecent: (filter?: WorksheetFilter) => Promise<void>;
+    /** Lädt den Papierkorb aus Dexie */
+    loadTrash: () => Promise<void>;
     /** Setzt den aktiven Filter und lädt neu */
     setFilter: (filter: WorksheetFilter) => Promise<void>;
     /** Speichert das aktuelle Arbeitsblatt in Dexie.
@@ -683,8 +696,16 @@ interface WorkspaceActions {
     openWorksheet: (id: string) => Promise<boolean>;
     /** Erstellt ein neues leeres Arbeitsblatt */
     createNewWorksheet: () => void;
-    /** Löscht ein Arbeitsblatt aus Dexie und aktualisiert die Liste */
+    /** Verschiebt ein Arbeitsblatt in den Papierkorb und aktualisiert die Listen */
+    deleteWorksheet: (id: string) => Promise<void>;
+    /** Kompatibilitäts-Alias: Soft-Delete */
     removeWorksheet: (id: string) => Promise<void>;
+    /** Stellt ein Arbeitsblatt aus dem Papierkorb wieder her */
+    restoreWorksheet: (id: string) => Promise<void>;
+    /** Löscht ein Arbeitsblatt endgültig aus Dexie */
+    hardDeleteWorksheet: (id: string) => Promise<void>;
+    /** Leert den Papierkorb endgültig */
+    emptyTrash: () => Promise<void>;
     /** Dupliziert ein gespeichertes Arbeitsblatt inkl. frischer Task-IDs */
     duplicateWorksheet: (id: string) => Promise<string | null>;
     /** Exportiert ein gespeichertes Arbeitsblatt als .abgen-Datei (default: V2) */
@@ -698,6 +719,7 @@ interface WorkspaceActions {
     setCurrentView: (view: WorkspaceView) => void;
     addChatMessage: (message: ChatMessage) => void;
     setChatMessages: (messages: ChatMessage[]) => void;
+    setAiSidebarDraft: (draft: string) => void;
     clearChat: () => void;
     setIsChatGenerating: (isGenerating: boolean) => void;
     setChatError: (error: string | null) => void;
@@ -730,6 +752,7 @@ type WorkspaceStore = WorkspaceState & WorkspaceActions;
 
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     let latestPersistOperationId = 0;
+    let hasInitialTrashCleanupRun = false;
 
     const persistWorksheetRecordWithStatus = async (
         params: Parameters<typeof saveWorksheet>,
@@ -779,9 +802,19 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             options,
         );
     };
+    const runInitialTrashCleanupOnce = async (): Promise<void> => {
+        if (hasInitialTrashCleanupRun) return;
+        hasInitialTrashCleanupRun = true;
+        try {
+            await cleanupTrash();
+        } catch (error) {
+            console.warn('cleanupTrash() beim Store-Start fehlgeschlagen:', error);
+        }
+    };
 
-    return ({
+    const store: WorkspaceStore = {
     recentWorksheets: [],
+    trashedWorksheets: [],
     classProfiles: [],
     currentWorksheetId: null,
     isLoading: false,
@@ -790,6 +823,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     filter: {},
     currentView: 'dashboard',
     chatMessages: [],
+    aiSidebarDraft: '',
     isChatLoading: false,
     chatError: null,
     chatStatusNotice: null,
@@ -897,6 +931,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         set({ recentWorksheets: recent });
     },
 
+    loadTrash: async () => {
+        const trashed = await listTrashedWorksheets();
+        set({ trashedWorksheets: trashed });
+    },
+
     setFilter: async (filter) => {
         set({ filter });
         await get().loadRecent(filter);
@@ -931,9 +970,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 record.variants,
                 record.activeVariantId,
             );
+            const normalizedChatHistory = useWorksheetStore.getState().chatHistory;
             set({
                 currentWorksheetId: id,
-                chatMessages: record.chatHistory ?? [],
+                chatMessages: normalizedChatHistory,
                 chatError: null,
                 chatStatusNotice: null,
                 isChatLoading: false,
@@ -960,9 +1000,40 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         });
     },
 
+    deleteWorksheet: async (id: string) => {
+        await softDeleteWorksheetRecord(id, Date.now());
+        await Promise.all([
+            get().loadRecent(),
+            get().loadTrash(),
+        ]);
+    },
+
     removeWorksheet: async (id: string) => {
-        await deleteWorksheet(id);
-        await get().loadRecent();
+        await get().deleteWorksheet(id);
+    },
+
+    restoreWorksheet: async (id: string) => {
+        await restoreWorksheetRecord(id);
+        await Promise.all([
+            get().loadRecent(),
+            get().loadTrash(),
+        ]);
+    },
+
+    hardDeleteWorksheet: async (id: string) => {
+        await hardDeleteWorksheetRecord(id);
+        await Promise.all([
+            get().loadRecent(),
+            get().loadTrash(),
+        ]);
+    },
+
+    emptyTrash: async () => {
+        await emptyTrashRecords();
+        await Promise.all([
+            get().loadRecent(),
+            get().loadTrash(),
+        ]);
     },
 
     duplicateWorksheet: async (id: string) => {
@@ -1113,6 +1184,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         })();
     },
 
+    setAiSidebarDraft: (draft) => {
+        set({ aiSidebarDraft: draft });
+    },
+
     clearChat: () => {
         useWorksheetStore.getState().setChatHistory([]);
         set({ chatMessages: [] });
@@ -1147,6 +1222,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             })();
             return {
                 chatMessages: seeded,
+                aiSidebarDraft: '',
                 chatError: null,
                 chatStatusNotice: null,
             };
@@ -1158,6 +1234,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         useWorksheetStore.getState().setChatHistory(seeded);
         set({
             chatMessages: seeded,
+            aiSidebarDraft: '',
             chatError: null,
             chatStatusNotice: null,
             isChatLoading: false,
@@ -1180,6 +1257,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
         wsStore.setChatHistory(nextMessages);
         set({
+            aiSidebarDraft: '',
             chatMessages: nextMessages,
             isChatLoading: true,
             chatError: null,
@@ -1257,6 +1335,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 }
             } catch (revisionError) {
                 if (revisionError instanceof Error && revisionError.message === AI_JSON_TRUNCATED_USER_MESSAGE) {
+                    throw revisionError;
+                }
+                if (isUnexpectedRevisionProgrammingError(revisionError)) {
                     throw revisionError;
                 }
                 revisionApplied = false;
@@ -1563,5 +1644,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     clearTemplateEdit: () => {
         set({ editingTemplateId: null });
     },
+    };
+
+    queueMicrotask(() => {
+        void runInitialTrashCleanupOnce();
     });
+
+    return store;
 });

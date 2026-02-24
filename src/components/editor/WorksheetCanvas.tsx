@@ -17,11 +17,10 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import {
     Scissors, Trash2,
     ListChecks, TextCursorInput, Sigma, FileText,
-    Type, Columns, Image as ImageIcon,
+    Type, Columns, Image as ImageIcon, Heading,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Task, TaskType } from '../../types/worksheet';
@@ -51,6 +50,7 @@ interface TaskOption {
 
 const TASK_TYPE_OPTIONS: TaskOption[] = [
     { type: 'instruction',       label: 'Aufgabe',           icon: FileText,        group: 'task' },
+    { type: 'heading',           label: 'Zwischenüberschrift', icon: Heading,       group: 'layout' },
     { type: 'multiple-choice',   label: 'Multiple Choice',   icon: ListChecks,      group: 'task' },
     { type: 'cloze',             label: 'Lückentext',        icon: TextCursorInput, group: 'task' },
     { type: 'math',              label: 'Mathematik',        icon: Sigma,           group: 'task' },
@@ -67,6 +67,7 @@ interface WorksheetCanvasProps {
     brandColor: string;
     zoomLevel: number;
     onReorderTasks: (taskIds: string[]) => void;
+    onMoveTask: (taskId: string, sourceContainerId: string, targetContainerId: string, newIndex: number) => void;
     onRemoveTask: (id: string) => void;
     onDuplicateTask: (id: string) => void;
     onToggleTaskNumber: (id: string) => void;
@@ -87,6 +88,7 @@ export function WorksheetCanvas({
     brandColor,
     zoomLevel,
     onReorderTasks,
+    onMoveTask,
     onRemoveTask,
     onDuplicateTask,
     onToggleTaskNumber,
@@ -196,15 +198,77 @@ export function WorksheetCanvas({
         setActiveId(event.active.id.toString());
     };
 
+    const findColumnContainingTask = useCallback((taskId: string) => {
+        for (const task of Object.values(tasksById)) {
+            if (task.type !== 'columns') continue;
+            if (task.children.includes(taskId)) return task.id;
+        }
+        return null;
+    }, [tasksById]);
+
+    const findColumnSlotOfTask = useCallback((taskId: string): { columnsId: string; slotIndex: 0 | 1 } | null => {
+        for (const task of Object.values(tasksById)) {
+            if (task.type !== 'columns') continue;
+            const slotIndex = task.children.findIndex((childId) => childId === taskId);
+            if (slotIndex === 0 || slotIndex === 1) {
+                return { columnsId: task.id, slotIndex };
+            }
+        }
+        return null;
+    }, [tasksById]);
+
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveId(null);
 
-        if (over && active.id !== over.id) {
-            const oldIndex = taskIds.indexOf(active.id.toString());
-            const newIndex = taskIds.indexOf(over.id.toString());
-            onReorderTasks(arrayMove(taskIds, oldIndex, newIndex));
+        if (!over) return;
+
+        const activeTaskId = active.id.toString();
+        const overId = over.id.toString();
+        const overData = over.data.current as
+            | { kind?: string; columnsId?: string; slotIndex?: 0 | 1; hasChild?: boolean }
+            | undefined;
+        const activeData = active.data.current as
+            | { sourceContainerId?: string }
+            | undefined;
+
+        const activeIsRootTask = taskIds.includes(activeTaskId);
+        const sourceContainerId =
+            activeIsRootTask
+                ? 'root'
+                : (activeData?.sourceContainerId ?? findColumnContainingTask(activeTaskId));
+
+        if (!sourceContainerId) return;
+
+        if (overData?.kind === 'column-slot' && overData.columnsId && typeof overData.slotIndex === 'number') {
+            if (overData.hasChild && activeTaskId !== overId) return;
+            if (sourceContainerId === overData.columnsId && active.id === over.id) return;
+            onMoveTask(activeTaskId, sourceContainerId, overData.columnsId, overData.slotIndex);
+            return;
         }
+
+        const overColumnLocation = findColumnSlotOfTask(overId);
+        if (overColumnLocation) {
+            // Target slot is already occupied (overId is the occupant) -> reject drop.
+            if (overId !== activeTaskId) return;
+            onMoveTask(activeTaskId, sourceContainerId, overColumnLocation.columnsId, overColumnLocation.slotIndex);
+            return;
+        }
+
+        if (!taskIds.includes(overId)) return;
+
+        if (sourceContainerId === 'root') {
+            if (active.id === over.id) return;
+            const oldIndex = taskIds.indexOf(activeTaskId);
+            const newIndex = taskIds.indexOf(overId);
+            if (oldIndex < 0 || newIndex < 0) return;
+            onReorderTasks(arrayMove(taskIds, oldIndex, newIndex));
+            return;
+        }
+
+        const targetIndex = taskIds.indexOf(overId);
+        if (targetIndex < 0) return;
+        onMoveTask(activeTaskId, sourceContainerId, 'root', targetIndex);
     };
 
     const handleDragCancel = () => {
@@ -260,7 +324,6 @@ export function WorksheetCanvas({
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onDragCancel={handleDragCancel}
-                modifiers={[restrictToVerticalAxis]}
                 measuring={measuringConfig}
             >
                 <div

@@ -99,6 +99,49 @@ function getGeminiModel(modelOverride?: string): GenerativeModel {
     return genAI.getGenerativeModel({ model: modelOverride ?? config.model });
 }
 
+function extractGeminiTextFromResponse(response: unknown): string {
+    const candidates = (response as {
+        candidates?: Array<{
+            content?: {
+                parts?: Array<{
+                    text?: string;
+                    executableCode?: { language?: string; code?: string };
+                    codeExecutionResult?: { output?: string };
+                }>;
+            };
+        }>;
+    })?.candidates;
+
+    const parts = candidates?.[0]?.content?.parts;
+    if (!Array.isArray(parts)) {
+        throw new Error('Gemini hat keine lesbare Antwort geliefert.');
+    }
+
+    const chunks: string[] = [];
+    for (const part of parts) {
+        if (typeof part?.text === 'string' && part.text.length > 0) {
+            chunks.push(part.text);
+            continue;
+        }
+
+        if (part?.executableCode?.code) {
+            chunks.push(part.executableCode.code);
+            continue;
+        }
+
+        if (typeof part?.codeExecutionResult?.output === 'string' && part.codeExecutionResult.output.length > 0) {
+            chunks.push(part.codeExecutionResult.output);
+        }
+    }
+
+    const text = chunks.join('').trim();
+    if (!text) {
+        throw new Error('Gemini hat eine leere Antwort geliefert.');
+    }
+
+    return text;
+}
+
 function getCandidateBaseUrls(baseUrl: string, provider: 'openai' | 'local'): string[] {
     const normalized = baseUrl.replace(/\/$/, '');
     const candidates = [normalized];
@@ -282,7 +325,7 @@ const geminiAdapter: ProviderAdapter = {
             generationConfig: buildGeminiGenerationConfig('json_array'),
         });
 
-        return result.response.text();
+        return extractGeminiTextFromResponse(result.response);
     },
 
     async modifyTaskText(task, instruction) {
@@ -295,7 +338,7 @@ const geminiAdapter: ProviderAdapter = {
             generationConfig: buildGeminiGenerationConfig('json_object'),
         });
 
-        return result.response.text();
+        return extractGeminiTextFromResponse(result.response);
     },
 
     async chatAssistantText(messages, systemPrompt) {
@@ -308,7 +351,7 @@ const geminiAdapter: ProviderAdapter = {
             generationConfig: buildGeminiGenerationConfig('text'),
         });
 
-        return result.response.text();
+        return extractGeminiTextFromResponse(result.response);
     },
 
     async generateTasksFromCompiledPromptText(compiledPrompt, systemPrompt) {
@@ -319,7 +362,7 @@ const geminiAdapter: ProviderAdapter = {
             generationConfig: buildGeminiGenerationConfig('json_array'),
         });
 
-        return result.response.text();
+        return extractGeminiTextFromResponse(result.response);
     },
 
     async reviseTasksText(payload, systemPrompt) {
@@ -330,7 +373,7 @@ const geminiAdapter: ProviderAdapter = {
             generationConfig: buildGeminiGenerationConfig('json_object'),
         });
 
-        return result.response.text();
+        return extractGeminiTextFromResponse(result.response);
     },
 };
 
@@ -509,10 +552,30 @@ Regeln:
 - Erstelle GENAU die Anzahl an Aufgaben, die der Benutzer angibt (Standard: 4-6 gemischte Aufgaben)
 - Aufgaben müssen altersgerecht für die angegebene Klassenstufe sein
 - Formuliere klar und eindeutig auf Deutsch
+- MODUL-CHAINING (LINEATUR, streng): Wenn eine Schreibaufgabe für die Schüler generiert wird, MUSS diese zwingend aus ZWEI aufeinanderfolgenden JSON-Objekten im Array bestehen: Zuerst das Text-Modul (z. B. type: "instruction") mit der Frage, und direkt danach zwingend ein leeres type: "lineatur" Modul als Schreibfläche für den Schüler.
+- Packe niemals den Aufgabentext in das Lineatur-Modul selbst.
 - Multiple-Choice: immer genau 4 Optionen, genau 1 richtig
 - Lückentext: markiere Lücken mit [Wort]
 - Bei Lineatur: nutze "lines-8mm" für ältere Schüler, "primary-4-lines" für Klasse 1-2
 - Wenn das Fach Mathematik, Physik oder Chemie ist: Verwende den Typ "math" für Aufgaben mit Formeln. Schreibe den LaTeX-Code OHNE Dollarzeichen direkt in das "content"-Feld.
+- BUGFIX FARBEN (streng): Verwende für Farben und Formatierungen AUSSCHLIESSLICH standardkonformes HTML. WICHTIG: Nutze zwingend EINFACHE Anführungszeichen (Single Quotes) für alle HTML-Attribute, um das JSON nicht zu zerstören! Beispiel: <span style='color: #ff0000;'>Text</span> (Richtig) vs. <span style="color: #ff0000;"> (Falsch!). Verwende NIEMALS React/JSX-Syntax wie style={{color: 'red'}}.
+
+Beispiel fuer eine Schreibaufgabe (Pflichtmuster):
+[
+  {
+    "type": "instruction",
+    "title": "Aufgabe: Begruende deine Meinung",
+    "text": "Schreibe 3-4 Saetze dazu, warum ..."
+  },
+  {
+    "type": "lineatur",
+    "title": "Schreibplatz",
+    "promptHtml": "",
+    "lineStyle": "lines-8mm",
+    "gridColumns": 32,
+    "lineRows": 4
+  }
+]
 `;
 
 const MODIFY_SYSTEM_PROMPT = `Du bist ein erfahrener Lehrer-Assistent.
@@ -560,7 +623,10 @@ Regeln für Aktionen:
 - Wenn du bei "update_task" den "type" änderst (z. B. zu "multiple-choice"), MUSST du alle Pflichtfelder dieses Typs vollständig erzeugen (z. B. "question" + vollständiges "options"-Array).
 - Generiere NIEMALS partielle Fragmente wie nur einen neuen Titel ohne die restlichen Pflichtfelder.
 - "add_task": Neue Aufgabe OHNE id liefern. Verwende "type" + vollständiges "payload".
+- MODUL-CHAINING (LINEATUR, streng): Wenn eine Schreibaufgabe für die Schüler generiert wird, MUSS diese zwingend aus ZWEI aufeinanderfolgenden JSON-Objekten im Array bestehen: Zuerst das Text-Modul (z. B. type: "instruction") mit der Frage, und direkt danach zwingend ein leeres type: "lineatur" Modul als Schreibfläche für den Schüler.
+- Packe niemals den Aufgabentext in das Lineatur-Modul selbst.
 - Keine Löschaktionen, keine Fantasie-IDs, keine Änderungen außerhalb der Nutzeranfrage.
+- BUGFIX FARBEN (streng): Verwende für Farben und Formatierungen AUSSCHLIESSLICH standardkonformes HTML. WICHTIG: Nutze zwingend EINFACHE Anführungszeichen (Single Quotes) für alle HTML-Attribute, um das JSON nicht zu zerstören! Beispiel: <span style='color: #ff0000;'>Text</span> (Richtig) vs. <span style="color: #ff0000;"> (Falsch!). Verwende NIEMALS React/JSX-Syntax wie style={{color: 'red'}}.
 
 Pflichtformat (immer):
 \`\`\`json

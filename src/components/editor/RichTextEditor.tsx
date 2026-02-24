@@ -1,6 +1,9 @@
 import { useCallback, useEffect } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Color from '@tiptap/extension-color';
+import FontFamily from '@tiptap/extension-font-family';
+import TextStyle from '@tiptap/extension-text-style';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import {
@@ -9,6 +12,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { ColorPickerDropdown } from './ColorPickerDropdown';
 
 /* ══════════════════════════════════════════════════
    RichTextEditor – Wiederverwendbarer Tiptap-Editor
@@ -49,6 +53,26 @@ function plainTextToHtml(text: string): string {
         .join('');
 }
 
+const FONT_FAMILY_OPTIONS = [
+    { label: 'Standard', value: '' },
+    { label: 'Arial', value: 'Arial' },
+    { label: 'Times New Roman', value: 'Times New Roman' },
+    { label: 'Comic Sans MS', value: 'Comic Sans MS' },
+];
+
+function normalizeColorForInput(color?: string): string {
+    if (!color) return '#000000';
+
+    const trimmed = color.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
+    if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+        const [, r, g, b] = trimmed;
+        return `#${r}${r}${g}${g}${b}${b}`;
+    }
+
+    return '#000000';
+}
+
 export function RichTextEditor({
     value,
     onChange,
@@ -64,6 +88,13 @@ export function RichTextEditor({
                 codeBlock: false,
                 blockquote: false,
                 horizontalRule: false,
+            }),
+            TextStyle,
+            Color.configure({
+                types: ['textStyle'],
+            }),
+            FontFamily.configure({
+                types: ['textStyle'],
             }),
             Underline,
             Placeholder.configure({ placeholder }),
@@ -101,11 +132,15 @@ export function RichTextEditor({
 
     if (!editor) return null;
 
+    const textStyleAttrs = editor.getAttributes('textStyle') as { color?: string; fontFamily?: string };
+    const selectedColor = normalizeColorForInput(textStyleAttrs.color);
+    const selectedFontFamily = typeof textStyleAttrs.fontFamily === 'string' ? textStyleAttrs.fontFamily : '';
+
     return (
-        <div className={clsx('rounded-lg border border-worksheet-border bg-worksheet-field overflow-hidden transition-colors focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500 print:bg-transparent print:border-none', className)}>
+        <div className={clsx('rounded-lg border border-worksheet-border bg-worksheet-field overflow-visible transition-colors focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500 print:bg-transparent print:border-none', className)}>
             {/* ── Mini-Toolbar ── */}
             {!hideToolbar && (
-                <div className="no-print flex items-center gap-0.5 px-1.5 py-1 border-b border-worksheet-border bg-slate-50/80">
+                <div className="rich-text-toolbar no-print flex flex-wrap items-center gap-0.5 px-1.5 py-1 border-b border-worksheet-border bg-slate-50/80 min-w-0">
                     <ToolbarButton
                         icon={Bold}
                         isActive={editor.isActive('bold')}
@@ -125,7 +160,37 @@ export function RichTextEditor({
                         title="Unterstrichen (Ctrl+U)"
                     />
 
-                    <div className="w-px h-4 bg-slate-200 mx-0.5" />
+                    <div className="hidden sm:block w-px h-4 bg-slate-200 mx-0.5" />
+
+                    <ColorPickerDropdown
+                        value={selectedColor}
+                        onChange={(color) => editor.chain().focus().setColor(color).run()}
+                        title="Textfarbe wählen"
+                    />
+
+                    <select
+                        value={selectedFontFamily}
+                        onChange={(event) => {
+                            const font = event.target.value;
+                            const chain = editor.chain().focus();
+                            if (!font) {
+                                chain.unsetFontFamily().run();
+                                return;
+                            }
+                            chain.setFontFamily(font).run();
+                        }}
+                        className="h-7 min-w-0 flex-1 sm:flex-none sm:min-w-[120px] max-w-full rounded border border-slate-200 bg-white px-2 text-xs text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                        title="Schriftart"
+                        aria-label="Schriftart wählen"
+                    >
+                        {FONT_FAMILY_OPTIONS.map((option) => (
+                            <option key={option.label} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+
+                    <div className="hidden sm:block w-px h-4 bg-slate-200 mx-0.5" />
 
                     <ToolbarButton
                         icon={List}
@@ -140,7 +205,7 @@ export function RichTextEditor({
                         title="Nummerierte Liste"
                     />
 
-                    <div className="w-px h-4 bg-slate-200 mx-0.5" />
+                    <div className="hidden sm:block w-px h-4 bg-slate-200 mx-0.5" />
 
                     <ToolbarButton
                         icon={Undo2}
@@ -162,7 +227,7 @@ export function RichTextEditor({
             {/* ── Editor-Content ── */}
             <EditorContent
                 editor={editor}
-                className="px-3 py-2 text-sm text-worksheet-ink prose prose-sm max-w-none
+                className="overflow-hidden rounded-b-lg px-3 py-2 text-sm text-worksheet-ink prose prose-sm max-w-none
                     prose-p:my-1 prose-ul:my-1 prose-ol:my-1
                     prose-li:my-0 prose-li:marker:text-worksheet-inkLight
                     [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]

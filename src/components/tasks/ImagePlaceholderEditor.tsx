@@ -16,6 +16,7 @@ interface ImagePlaceholderEditorProps {
 }
 
 export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ task }) => {
+    const PX_PER_MM = 96 / 25.4;
     const updateTask = useWorksheetStore((s) => s.updateTask);
     const {
         previewUrl: imageUrl,
@@ -31,6 +32,8 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
     const [isUploading, setIsUploading] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [availableWidthMm, setAvailableWidthMm] = useState<number | null>(null);
 
     // Bestehende Bild-URL laden
     useEffect(() => {
@@ -76,8 +79,31 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
         clearImage();
     }, [task.id, updateTask, clearImage]);
 
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el || typeof ResizeObserver === 'undefined') return;
+
+        const updateAvailableWidth = () => {
+            const widthPx = Math.max(0, el.clientWidth - 8);
+            const widthMm = Math.floor(widthPx / PX_PER_MM);
+            setAvailableWidthMm(widthMm > 0 ? widthMm : null);
+        };
+
+        updateAvailableWidth();
+        const observer = new ResizeObserver(updateAvailableWidth);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [PX_PER_MM]);
+
+    const widthSliderMaxMm = Math.max(
+        20,
+        Math.min(170, availableWidthMm ?? 170),
+    );
+    const effectivePreviewWidthMm = Math.min(task.widthMm, widthSliderMaxMm);
+    const effectiveSliderWidthValue = Math.min(task.widthMm, widthSliderMaxMm);
+
     return (
-        <div className="space-y-2">
+        <div ref={containerRef} className="space-y-2 min-w-0">
             {/* Upload Zone / Bild-Vorschau */}
             {imageUrl ? (
                 <div className="relative group">
@@ -86,7 +112,7 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
                         alt={task.caption || 'Bild'}
                         className="max-w-full rounded-lg border border-worksheet-border"
                         style={{
-                            maxWidth: `${task.widthMm}mm`,
+                            maxWidth: `${effectivePreviewWidthMm}mm`,
                             maxHeight: `${task.heightMm}mm`,
                             objectFit: 'contain',
                         }}
@@ -114,6 +140,10 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
                             : 'border-worksheet-border bg-worksheet-field hover:border-blue-400 hover:bg-slate-50'
                         }
                     `}
+                    style={{
+                        width: '100%',
+                        maxWidth: `${effectivePreviewWidthMm}mm`,
+                    }}
                 >
                     {isUploading ? (
                         <>
@@ -169,24 +199,26 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
                 value={task.caption}
                 onChange={(e) => updateTask(task.id, { caption: e.target.value } as Partial<ImagePlaceholderTask>)}
                 placeholder="Bildunterschrift (optional)"
-                className="w-full px-2 py-1 text-xs bg-transparent border border-worksheet-border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-worksheet-ink placeholder:text-worksheet-inkLight print:border-none"
+                className="w-full min-w-0 px-2 py-1 text-xs bg-transparent border border-worksheet-border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-worksheet-ink placeholder:text-worksheet-inkLight print:border-none"
             />
 
             {/* Size Controls */}
-            <div className="no-print flex items-center gap-3 text-xs text-worksheet-inkLight">
-                <label className="flex items-center gap-1.5">
+            <div className="no-print flex flex-wrap items-center gap-3 text-xs text-worksheet-inkLight min-w-0">
+                <label className="flex items-center gap-1.5 min-w-0 flex-wrap">
                     Breite:
                     <input
                         type="range"
                         min={20}
-                        max={170}
-                        value={task.widthMm}
+                        max={widthSliderMaxMm}
+                        value={effectiveSliderWidthValue}
                         onChange={(e) => updateTask(task.id, { widthMm: Number(e.target.value) } as Partial<ImagePlaceholderTask>)}
-                        className="w-20 accent-blue-500"
+                        className="w-20 min-w-0 accent-blue-500"
                     />
-                    <span className="w-10 text-right">{task.widthMm}mm</span>
+                    <span className="w-10 text-right" title={task.widthMm !== effectivePreviewWidthMm ? `Gespeichert: ${task.widthMm}mm` : undefined}>
+                        {effectivePreviewWidthMm}mm
+                    </span>
                 </label>
-                <label className="flex items-center gap-1.5">
+                <label className="flex items-center gap-1.5 min-w-0 flex-wrap">
                     Höhe:
                     <input
                         type="range"
@@ -194,7 +226,7 @@ export const ImagePlaceholderEditor: React.FC<ImagePlaceholderEditorProps> = ({ 
                         max={250}
                         value={task.heightMm}
                         onChange={(e) => updateTask(task.id, { heightMm: Number(e.target.value) } as Partial<ImagePlaceholderTask>)}
-                        className="w-20 accent-blue-500"
+                        className="w-20 min-w-0 accent-blue-500"
                     />
                     <span className="w-10 text-right">{task.heightMm}mm</span>
                 </label>

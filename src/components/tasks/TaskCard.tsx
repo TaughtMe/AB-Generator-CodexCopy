@@ -4,10 +4,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Copy, ChevronDown, ChevronUp, Sparkles, Hash, EyeOff, Palette } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Task } from '../../types/worksheet';
-import { TaskAIChat } from '../ai/TaskAIChat';
 import { useSettingsStore } from '../../store/settingsStore';
 import { IconButton } from '../ui/IconButton';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { InlineAIPanel } from './InlineAIPanel';
 
 /** Voreingestellte Akzentfarben für den per-Task Farbpicker */
 const TASK_COLOR_PRESETS = [
@@ -41,10 +41,19 @@ const noAnimationWhileSorting: AnimateLayoutChanges = (args) => {
     return defaultAnimateLayoutChanges(args);
 };
 
-export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, children, onRemove, onDuplicate, onToggleNumber, onUpdateTask }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({
+    id,
+    task,
+    taskNumber,
+    children,
+    onRemove,
+    onDuplicate,
+    onToggleNumber,
+    onUpdateTask,
+}) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
-    const [showAIChat, setShowAIChat] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const [showInlineAIPanel, setShowInlineAIPanel] = useState(false);
     const colorPickerRef = useRef<HTMLDivElement>(null);
     const brandColor = useSettingsStore((s) => s.brandColor);
     const applyColorToTasks = useSettingsStore((s) => s.applyColorToTasks);
@@ -192,15 +201,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
                     </IconButton>
 
                     <IconButton
-                        onClick={() => setShowAIChat(!showAIChat)}
+                        onClick={() => setShowInlineAIPanel((current) => !current)}
                         size="sm"
-                        className={clsx(
-                            "transition-colors",
-                            showAIChat
-                                ? "text-purple-500 bg-purple-50"
-                                : "text-worksheet-inkLight hover:text-purple-500 hover:bg-purple-50"
-                        )}
-                        title="KI-Assistent"
+                        className="text-worksheet-inkLight hover:text-purple-500 hover:bg-purple-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title="Per KI überarbeiten"
+                        disabled={!onUpdateTask}
                     >
                         <Sparkles className={ICON_SIZES[12]} />
                     </IconButton>
@@ -243,11 +248,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ id, task, taskNumber, childr
             >
                 <div className="p-2">
                     {children}
-                    {/* AI Chat Panel */}
-                    {showAIChat && (
-                        <TaskAIChat
+                    {showInlineAIPanel && onUpdateTask && (
+                        <InlineAIPanel
                             task={task}
-                            onClose={() => setShowAIChat(false)}
+                            onApply={(updates) => onUpdateTask(id, updates)}
+                            onClose={() => setShowInlineAIPanel(false)}
                         />
                     )}
                 </div>

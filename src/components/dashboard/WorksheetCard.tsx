@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, CheckSquare, Type, Grid3X3, Image, Columns, Calculator, Scissors, Copy, MoreVertical, FileDown, Share2 } from 'lucide-react';
+import { Trash2, CheckSquare, Type, Grid3X3, Image, Columns, Calculator, Scissors, Copy, MoreVertical, FileDown, Share2, Heading } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -60,6 +60,7 @@ function taskIcon(type: string) {
     switch (type) {
         case 'multiple-choice': return <CheckSquare className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'cloze': return <Type className={`${ICON_SIZES[7]} shrink-0`} />;
+        case 'heading': return <Heading className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'lineatur': return <Grid3X3 className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'image-placeholder': return <Image className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'columns': return <Columns className={`${ICON_SIZES[7]} shrink-0`} />;

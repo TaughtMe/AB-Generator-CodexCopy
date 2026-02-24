@@ -63,10 +63,10 @@ export function VariantTabs({
     };
 
     return (
-        <div className="no-print border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl">
+        <div className="no-print sticky top-[52px] -mt-px z-20 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
             <div className="max-w-[260mm] mx-auto px-5 py-1.5 flex items-center gap-2 overflow-x-auto">
-                <div className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
-                    <Layers3 className={ICON_SIZES[12]} />
+                <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 shrink-0">
+                    <Layers3 className={ICON_SIZES[14]} />
                     <span className="hidden sm:inline">Varianten</span>
                 </div>
 
@@ -92,7 +92,7 @@ export function VariantTabs({
                                     moveVariant(draggedVariantId, variant.id);
                                     setDraggedVariantId(null);
                                 }}
-                                className={`inline-flex items-center gap-1 px-1 py-1 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+                                className={`inline-flex items-center gap-1.5 px-1.5 py-1.5 rounded-full text-sm font-medium border transition-colors whitespace-nowrap ${
                                     isActive
                                         ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30'
                                         : 'bg-white text-slate-600 border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-blue-500/10 dark:hover:text-blue-300 dark:hover:border-blue-500/30'
@@ -103,11 +103,11 @@ export function VariantTabs({
                                     title="Variante verschieben"
                                     aria-hidden="true"
                                 >
-                                    <GripHorizontal className={ICON_SIZES[11]} />
+                                    <GripHorizontal className={ICON_SIZES[12]} />
                                 </span>
                                 {editingVariantId === variant.id ? (
                                     <div className="inline-flex items-center gap-1.5 pl-1 pr-0.5">
-                                        {isActive && <CheckCircle2 className={ICON_SIZES[12]} />}
+                                        {isActive && <CheckCircle2 className={ICON_SIZES[14]} />}
                                         <input
                                             ref={inputRef}
                                             value={draftLabel}
@@ -140,7 +140,7 @@ export function VariantTabs({
                                         title={`Variante ${variant.label}`}
                                         aria-pressed={isActive}
                                     >
-                                        {isActive && <CheckCircle2 className={ICON_SIZES[12]} />}
+                                        {isActive && <CheckCircle2 className={ICON_SIZES[14]} />}
                                         <span>{variant.label}</span>
                                     </button>
                                 )}
@@ -159,7 +159,7 @@ export function VariantTabs({
                                     title={canRemoveVariants ? `Variante "${variant.label}" entfernen` : 'Mindestens eine Variante muss bestehen bleiben'}
                                     aria-label={`Variante ${variant.label} entfernen`}
                                 >
-                                    <X className={ICON_SIZES[11]} />
+                                    <X className={ICON_SIZES[12]} />
                                 </button>
                             </div>
                         );
@@ -168,10 +168,10 @@ export function VariantTabs({
 
                 <button
                     onClick={onAddVariant}
-                    className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer whitespace-nowrap"
+                    className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer whitespace-nowrap"
                     title="Neue Variante aus aktueller Variante erstellen"
                 >
-                    <Plus className={ICON_SIZES[12]} />
+                    <Plus className={ICON_SIZES[14]} />
                     <span>Variante</span>
                 </button>
             </div>

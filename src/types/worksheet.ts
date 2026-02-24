@@ -1,4 +1,4 @@
-export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction';
+export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction' | 'heading';
 import type { ChatMessage } from './ai';
 
 export type ColumnsLayout = '50-50' | '60-40' | '40-60';
@@ -74,7 +74,13 @@ export interface InstructionTask extends BaseTask {
     text: string;
 }
 
-export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask;
+/** Visueller Abschnittstrenner / Zwischenüberschrift */
+export interface HeadingTask extends BaseTask {
+    type: 'heading';
+    text: string;
+}
+
+export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask;
 
 export interface WorksheetTaskState {
     tasksById: Record<string, Task>;
@@ -96,6 +102,8 @@ export interface Worksheet {
     chatHistory: ChatMessage[];
     sources: WorksheetSource[];
     classId?: string;
+    /** Unix-Timestamp (ms) wenn im Papierkorb, sonst undefined */
+    deletedAt?: number;
 }
 
 export interface WorksheetSource {

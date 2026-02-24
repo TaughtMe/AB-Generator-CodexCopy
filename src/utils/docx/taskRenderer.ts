@@ -12,7 +12,7 @@ import {
     AlignmentType,
     convertMillimetersToTwip,
 } from 'docx';
-import type { Task, MultipleChoiceTask, LineaturTask, ClozeTask, MathTask, ImagePlaceholderTask, ColumnsTask, InstructionTask } from '../../types/worksheet';
+import type { Task, MultipleChoiceTask, LineaturTask, ClozeTask, MathTask, ImagePlaceholderTask, ColumnsTask, InstructionTask, HeadingTask } from '../../types/worksheet';
 import { renderLineBlockToImage } from '../lineBlockToImage';
 import { convertMathToImage } from '../mathExportUtils';
 import { mmToPx, A4_INNER_WIDTH_MM } from '../mmToEmu';
@@ -519,6 +519,28 @@ function renderInstruction(
     }, 80);
 }
 
+function renderHeading(
+    task: HeadingTask,
+    config: TaskRendererConfig,
+): Paragraph[] {
+    const text = task.text?.trim() || 'Zwischenüberschrift';
+
+    return [
+        new Paragraph({
+            children: [
+                new TextRun({
+                    text,
+                    font: config.fontFamily,
+                    size: (config.fontSizePt + 4) * 2,
+                    color: config.docxTheme.text,
+                    bold: true,
+                }),
+            ],
+            spacing: { before: 200, after: 120 },
+        }),
+    ];
+}
+
 export async function renderTaskContent(
     task: Task,
     isTeacherMode: boolean,
@@ -537,6 +559,8 @@ export async function renderTaskContent(
             return await renderImagePlaceholder(task, config);
         case 'instruction':
             return renderInstruction(task as InstructionTask, config);
+        case 'heading':
+            return renderHeading(task as HeadingTask, config);
         default:
             return [
                 new Paragraph({

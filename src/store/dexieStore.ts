@@ -41,6 +41,8 @@ export interface WorksheetRecord {
     classId?: string;
     /** Screenshot-Thumbnail des Worksheets (JPEG Blob, top ~300px) */
     thumbnailBlob?: Blob;
+    /** Unix-Timestamp (ms) wenn im Papierkorb, sonst undefined */
+    deletedAt?: number;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -65,6 +67,8 @@ export interface WorksheetMeta {
     taskPreview: TaskPreviewItem[];
     /** Object-URL for the stored screenshot thumbnail (created on the fly) */
     thumbnailUrl?: string;
+    /** Unix-Timestamp (ms) wenn im Papierkorb, sonst undefined */
+    deletedAt?: number;
 }
 
 export interface DesignTemplateRecord {
@@ -150,6 +154,14 @@ class ABGeneratorDB extends Dexie {
         this.version(5).stores({
             images: '++id, name, createdAt',
             worksheets: 'id, title, updatedAt, subjectId, classId',
+            designTemplates: 'id, nameLower, updatedAt, createdAt, lastUsedAt',
+            classProfiles: 'id, nameLower, subjectId, updatedAt, createdAt',
+        });
+
+        // Version 6: add deletedAt index for trash / soft-delete workflows
+        this.version(6).stores({
+            images: '++id, name, createdAt',
+            worksheets: 'id, title, updatedAt, subjectId, classId, deletedAt',
             designTemplates: 'id, nameLower, updatedAt, createdAt, lastUsedAt',
             classProfiles: 'id, nameLower, subjectId, updatedAt, createdAt',
         });
@@ -485,6 +497,68 @@ export async function unlinkClassFromWorksheets(classId: string): Promise<void> 
    Worksheet CRUD Helpers
    ══════════════════════════════════════════════════ */
 
+const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+function toWorksheetMeta(rec: WorksheetRecord): WorksheetMeta {
+    const { id, title, subjectId, classId, createdAt, updatedAt, deletedAt } = rec;
+    const variants = Array.isArray(rec.variants) ? rec.variants : [];
+    const activeVariant = variants.find((variant) => variant.id === rec.activeVariantId) ?? variants[0];
+    const effectiveTaskIds = activeVariant?.taskIds ?? rec.taskIds;
+    const effectiveTasksById = activeVariant?.tasksById ?? rec.tasksById;
+
+    const taskPreview: TaskPreviewItem[] = effectiveTaskIds.slice(0, 4).map((tid) => {
+        const t = effectiveTasksById[tid];
+        if (!t) return { type: 'unknown', label: '' };
+        let label = t.title || '';
+        switch (t.type) {
+            case 'multiple-choice':
+                label = label || t.question?.slice(0, 60) || 'Multiple Choice';
+                break;
+            case 'cloze':
+                label = label || t.content?.replace(/\[.*?\]/g, '___').slice(0, 60) || 'Lückentext';
+                break;
+            case 'instruction':
+                label = label || t.text?.slice(0, 60) || 'Aufgabe';
+                break;
+            case 'heading':
+                label = t.text?.slice(0, 60) || label || 'Zwischenüberschrift';
+                break;
+            case 'math':
+                label = label || t.content?.slice(0, 40) || 'Mathe';
+                break;
+            case 'lineatur':
+                label = label || `Lineatur ${t.lineRows} Zeilen`;
+                break;
+            case 'image-placeholder':
+                label = label || t.caption || 'Bild';
+                break;
+            case 'columns':
+                label = label || `Spalten ${t.layout}`;
+                break;
+            case 'page-break':
+                label = '— Seitenumbruch —';
+                break;
+            default:
+                label = label || 'Aufgabe';
+        }
+        return { type: t.type, label };
+    });
+
+    return {
+        id,
+        title,
+        taskCount: effectiveTaskIds.length,
+        variantCount: Math.max(1, variants.length),
+        subjectId,
+        classId,
+        createdAt,
+        updatedAt,
+        taskPreview,
+        thumbnailUrl: rec.thumbnailBlob ? URL.createObjectURL(rec.thumbnailBlob) : undefined,
+        deletedAt,
+    };
+}
+
 /** Speichert (erstellt oder überschreibt) ein Arbeitsblatt */
 export async function saveWorksheet(
     id: string,
@@ -515,6 +589,8 @@ export async function saveWorksheet(
         thumbnailBlob: thumbnailBlob ?? existing?.thumbnailBlob,
         variants: variants ?? existing?.variants,
         activeVariantId: activeVariantId ?? existing?.activeVariantId,
+        // Soft-delete status must survive regular autosaves unless explicitly changed elsewhere.
+        deletedAt: existing?.deletedAt,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
     });
@@ -528,6 +604,37 @@ export async function loadWorksheet(id: string): Promise<WorksheetRecord | undef
 /** Löscht ein Arbeitsblatt */
 export async function deleteWorksheet(id: string): Promise<void> {
     await db.worksheets.delete(id);
+}
+
+/** Verschiebt ein Arbeitsblatt in den Papierkorb (Soft-Delete) */
+export async function softDeleteWorksheet(id: string, deletedAt = Date.now()): Promise<boolean> {
+    const existing = await db.worksheets.get(id);
+    if (!existing) return false;
+
+    await db.worksheets.put({
+        ...existing,
+        deletedAt,
+        updatedAt: new Date(),
+    });
+    return true;
+}
+
+/** Stellt ein Arbeitsblatt aus dem Papierkorb wieder her */
+export async function restoreWorksheet(id: string): Promise<boolean> {
+    const existing = await db.worksheets.get(id);
+    if (!existing) return false;
+
+    await db.worksheets.put({
+        ...existing,
+        deletedAt: undefined,
+        updatedAt: new Date(),
+    });
+    return true;
+}
+
+/** Leert den Papierkorb vollständig (Hard-Delete aller getrashten Einträge) */
+export async function emptyTrash(): Promise<number> {
+    return db.worksheets.where('deletedAt').aboveOrEqual(0).delete();
 }
 
 /** Filter-Optionen für die Worksheet-Liste */
@@ -549,6 +656,9 @@ export async function listRecentWorksheets(
         .reverse()
         .toArray();
 
+    // Hide trashed worksheets from the regular dashboard listing.
+    records = records.filter((r) => r.deletedAt == null);
+
     // Client-side filter (Dexie compound-index wäre Overkill hier)
     if (filter?.subjectId) {
         records = records.filter((r) => r.subjectId === filter.subjectId);
@@ -560,59 +670,22 @@ export async function listRecentWorksheets(
     // Limit nach Filter
     records = records.slice(0, limit);
 
-    return records.map((rec) => {
-        const { id, title, subjectId, classId, createdAt, updatedAt } = rec;
-        const variants = Array.isArray(rec.variants) ? rec.variants : [];
-        const activeVariant = variants.find((variant) => variant.id === rec.activeVariantId) ?? variants[0];
-        const effectiveTaskIds = activeVariant?.taskIds ?? rec.taskIds;
-        const effectiveTasksById = activeVariant?.tasksById ?? rec.tasksById;
-        // Build a compact preview from the first 4 tasks
-        const taskPreview: TaskPreviewItem[] = effectiveTaskIds.slice(0, 4).map((tid) => {
-            const t = effectiveTasksById[tid];
-            if (!t) return { type: 'unknown', label: '' };
-            let label = t.title || '';
-            switch (t.type) {
-                case 'multiple-choice':
-                    label = label || t.question?.slice(0, 60) || 'Multiple Choice';
-                    break;
-                case 'cloze':
-                    label = label || t.content?.replace(/\[.*?\]/g, '___').slice(0, 60) || 'Lückentext';
-                    break;
-                case 'instruction':
-                    label = label || t.text?.slice(0, 60) || 'Aufgabe';
-                    break;
-                case 'math':
-                    label = label || t.content?.slice(0, 40) || 'Mathe';
-                    break;
-                case 'lineatur':
-                    label = label || `Lineatur ${t.lineRows} Zeilen`;
-                    break;
-                case 'image-placeholder':
-                    label = label || t.caption || 'Bild';
-                    break;
-                case 'columns':
-                    label = label || `Spalten ${t.layout}`;
-                    break;
-                case 'page-break':
-                    label = '— Seitenumbruch —';
-                    break;
-                default:
-                    label = label || 'Aufgabe';
-            }
-            return { type: t.type, label };
-        });
+    return records.map(toWorksheetMeta);
+}
 
-        return {
-            id,
-            title,
-            taskCount: effectiveTaskIds.length,
-            variantCount: Math.max(1, variants.length),
-            subjectId,
-            classId,
-            createdAt,
-            updatedAt,
-            taskPreview,
-            thumbnailUrl: rec.thumbnailBlob ? URL.createObjectURL(rec.thumbnailBlob) : undefined,
-        };
-    });
+/** Gibt nur Arbeitsblätter im Papierkorb zurück (neueste Löschung zuerst) */
+export async function listTrashedWorksheets(): Promise<WorksheetMeta[]> {
+    const trashed = await db.worksheets
+        .where('deletedAt')
+        .aboveOrEqual(0)
+        .reverse()
+        .toArray();
+
+    return trashed.map(toWorksheetMeta);
+}
+
+/** Löscht dauerhaft alle Papierkorb-Einträge, die älter als 30 Tage sind */
+export async function cleanupTrash(): Promise<number> {
+    const cutoff = Date.now() - TRASH_RETENTION_MS;
+    return db.worksheets.where('deletedAt').belowOrEqual(cutoff).delete();
 }

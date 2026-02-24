@@ -1,7 +1,6 @@
 import {
     GraduationCap,
     BookOpen,
-    Sparkles,
     Palette,
     ZoomIn,
     ZoomOut,
@@ -10,7 +9,6 @@ import {
 import { ICON_SIZES } from '../ui/iconSizes';
 
 export interface FloatingToolbarProps {
-    onOpenAIImport: () => void;
     showHeader: boolean;
     onToggleHeaderDesign: () => void;
     isTeacherMode: boolean;
@@ -27,7 +25,6 @@ export interface FloatingToolbarProps {
 
 // ── FloatingToolbar ───────────────────────────────────────────────────
 export function FloatingToolbar({
-    onOpenAIImport,
     showHeader,
     onToggleHeaderDesign,
     isTeacherMode,
@@ -56,16 +53,6 @@ export function FloatingToolbar({
 
             {/* Divider */}
             <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
-
-            {/* ── KI-Import ── */}
-            <button
-                onClick={onOpenAIImport}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full transition-all text-xs font-semibold cursor-pointer shadow-sm hover:shadow-md active:scale-95"
-                title="Aufgaben via KI importieren"
-            >
-                <Sparkles className={ICON_SIZES[13]} />
-                <span>KI-Import</span>
-            </button>
 
             {/* ── Design ── */}
             <button

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { exportToDocx } from './utils/docx';
 
 import { useWorksheetStore } from './store/worksheetStore';
 import { useWorkspaceStore } from './store/workspaceStore';
 import { useSettingsStore } from './store/settingsStore';
 import { captureWorksheetThumbnail } from './utils/thumbnailCapture';
-import { AIImportWizard } from './components/ai/AIImportWizard';
 import { ChatAssistant } from './components/ai/ChatAssistant';
 import { EditorChatSidebar } from './components/ai/EditorChatSidebar';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { Dashboard } from './components/dashboard/Dashboard';
+import { TrashView } from './components/dashboard/TrashView';
 import { DesignEditor } from './components/dashboard/DesignEditor';
 import { TemplateGallery } from './components/dashboard/TemplateGallery';
 import { TopBar } from './components/editor/TopBar';
@@ -31,10 +32,10 @@ function App() {
   const variants = useWorksheetStore((state) => state.variants);
   const activeVariantId = useWorksheetStore((state) => state.activeVariantId);
   const insertTaskAt = useWorksheetStore((state) => state.insertTaskAt);
-  const addTasksFromAI = useWorksheetStore((state) => state.addTasksFromAI);
   const updateTask = useWorksheetStore((state) => state.updateTask);
   const removeTask = useWorksheetStore((state) => state.removeTask);
   const reorderTasks = useWorksheetStore((state) => state.reorderTasks);
+  const moveTask = useWorksheetStore((state) => state.moveTask);
   const duplicateTask = useWorksheetStore((state) => state.duplicateTask);
   const setActiveVariant = useWorksheetStore((state) => state.setActiveVariant);
   const addVariant = useWorksheetStore((state) => state.addVariant);
@@ -73,7 +74,6 @@ function App() {
   const toggleThemeMode = useSettingsStore((state) => state.toggleThemeMode);
 
   const [dashboardView, setDashboardView] = useState<DashboardView>('dashboard');
-  const [showAIWizard, setShowAIWizard] = useState(false);
   const [showDesignEditor, setShowDesignEditor] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showSourcesManager, setShowSourcesManager] = useState(false);
@@ -195,6 +195,9 @@ function App() {
           {currentView === 'dashboard' && dashboardView === 'profiles' && (
             <ClassesDashboard />
           )}
+          {currentView === 'dashboard' && dashboardView === 'trash' && (
+            <TrashView />
+          )}
         </AppShell>
         <SettingsModal
           isOpen={showSettingsModal}
@@ -238,8 +241,6 @@ function App() {
         isAbgenSharing={isAbgenSharing}
         isDarkMode={themeMode === 'dark'}
         onToggleThemeMode={toggleThemeMode}
-        isAiSidebarOpen={isAiSidebarOpen}
-        onToggleAiSidebar={toggleAiSidebar}
         isOutlineOpen={isOutlineOpen}
         onToggleOutline={toggleOutline}
         onOpenSources={() => setShowSourcesManager(true)}
@@ -258,7 +259,7 @@ function App() {
       <div className="lg:flex lg:items-stretch">
         {/* Outline-Navigator (linke Sidebar) */}
         <div
-          className={`no-print hidden lg:block shrink-0 h-[calc(100vh-52px)] sticky top-[52px] transition-all duration-200 ease-in-out overflow-hidden ${
+          className={`no-print hidden lg:block shrink-0 h-[calc(100vh-90px)] sticky top-[90px] transition-all duration-200 ease-in-out overflow-hidden ${
             isOutlineOpen ? 'w-60 border-r border-slate-200/80 dark:border-slate-800/80' : 'w-0'
           }`}
         >
@@ -280,6 +281,7 @@ function App() {
             brandColor={brandColor}
             zoomLevel={zoomLevel}
             onReorderTasks={reorderTasks}
+            onMoveTask={moveTask}
             onRemoveTask={removeTask}
             onDuplicateTask={duplicateTask}
             onToggleTaskNumber={handleToggleNumber}
@@ -294,18 +296,33 @@ function App() {
             <div className="no-print text-center py-16 mx-auto max-w-[210mm] border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl mt-8">
               <p className="text-slate-400 dark:text-slate-500 text-sm">
                 Noch keine Aufgaben vorhanden.<br />
-                Klicke unten auf das "+" oder nutze den KI-Import.
+                Klicke unten auf das "+" oder nutze den KI-Chat.
               </p>
             </div>
           )}
         </div>
 
         {isAiSidebarOpen && (
-          <div className="hidden lg:block w-80 xl:w-96 shrink-0 h-[calc(100vh-52px)] sticky top-[52px] pl-2 pr-2 pb-2">
+          <div className="no-print hidden lg:flex w-80 xl:w-96 shrink-0 min-h-0 h-[calc(100vh-90px)] sticky top-[90px] pl-2 pr-2 pb-2">
             <EditorChatSidebar />
           </div>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={toggleAiSidebar}
+        aria-label={isAiSidebarOpen ? 'KI-Chat schließen' : 'KI-Chat öffnen'}
+        aria-pressed={isAiSidebarOpen}
+        title={isAiSidebarOpen ? 'KI-Chat ausblenden' : 'KI-Chat einblenden'}
+        className={`no-print hidden lg:flex fixed z-50 h-14 w-14 items-center justify-center rounded-full border text-white shadow-xl transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 ${
+          isAiSidebarOpen
+            ? 'bottom-6 right-[21rem] xl:right-[25rem] bg-teal-500 dark:bg-purple-600 border-white/25 dark:border-white/10 hover:bg-teal-400 dark:hover:bg-purple-500 hover:-translate-y-0.5 hover:shadow-2xl active:scale-95'
+            : 'bottom-6 right-6 bg-teal-500 dark:bg-purple-600 border-white/25 dark:border-white/10 hover:bg-teal-400 dark:hover:bg-purple-500 hover:-translate-y-0.5 hover:scale-105 hover:shadow-2xl active:scale-95'
+        }`}
+      >
+        <Sparkles className="h-5 w-5" />
+      </button>
 
       <div
         className={`no-print fixed bottom-16 sm:bottom-18 lg:bottom-20 z-40 flex justify-center pointer-events-none ${
@@ -316,7 +333,6 @@ function App() {
       >
         <div className="pointer-events-auto">
           <FloatingToolbar
-            onOpenAIImport={() => setShowAIWizard(true)}
             showHeader={showHeader}
             onToggleHeaderDesign={handleToggleHeaderDesign}
             isTeacherMode={isTeacherMode}
@@ -329,13 +345,6 @@ function App() {
           />
         </div>
       </div>
-
-      {/* AI Import Wizard Modal */}
-      <AIImportWizard
-        isOpen={showAIWizard}
-        onClose={() => setShowAIWizard(false)}
-        onImport={addTasksFromAI}
-      />
 
       {/* Design Editor Modal */}
       <DesignEditor

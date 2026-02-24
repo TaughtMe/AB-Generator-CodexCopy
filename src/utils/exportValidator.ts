@@ -102,6 +102,10 @@ export function validateForExport(
                 // Leerer Text ist erlaubt – keine Warnung nötig.
                 break;
 
+            case 'heading':
+                // Leerer Text ist erlaubt – Fallback wird im UI/Export gerendert.
+                break;
+
             case 'columns': {
                 const cols = task as ColumnsTask;
                 // Both slots empty

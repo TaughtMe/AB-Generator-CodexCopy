@@ -40,6 +40,7 @@ interface WorksheetStore extends Worksheet {
     updateTask: (id: string, updates: Partial<Task>) => void;
     removeTask: (id: string) => void;
     reorderTasks: (taskIds: string[]) => void;
+    moveTask: (taskId: string, sourceContainerId: string, targetContainerId: string, newIndex: number) => void;
     duplicateTask: (id: string) => void;
     setActiveVariant: (variantId: string) => void;
     addVariant: (label: string, mode?: 'empty' | 'duplicate-active') => void;
@@ -120,6 +121,14 @@ function createNewTask(type: TaskType): Task {
             };
         case 'instruction':
             return { ...base, type: 'instruction', title: 'Neue Aufgabe', text: '' };
+        case 'heading':
+            return {
+                ...base,
+                type: 'heading',
+                title: 'Zwischenüberschrift',
+                text: 'Zwischenüberschrift',
+                showNumber: false,
+            };
         default:
             throw new Error(`Unsupported task type: ${type}`);
     }
@@ -301,6 +310,18 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
             const fallback: TaskByType<'instruction'> = fallbackTask.type === 'instruction'
                 ? fallbackTask
                 : createDefaultTaskOfType('instruction');
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                text: typeof task.text === 'string' ? task.text : fallback.text,
+            };
+        }
+
+        case 'heading': {
+            const fallback: TaskByType<'heading'> = fallbackTask.type === 'heading'
+                ? fallbackTask
+                : createDefaultTaskOfType('heading');
 
             return {
                 ...task,
@@ -675,6 +696,76 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         tasksById: state.tasksById,
         taskIds,
     })),
+
+    moveTask: (taskId, sourceContainerId, targetContainerId, newIndex) => set((state) => {
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
+
+        const task = activeVariant.tasksById[taskId];
+        if (!task) return state;
+
+        // Containers/page breaks are not supported as column children in the MVP.
+        if (targetContainerId !== 'root' && (task.type === 'columns' || task.type === 'page-break')) {
+            return state;
+        }
+
+        const nextTasksById = { ...activeVariant.tasksById };
+        let nextTaskIds = [...activeVariant.taskIds];
+        const detachFromSource = (): boolean => {
+            if (sourceContainerId === 'root') {
+                const existsInRoot = nextTaskIds.includes(taskId);
+                nextTaskIds = nextTaskIds.filter((id) => id !== taskId);
+                return existsInRoot;
+            }
+
+            const sourceContainer = nextTasksById[sourceContainerId];
+            if (!sourceContainer || sourceContainer.type !== 'columns') return false;
+
+            const sourceCols = sourceContainer as ColumnsTask;
+            const foundSourceSlotIndex = sourceCols.children.findIndex((childId) => childId === taskId);
+            if (foundSourceSlotIndex === -1) return false;
+
+            const nextChildren: [string | null, string | null] = [...sourceCols.children];
+            nextChildren[foundSourceSlotIndex as 0 | 1] = null;
+            nextTasksById[sourceContainerId] = { ...sourceCols, children: nextChildren };
+            return true;
+        };
+
+        if (!detachFromSource()) return state;
+
+        if (targetContainerId === 'root') {
+            const clampedIndex = Math.max(0, Math.min(Math.round(newIndex), nextTaskIds.length));
+            nextTaskIds.splice(clampedIndex, 0, taskId);
+
+            return syncActiveVariantTaskState(state, {
+                tasksById: nextTasksById,
+                taskIds: nextTaskIds,
+            });
+        }
+
+        const targetContainer = nextTasksById[targetContainerId];
+        if (!targetContainer || targetContainer.type !== 'columns') return state;
+        if (taskId === targetContainerId) return state;
+
+        if (newIndex !== 0 && newIndex !== 1) return state;
+        const targetSlotIndex = newIndex as 0 | 1;
+
+        const targetCols = targetContainer as ColumnsTask;
+        const currentOccupant = targetCols.children[targetSlotIndex];
+        if (currentOccupant && currentOccupant !== taskId) return state;
+
+        const nextChildren: [string | null, string | null] = [...targetCols.children];
+        nextChildren[targetSlotIndex] = taskId;
+        nextTasksById[targetContainerId] = { ...targetCols, children: nextChildren };
+
+        // Ensure the task is not duplicated in root.
+        nextTaskIds = nextTaskIds.filter((id) => id !== taskId);
+
+        return syncActiveVariantTaskState(state, {
+            tasksById: nextTasksById,
+            taskIds: nextTaskIds,
+        });
+    }),
 
     toggleTeacherMode: () => set((s) => ({ isTeacherMode: !s.isTeacherMode })),
 

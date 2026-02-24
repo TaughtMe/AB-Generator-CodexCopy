@@ -14,7 +14,7 @@ import { OnboardingTour } from '../onboarding/OnboardingTour';
    Auf kleinen Bildschirmen wird die Sidebar zum Overlay.
    ══════════════════════════════════════════════════ */
 
-export type DashboardView = 'dashboard' | 'profiles' | 'settings';
+export type DashboardView = 'dashboard' | 'profiles' | 'trash' | 'settings';
 
 interface AppShellProps {
     /** Welche Seite im Main-Bereich aktuell angezeigt wird */

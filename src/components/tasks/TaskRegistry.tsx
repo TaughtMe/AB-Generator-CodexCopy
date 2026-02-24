@@ -7,6 +7,7 @@ import { ImagePlaceholderEditor } from './ImagePlaceholderEditor';
 import { MathTaskEditor } from './MathTaskEditor';
 import { ColumnsEditor } from './ColumnsEditor';
 import { InstructionTaskEditor } from './InstructionTaskEditor';
+import { HeadingEditor } from './HeadingEditor';
 import { UnknownTaskFallback } from './UnknownTaskFallback';
 
 /**
@@ -58,6 +59,9 @@ export const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
     },
     'instruction': {
         editor: InstructionTaskEditor as React.ComponentType<{ task: Task }>,
+    },
+    'heading': {
+        editor: HeadingEditor as React.ComponentType<{ task: Task }>,
     },
 };
 
