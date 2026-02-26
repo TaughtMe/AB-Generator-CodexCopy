@@ -759,6 +759,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         options: PersistWorksheetOptions = {},
     ): Promise<void> => {
         const operationId = ++latestPersistOperationId;
+        useWorksheetStore.getState().setSaveStatus('saving');
         set({ autoSaveStatus: 'saving' });
 
         try {
@@ -773,10 +774,12 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             }
 
             if (operationId === latestPersistOperationId) {
+                useWorksheetStore.getState().setSaveStatus('saved');
                 set({ autoSaveStatus: 'saved' });
             }
         } catch (error) {
             if (operationId === latestPersistOperationId) {
+                useWorksheetStore.getState().setSaveStatus('unsaved');
                 set({ autoSaveStatus: 'error' });
             }
             throw error;

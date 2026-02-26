@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, MessageSquare, Send, Sparkles } from 'lucide-react';
+import { CheckCircle2, Loader2, MessageSquare, RefreshCw, Send, Sparkles, XCircle } from 'lucide-react';
 import {
     getActiveProviderLabel,
     isActiveProviderConfigured,
 } from '../../services/aiService';
 import { PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
 import { useGeminiModels } from '../../hooks/useGeminiModels';
-import { useLocalModels } from '../../hooks/useLocalModels';
 import { useOpenAIModels } from '../../hooks/useOpenAIModels';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
@@ -53,7 +52,11 @@ export const EditorChatSidebar: React.FC = () => {
     const aiProvider = useSettingsStore((s) => s.aiProvider);
     const providers = useSettingsStore((s) => s.providers);
     const chatModelPreferences = useSettingsStore((s) => s.chatModelPreferences);
+    const aiConnectionStatusByProvider = useSettingsStore((s) => s.aiConnectionStatusByProvider);
+    const availableLocalModels = useSettingsStore((s) => s.availableLocalModels);
+    const isFetchingModels = useSettingsStore((s) => s.isFetchingModels);
     const setChatModelPreference = useSettingsStore((s) => s.setChatModelPreference);
+    const refreshLocalModels = useSettingsStore((s) => s.refreshLocalModels);
 
     const [isVariantPanelOpen, setIsVariantPanelOpen] = useState(false);
     const [variantPreset, setVariantPreset] = useState<VariantDifferentiationPreset>('simplify');
@@ -70,12 +73,16 @@ export const EditorChatSidebar: React.FC = () => {
         [variants, activeVariantId],
     );
     const activeConfig = providers[aiProvider];
-    const { models: detectedLocalModels } = useLocalModels(activeConfig.baseUrl ?? '', aiProvider === 'local');
+    const aiConnectionStatus = aiConnectionStatusByProvider[aiProvider] ?? 'unknown';
     const { models: detectedGeminiModels } = useGeminiModels(activeConfig.apiKey ?? '', aiProvider === 'gemini');
     const { models: detectedOpenAIModels } = useOpenAIModels(
         activeConfig.baseUrl ?? '',
         activeConfig.apiKey ?? '',
         aiProvider === 'openai',
+    );
+    const localModelOptions = useMemo(
+        () => availableLocalModels.map((id) => ({ value: id, label: id, desc: 'Vom lokalen Server erkannt' })),
+        [availableLocalModels],
     );
     const mergedGeminiModels = useMemo(
         () =>
@@ -85,12 +92,18 @@ export const EditorChatSidebar: React.FC = () => {
         [detectedGeminiModels],
     );
     const chatModelOptions = useMemo(() => {
-        if (aiProvider === 'local' && detectedLocalModels.length > 0) return detectedLocalModels;
+        if (aiProvider === 'local' && localModelOptions.length > 0) return localModelOptions;
         if (aiProvider === 'gemini' && mergedGeminiModels.length > 0) return mergedGeminiModels;
         if (aiProvider === 'openai' && detectedOpenAIModels.length > 0) return detectedOpenAIModels;
         return PROVIDER_MODEL_OPTIONS[aiProvider];
-    }, [aiProvider, detectedLocalModels, mergedGeminiModels, detectedOpenAIModels]);
+    }, [aiProvider, localModelOptions, mergedGeminiModels, detectedOpenAIModels]);
     const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
+
+    useEffect(() => {
+        if (aiProvider !== 'local') return;
+        if (availableLocalModels.length > 0) return;
+        void refreshLocalModels();
+    }, [aiProvider, availableLocalModels.length, refreshLocalModels]);
 
     useEffect(() => {
         if (!isVariantPanelOpen) return;
@@ -165,6 +178,26 @@ export const EditorChatSidebar: React.FC = () => {
                 <div className="flex items-center gap-2">
                     <MessageSquare className={`${ICON_SIZES[16]} text-slate-500 dark:text-slate-300`} />
                     <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">KI-Chatverlauf</h2>
+                    {aiConnectionStatus === 'ready' ? (
+                        <span
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300"
+                            title={`${getActiveProviderLabel()} aktiv`}
+                        >
+                            <CheckCircle2 className={ICON_SIZES[10]} />
+                        </span>
+                    ) : aiConnectionStatus === 'error' ? (
+                        <span
+                            className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
+                            title={`${getActiveProviderLabel()} nicht aktiv`}
+                        >
+                            <XCircle className={ICON_SIZES[10]} />
+                        </span>
+                    ) : (
+                        <span
+                            className="inline-block h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600"
+                            title={`${getActiveProviderLabel()} noch nicht geprüft`}
+                        />
+                    )}
                 </div>
                 <div className="flex items-center gap-1.5">
                     <button
@@ -191,19 +224,33 @@ export const EditorChatSidebar: React.FC = () => {
                 <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                     Chat-Modell ({getActiveProviderLabel()})
                 </label>
-                <select
-                    value={chatPreference}
-                    onChange={(e) => setChatModelPreference(aiProvider, e.target.value)}
-                    disabled={isChatLoading || isChatGenerating}
-                    className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 px-2.5 py-2 text-xs text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-60"
-                >
-                    <option value="auto">Auto (nutzt Standardmodell)</option>
-                    {chatModelOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                            {option.label}
-                        </option>
-                    ))}
-                </select>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={chatPreference}
+                        onChange={(e) => setChatModelPreference(aiProvider, e.target.value)}
+                        disabled={isChatLoading || isChatGenerating}
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 px-2.5 py-2 text-xs text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-60"
+                    >
+                        <option value="auto">Auto (nutzt Standardmodell)</option>
+                        {chatModelOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                    {aiProvider === 'local' && (
+                        <button
+                            type="button"
+                            onClick={() => void refreshLocalModels()}
+                            disabled={isFetchingModels || isChatLoading || isChatGenerating}
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-500 transition-colors hover:bg-white hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                            title="Lokale Modelle aktualisieren"
+                            aria-label="Lokale Modelle aktualisieren"
+                        >
+                            <RefreshCw className={`${ICON_SIZES[14]} ${isFetchingModels ? 'animate-spin' : ''}`} />
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div ref={historyRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 custom-scrollbar">

@@ -17,6 +17,8 @@ import type { ChatMessage } from '../types/ai';
 import type { WorksheetSource } from '../types/worksheet';
 import { getGridColumns } from '../utils/lineaturStyles';
 
+export type WorksheetSaveStatus = 'saved' | 'unsaved' | 'saving';
+
 /**
  * Zentrale Runtime-Quelle für ein Arbeitsblatt im Editor.
  *
@@ -30,6 +32,7 @@ import { getGridColumns } from '../utils/lineaturStyles';
  */
 interface WorksheetStore extends Worksheet {
     // State
+    saveStatus: WorksheetSaveStatus;
     isTeacherMode: boolean;
     showHeader: boolean;
     // Actions
@@ -55,6 +58,7 @@ interface WorksheetStore extends Worksheet {
     setSources: (sources: WorksheetSource[]) => void;
     upsertSource: (source: WorksheetSource) => void;
     removeSource: (sourceId: string) => void;
+    setSaveStatus: (status: WorksheetSaveStatus) => void;
     /** Assign a task to a column slot */
     assignToColumn: (columnsId: string, slotIndex: 0 | 1, taskId: string | null) => void;
     /** Remove a child from its column and place it back in the root list */
@@ -523,6 +527,18 @@ function syncActiveVariantTaskState(
     };
 }
 
+function syncActiveVariantTaskStateUnsaved(
+    state: WorksheetStore,
+    nextTaskState: WorksheetTaskState,
+    activeVariantId = state.activeVariantId,
+    variantsOverride?: WorksheetVariant[],
+): Pick<WorksheetStore, 'variants' | 'activeVariantId' | 'tasksById' | 'taskIds' | 'saveStatus'> {
+    return {
+        ...syncActiveVariantTaskState(state, nextTaskState, activeVariantId, variantsOverride),
+        saveStatus: 'unsaved',
+    };
+}
+
 const INITIAL_WORKSHEET_VARIANT = createWorksheetVariant('Standard');
 
 export const useWorksheetStore = create<WorksheetStore>((set) => ({
@@ -532,6 +548,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
     title: 'Neues Arbeitsblatt',
     tasksById: INITIAL_WORKSHEET_VARIANT.tasksById,
     taskIds: INITIAL_WORKSHEET_VARIANT.taskIds,
+    saveStatus: 'unsaved',
     chatHistory: [],
     sources: [],
     classId: undefined,
@@ -549,7 +566,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
             taskIds: [...activeVariant.taskIds, newTask.id],
         };
-        return syncActiveVariantTaskState(state, nextTaskState);
+        return syncActiveVariantTaskStateUnsaved(state, nextTaskState);
     }),
 
     /**
@@ -563,7 +580,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         const newTaskIds = [...activeVariant.taskIds];
         const clampedIndex = Math.max(0, Math.min(index, newTaskIds.length));
         newTaskIds.splice(clampedIndex, 0, newTask.id);
-        return syncActiveVariantTaskState(state, {
+        return syncActiveVariantTaskStateUnsaved(state, {
             tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
             taskIds: newTaskIds,
         });
@@ -602,7 +619,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             newTaskIds.push(id);
         }
 
-        return syncActiveVariantTaskState(state, {
+        return syncActiveVariantTaskStateUnsaved(state, {
             tasksById: newTasksById,
             taskIds: newTaskIds,
         });
@@ -639,7 +656,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         let finalTask = { ...baseTask, ...updates } as Task;
         finalTask = sanitizeTaskForStore(finalTask, baseTask, isTypeSwitch);
 
-        return syncActiveVariantTaskState(state, {
+        return syncActiveVariantTaskStateUnsaved(state, {
             tasksById: {
                 ...activeVariant.tasksById,
                 [id]: finalTask,
@@ -686,13 +703,13 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             }
         }
 
-        return syncActiveVariantTaskState(state, {
+        return syncActiveVariantTaskStateUnsaved(state, {
             tasksById: remainingTasks,
             taskIds: activeVariant.taskIds.filter((taskId) => taskId !== id),
         });
     }),
 
-    reorderTasks: (taskIds) => set((state) => syncActiveVariantTaskState(state, {
+    reorderTasks: (taskIds) => set((state) => syncActiveVariantTaskStateUnsaved(state, {
         tasksById: state.tasksById,
         taskIds,
     })),
@@ -737,7 +754,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             const clampedIndex = Math.max(0, Math.min(Math.round(newIndex), nextTaskIds.length));
             nextTaskIds.splice(clampedIndex, 0, taskId);
 
-            return syncActiveVariantTaskState(state, {
+            return syncActiveVariantTaskStateUnsaved(state, {
                 tasksById: nextTasksById,
                 taskIds: nextTaskIds,
             });
@@ -761,7 +778,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         // Ensure the task is not duplicated in root.
         nextTaskIds = nextTaskIds.filter((id) => id !== taskId);
 
-        return syncActiveVariantTaskState(state, {
+        return syncActiveVariantTaskStateUnsaved(state, {
             tasksById: nextTasksById,
             taskIds: nextTaskIds,
         });
@@ -769,30 +786,33 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
 
     toggleTeacherMode: () => set((s) => ({ isTeacherMode: !s.isTeacherMode })),
 
-    setTitle: (title) => set({ title }),
+    setTitle: (title) => set({ title, saveStatus: 'unsaved' }),
 
     setShowHeader: (show) => set({ showHeader: show }),
 
-    setClassId: (classId) => set({ classId: classId?.trim() || undefined }),
+    setClassId: (classId) => set({ classId: classId?.trim() || undefined, saveStatus: 'unsaved' }),
 
-    setChatHistory: (messages) => set({ chatHistory: messages }),
+    setChatHistory: (messages) => set({ chatHistory: messages, saveStatus: 'unsaved' }),
 
-    setSources: (sources) => set({ sources }),
+    setSources: (sources) => set({ sources, saveStatus: 'unsaved' }),
 
     upsertSource: (source) => set((state) => {
         const existingIndex = state.sources.findIndex((entry) => entry.id === source.id);
         if (existingIndex === -1) {
-            return { sources: [...state.sources, source] };
+            return { sources: [...state.sources, source], saveStatus: 'unsaved' };
         }
 
         const next = [...state.sources];
         next[existingIndex] = source;
-        return { sources: next };
+        return { sources: next, saveStatus: 'unsaved' };
     }),
 
     removeSource: (sourceId) => set((state) => ({
         sources: state.sources.filter((entry) => entry.id !== sourceId),
+        saveStatus: 'unsaved',
     })),
+
+    setSaveStatus: (status) => set({ saveStatus: status }),
 
     /**
      * Lädt ein Arbeitsblatt aus Persistenz und wendet Legacy-Normalisierung an,
@@ -810,6 +830,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             chatHistory: normalizeLegacyChatHistory(chatHistory),
             sources: normalizeLegacySources(sources),
             classId: typeof classId === 'string' && classId.trim() ? classId : undefined,
+            saveStatus: 'saved',
         };
     }),
 
@@ -825,6 +846,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             chatHistory: [],
             sources: [],
             classId: undefined,
+            saveStatus: 'unsaved',
         };
     }),
 
@@ -881,7 +903,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             const insertIndex = activeVariant.taskIds.indexOf(id) + 1;
             const newTaskIds = [...activeVariant.taskIds];
             newTaskIds.splice(insertIndex, 0, newId);
-            return syncActiveVariantTaskState(state, {
+            return syncActiveVariantTaskStateUnsaved(state, {
                 tasksById: { ...activeVariant.tasksById, [newId]: cloned, ...extraTasks },
                 taskIds: newTaskIds,
             });
@@ -897,7 +919,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         const newTaskIds = [...activeVariant.taskIds];
         newTaskIds.splice(insertIndex, 0, newId);
 
-        return syncActiveVariantTaskState(state, {
+        return syncActiveVariantTaskStateUnsaved(state, {
             tasksById: { ...activeVariant.tasksById, [newId]: cloned },
             taskIds: newTaskIds,
         });
@@ -910,6 +932,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             activeVariantId: target.id,
             tasksById: target.tasksById,
             taskIds: target.taskIds,
+            saveStatus: 'unsaved',
         };
     }),
 
@@ -933,6 +956,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
                 tasksById: nextVariant.tasksById,
                 taskIds: nextVariant.taskIds,
             }, nextVariant.id, variants),
+            saveStatus: 'unsaved',
         };
     }),
 
@@ -945,7 +969,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
 
         const variants = [...state.variants];
         variants[index] = { ...variants[index], label: nextLabel };
-        return { variants };
+        return { variants, saveStatus: 'unsaved' };
     }),
 
     reorderVariants: (variantIds) => set((state) => {
@@ -968,6 +992,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             activeVariantId: activeVariant.id,
             tasksById: activeVariant.tasksById,
             taskIds: activeVariant.taskIds,
+            saveStatus: 'unsaved',
         };
     }),
 
@@ -991,6 +1016,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             activeVariantId: nextActiveVariant.id,
             tasksById: nextActiveVariant.tasksById,
             taskIds: nextActiveVariant.taskIds,
+            saveStatus: 'unsaved',
         };
     }),
 
@@ -1021,7 +1047,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             ? activeVariant.taskIds.filter((id) => id !== taskId)
             : activeVariant.taskIds;
 
-        return syncActiveVariantTaskState(state, {
+        return syncActiveVariantTaskStateUnsaved(state, {
             tasksById: { ...activeVariant.tasksById, [columnsId]: updatedContainer },
             taskIds: newTaskIds,
         });
@@ -1052,7 +1078,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         const newTaskIds = [...activeVariant.taskIds];
         newTaskIds.splice(containerIdx + 1, 0, childId);
 
-        return syncActiveVariantTaskState(state, {
+        return syncActiveVariantTaskStateUnsaved(state, {
             tasksById: { ...activeVariant.tasksById, [columnsId]: updatedContainer },
             taskIds: newTaskIds,
         });

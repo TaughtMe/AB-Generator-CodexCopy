@@ -14,6 +14,7 @@ import {
     Share2,
 } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useWorksheetStore } from '../../store/worksheetStore';
 import { IconButton } from '../ui/IconButton';
 import { ICON_SIZES } from '../ui/iconSizes';
 
@@ -66,8 +67,11 @@ export function TopBar({
 }: TopBarProps) {
     const hasMissingClassSelection = Boolean(classId) && !classOptions.some((entry) => entry.id === classId);
     const autoSaveStatus = useWorkspaceStore((state) => state.autoSaveStatus);
-    const effectiveSaveStatus = isSaving ? 'saving' : autoSaveStatus;
-    const showSaveIndicator = effectiveSaveStatus !== 'idle';
+    const worksheetSaveStatus = useWorksheetStore((state) => state.saveStatus);
+    const effectiveSaveStatus = autoSaveStatus === 'error'
+        ? 'error'
+        : (isSaving ? 'saving' : worksheetSaveStatus);
+    const isAnySaveInProgress = isSaving || effectiveSaveStatus === 'saving';
 
     return (
         <header className="no-print sticky top-0 z-30 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border-b-0 shadow-none">
@@ -130,43 +134,60 @@ export function TopBar({
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-1">
-                    {showSaveIndicator && (
-                        <div
-                            className={`hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-medium ${
-                                effectiveSaveStatus === 'error'
+                    <div
+                        className={`hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-medium ${
+                            effectiveSaveStatus === 'error'
+                                ? 'border-red-200 text-red-600 dark:border-red-900/50 dark:text-red-300 bg-red-50/70 dark:bg-red-900/20'
+                                : effectiveSaveStatus === 'unsaved'
                                     ? 'border-red-200 text-red-600 dark:border-red-900/50 dark:text-red-300 bg-red-50/70 dark:bg-red-900/20'
-                                    : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 bg-white/70 dark:bg-slate-800/70'
-                            }`}
-                            title={effectiveSaveStatus === 'saving' ? 'Automatisches Speichern läuft' : 'Speicherstatus'}
-                        >
-                            {effectiveSaveStatus === 'saving' ? (
-                                <Loader2 className={`${ICON_SIZES[12]} animate-spin`} />
-                            ) : effectiveSaveStatus === 'error' ? (
-                                <AlertCircle className={ICON_SIZES[12]} />
-                            ) : (
-                                <>
-                                    <Cloud className={ICON_SIZES[12]} />
-                                    <Check className={`${ICON_SIZES[10]} -ml-1`} />
-                                </>
-                            )}
-                            <span>
-                                {effectiveSaveStatus === 'saving'
-                                    ? 'Speichert...'
+                                    : effectiveSaveStatus === 'saved'
+                                        ? 'border-emerald-200 text-emerald-700 dark:border-emerald-900/50 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/20'
+                                        : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 bg-white/70 dark:bg-slate-800/70'
+                        }`}
+                        title={
+                            effectiveSaveStatus === 'saving'
+                                ? 'Speichert...'
+                                : effectiveSaveStatus === 'unsaved'
+                                    ? 'Ungespeicherte Änderungen'
+                                    : effectiveSaveStatus === 'error'
+                                        ? 'Speicherfehler'
+                                        : 'Gespeichert'
+                        }
+                    >
+                        {effectiveSaveStatus === 'saving' ? (
+                            <Loader2 className={`${ICON_SIZES[12]} animate-spin`} />
+                        ) : effectiveSaveStatus === 'error' ? (
+                            <AlertCircle className={ICON_SIZES[12]} />
+                        ) : effectiveSaveStatus === 'unsaved' ? (
+                            <span
+                                aria-hidden="true"
+                                className="inline-block h-2 w-2 rounded-full bg-red-500 dark:bg-red-400"
+                            />
+                        ) : (
+                            <>
+                                <Cloud className={ICON_SIZES[12]} />
+                                <Check className={`${ICON_SIZES[10]} -ml-1`} />
+                            </>
+                        )}
+                        <span>
+                            {effectiveSaveStatus === 'saving'
+                                ? 'Speichert...'
+                                : effectiveSaveStatus === 'unsaved'
+                                    ? 'Ungespeichert'
                                     : effectiveSaveStatus === 'error'
                                         ? 'Speicherfehler'
                                         : 'Gespeichert'}
-                            </span>
-                        </div>
-                    )}
+                        </span>
+                    </div>
 
                     <button
                         onClick={onSave}
-                        disabled={!hasTasks || isSaving}
+                        disabled={!hasTasks || isAnySaveInProgress}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
                         title="Arbeitsblatt speichern"
                     >
                         <Save className={ICON_SIZES[14]} />
-                        <span>{isSaving ? '...' : 'Speichern'}</span>
+                        <span>{isAnySaveInProgress ? '...' : 'Speichern'}</span>
                     </button>
 
                     <button

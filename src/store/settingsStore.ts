@@ -40,8 +40,6 @@ interface SettingsState {
     aiProvider: AIProvider;
     providers: AIProviderSettings;
     chatModelPreferences: Record<AIProvider, string>;
-    submitOnEnter: boolean;
-    hasSeenOnboarding: boolean;
     themeMode: ThemeMode;
     schoolType: string;
     subject: string;
@@ -65,9 +63,6 @@ interface SettingsActions {
     setProviderBaseUrl: (provider: AIProvider, baseUrl: string) => void;
     setProviderSelectedModelIds: (provider: AIProvider, ids: string[]) => void;
     setChatModelPreference: (provider: AIProvider, model: string) => void;
-    setSubmitOnEnter: (value: boolean) => void;
-    completeOnboarding: () => void;
-    restartOnboarding: () => void;
     setThemeMode: (mode: ThemeMode) => void;
     toggleThemeMode: () => void;
     setSchoolType: (type: string) => void;
@@ -133,8 +128,6 @@ export const useSettingsStore = create<SettingsStore>()(
                 openai: 'auto',
                 local: 'auto',
             },
-            submitOnEnter: true,
-            hasSeenOnboarding: false,
             themeMode: 'light' as ThemeMode,
             schoolType: '',
             subject: '',
@@ -199,9 +192,6 @@ export const useSettingsStore = create<SettingsStore>()(
                         [provider]: model || 'auto',
                     },
                 })),
-            setSubmitOnEnter: (value) => set({ submitOnEnter: value }),
-            completeOnboarding: () => set({ hasSeenOnboarding: true }),
-            restartOnboarding: () => set({ hasSeenOnboarding: false }),
             setThemeMode: (mode) => set({ themeMode: mode }),
             toggleThemeMode: () =>
                 set((state) => ({
@@ -252,37 +242,20 @@ export const useSettingsStore = create<SettingsStore>()(
         }),
         {
             name: 'ab-generator-settings',
-            version: 8,
+            version: 6,
             migrate: (persistedState, version) => {
                 if (!persistedState || typeof persistedState !== 'object') {
                     return persistedState as SettingsStore;
                 }
 
-                if (version >= 8) {
+                if (version >= 6) {
                     return persistedState as SettingsStore;
-                }
-
-                if (version === 7) {
-                    const stateV7 = persistedState as SettingsStore;
-                    return {
-                        ...stateV7,
-                        hasSeenOnboarding: stateV7.hasSeenOnboarding ?? false,
-                    } as SettingsStore;
-                }
-
-                if (version === 6) {
-                    const stateV6 = persistedState as SettingsStore;
-                    return {
-                        ...stateV6,
-                        submitOnEnter: stateV6.submitOnEnter ?? true,
-                    } as SettingsStore;
                 }
 
                 if (version === 5) {
                     const stateV5 = persistedState as SettingsStore;
                     return {
                         ...stateV5,
-                        submitOnEnter: stateV5.submitOnEnter ?? true,
                         chatModelPreferences: {
                             gemini: stateV5.chatModelPreferences?.gemini ?? 'auto',
                             openai: stateV5.chatModelPreferences?.openai ?? 'auto',
@@ -295,7 +268,6 @@ export const useSettingsStore = create<SettingsStore>()(
                     const stateV4 = persistedState as SettingsStore;
                     return {
                         ...stateV4,
-                        submitOnEnter: stateV4.submitOnEnter ?? true,
                         chatModelPreferences: {
                             gemini: stateV4.chatModelPreferences?.gemini ?? 'auto',
                             openai: stateV4.chatModelPreferences?.openai ?? 'auto',
@@ -312,7 +284,6 @@ export const useSettingsStore = create<SettingsStore>()(
 
                     return {
                         ...stateV3,
-                        submitOnEnter: stateV3.submitOnEnter ?? true,
                         chatModelPreferences: {
                             gemini: stateV3.chatModelPreferences?.gemini ?? 'auto',
                             openai: stateV3.chatModelPreferences?.openai ?? 'auto',
@@ -347,7 +318,6 @@ export const useSettingsStore = create<SettingsStore>()(
 
                     return {
                         ...stateV2,
-                        submitOnEnter: stateV2.submitOnEnter ?? true,
                         chatModelPreferences: {
                             gemini: stateV2.chatModelPreferences?.gemini ?? 'auto',
                             openai: stateV2.chatModelPreferences?.openai ?? 'auto',
@@ -387,7 +357,6 @@ export const useSettingsStore = create<SettingsStore>()(
                 return {
                     ...legacyState,
                     aiProvider: legacyState.aiProvider ?? 'gemini',
-                    submitOnEnter: true,
                     chatModelPreferences: {
                         gemini: 'auto',
                         openai: 'auto',

@@ -1,8 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Cpu, Database, MessageSquare, Moon, Settings, Sun, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, Cpu, Database, Loader2, MessageSquare, Moon, RefreshCw, Settings, Sun, X, XCircle } from 'lucide-react';
 import { useSettingsStore, type AIProvider } from '../../store/settingsStore';
 import { PROVIDER_LABELS, PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
-import { useLocalModels } from '../../hooks/useLocalModels';
+import { testConnection } from '../../services/aiService';
 import { useGeminiModels } from '../../hooks/useGeminiModels';
 import { useOpenAIModels } from '../../hooks/useOpenAIModels';
 import { exportLocalBackup, importLocalBackup } from '../../utils/dataManagement';
@@ -39,21 +39,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const providers = useSettingsStore((state) => state.providers);
     const themeMode = useSettingsStore((state) => state.themeMode);
     const chatModelPreferences = useSettingsStore((state) => state.chatModelPreferences);
+    const aiConnectionStatusByProvider = useSettingsStore((state) => state.aiConnectionStatusByProvider);
+    const aiConnectionErrorByProvider = useSettingsStore((state) => state.aiConnectionErrorByProvider);
+    const availableLocalModels = useSettingsStore((state) => state.availableLocalModels);
+    const isFetchingModels = useSettingsStore((state) => state.isFetchingModels);
     const submitOnEnter = useSettingsStore((state) => state.submitOnEnter);
 
     const setAIProvider = useSettingsStore((state) => state.setAIProvider);
     const setProviderApiKey = useSettingsStore((state) => state.setProviderApiKey);
     const setProviderBaseUrl = useSettingsStore((state) => state.setProviderBaseUrl);
     const setProviderModel = useSettingsStore((state) => state.setProviderModel);
+    const setAiConnectionStatus = useSettingsStore((state) => state.setAiConnectionStatus);
+    const refreshLocalModels = useSettingsStore((state) => state.refreshLocalModels);
     const setThemeMode = useSettingsStore((state) => state.setThemeMode);
     const setChatModelPreference = useSettingsStore((state) => state.setChatModelPreference);
     const setSubmitOnEnter = useSettingsStore((state) => state.setSubmitOnEnter);
     const restartOnboarding = useSettingsStore((state) => state.restartOnboarding);
 
     const activeConfig = providers[aiProvider];
-    const { models: detectedLocalModels } = useLocalModels(activeConfig.baseUrl ?? '', isOpen && aiProvider === 'local');
     const { models: detectedGeminiModels } = useGeminiModels(activeConfig.apiKey ?? '', isOpen && aiProvider === 'gemini');
     const { models: detectedOpenAIModels } = useOpenAIModels(activeConfig.baseUrl ?? '', activeConfig.apiKey ?? '', isOpen && aiProvider === 'openai');
+    const localModelOptions = useMemo(
+        () => availableLocalModels.map((id) => ({ value: id, label: id, desc: 'Vom lokalen Server erkannt' })),
+        [availableLocalModels],
+    );
 
     const mergedGeminiModels = useMemo(
         () => Array.from(
@@ -66,14 +75,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     );
 
     const modelOptions = useMemo(() => {
-        if (aiProvider === 'local' && detectedLocalModels.length > 0) return detectedLocalModels;
+        if (aiProvider === 'local' && localModelOptions.length > 0) return localModelOptions;
         if (aiProvider === 'gemini' && mergedGeminiModels.length > 0) return mergedGeminiModels;
         if (aiProvider === 'openai' && detectedOpenAIModels.length > 0) return detectedOpenAIModels;
         return PROVIDER_MODEL_OPTIONS[aiProvider];
-    }, [aiProvider, detectedLocalModels, mergedGeminiModels, detectedOpenAIModels]);
+    }, [aiProvider, localModelOptions, mergedGeminiModels, detectedOpenAIModels]);
 
     const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
     const effectiveChatModel = chatPreference === 'auto' ? activeConfig.model : chatPreference;
+    const aiConnectionStatus = aiConnectionStatusByProvider[aiProvider] ?? 'unknown';
+    const aiConnectionError = aiConnectionErrorByProvider[aiProvider] ?? null;
+
+    useEffect(() => {
+        if (!isOpen || aiProvider !== 'local') return;
+        if (availableLocalModels.length > 0) return;
+        void refreshLocalModels();
+    }, [isOpen, aiProvider, availableLocalModels.length, refreshLocalModels]);
+
+    useEffect(() => {
+        if (!isOpen || activeTab !== 'ai') return;
+
+        const hasModel = Boolean(activeConfig.model?.trim());
+        const hasKey = aiProvider === 'local' ? true : Boolean(activeConfig.apiKey?.trim());
+        const hasBaseUrl = (aiProvider === 'openai' || aiProvider === 'local')
+            ? Boolean(activeConfig.baseUrl?.trim())
+            : true;
+
+        if (!hasModel || !hasKey || !hasBaseUrl) {
+            return;
+        }
+
+        let isCancelled = false;
+        const timer = window.setTimeout(() => {
+            setAiConnectionStatus(aiProvider, 'testing');
+            void testConnection(aiProvider).then((result) => {
+                if (isCancelled) return;
+                setAiConnectionStatus(aiProvider, result.ok ? 'ready' : 'error', result.ok ? null : result.message);
+            });
+        }, 800);
+
+        return () => {
+            isCancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [
+        isOpen,
+        activeTab,
+        aiProvider,
+        activeConfig.apiKey,
+        activeConfig.baseUrl,
+        activeConfig.model,
+        setAiConnectionStatus,
+    ]);
 
     async function handleBackupDownload() {
         setIsConfirmingReset(false);
@@ -273,6 +326,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         placeholder={aiProvider === 'local' ? 'Optional für lokalen Server' : 'API-Key eingeben'}
                                         className="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-200"
                                     />
+                                    <div className="mt-2 min-h-5">
+                                        {aiConnectionStatus === 'ready' && (
+                                            <div className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                                <CheckCircle2 className={ICON_SIZES[12]} />
+                                                <span>API aktiv</span>
+                                            </div>
+                                        )}
+                                        {aiConnectionStatus === 'error' && (
+                                            <div
+                                                className="inline-flex max-w-full items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
+                                                title={aiConnectionError || 'API nicht aktiv'}
+                                            >
+                                                <XCircle className={ICON_SIZES[12]} />
+                                                <span className="max-w-[28rem] truncate">{aiConnectionError || 'API nicht aktiv'}</span>
+                                            </div>
+                                        )}
+                                        {aiConnectionStatus === 'testing' && (
+                                            <div className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+                                                <Loader2 className={`${ICON_SIZES[12]} animate-spin`} />
+                                                <span>Prüfe API...</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {(aiProvider === 'openai' || aiProvider === 'local') && (
@@ -290,15 +366,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Standardmodell</label>
-                                    <select
-                                        value={activeConfig.model}
-                                        onChange={(e) => setProviderModel(aiProvider, e.target.value)}
-                                        className="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-200 cursor-pointer"
-                                    >
-                                        {modelOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={activeConfig.model}
+                                            onChange={(e) => setProviderModel(aiProvider, e.target.value)}
+                                            className="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-200 cursor-pointer"
+                                        >
+                                            {modelOptions.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                        {aiProvider === 'local' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => void refreshLocalModels()}
+                                                disabled={isFetchingModels}
+                                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                                                title="Lokale Modelle aktualisieren"
+                                                aria-label="Lokale Modelle aktualisieren"
+                                            >
+                                                <RefreshCw className={`${ICON_SIZES[16]} ${isFetchingModels ? 'animate-spin' : ''}`} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -311,16 +401,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50/60 dark:bg-slate-800/40">
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Aktiver Anbieter: <span className="font-semibold text-slate-700 dark:text-slate-200">{PROVIDER_LABELS[aiProvider]}</span></p>
                                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Bevorzugtes Chat-Modell</label>
-                                    <select
-                                        value={chatPreference}
-                                        onChange={(e) => setChatModelPreference(aiProvider, e.target.value)}
-                                        className="w-full px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-200 cursor-pointer"
-                                    >
-                                        <option value="auto">Auto (nutzt Standardmodell)</option>
-                                        {modelOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={chatPreference}
+                                            onChange={(e) => setChatModelPreference(aiProvider, e.target.value)}
+                                            className="w-full px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-200 cursor-pointer"
+                                        >
+                                            <option value="auto">Auto (nutzt Standardmodell)</option>
+                                            {modelOptions.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                        {aiProvider === 'local' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => void refreshLocalModels()}
+                                                disabled={isFetchingModels}
+                                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                                                title="Lokale Modelle aktualisieren"
+                                                aria-label="Lokale Modelle aktualisieren"
+                                            >
+                                                <RefreshCw className={`${ICON_SIZES[16]} ${isFetchingModels ? 'animate-spin' : ''}`} />
+                                            </button>
+                                        )}
+                                    </div>
                                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Aktiv für den Chat: {effectiveChatModel}</p>
                                 </div>
 
