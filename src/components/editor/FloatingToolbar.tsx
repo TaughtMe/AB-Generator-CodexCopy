@@ -1,6 +1,4 @@
 import {
-    GraduationCap,
-    BookOpen,
     Palette,
     ZoomIn,
     ZoomOut,
@@ -11,8 +9,6 @@ import { ICON_SIZES } from '../ui/iconSizes';
 export interface FloatingToolbarProps {
     showHeader: boolean;
     onToggleHeaderDesign: () => void;
-    isTeacherMode: boolean;
-    onToggleTeacherMode: () => void;
     zoomLevel: number;
     onZoomLevelChange: (zoomLevel: number) => void;
     /** Placement-Modus aktiv? */
@@ -27,8 +23,6 @@ export interface FloatingToolbarProps {
 export function FloatingToolbar({
     showHeader,
     onToggleHeaderDesign,
-    isTeacherMode,
-    onToggleTeacherMode,
     zoomLevel,
     onZoomLevelChange,
     isPlacingNewTask,
@@ -66,20 +60,6 @@ export function FloatingToolbar({
             >
                 <Palette className={ICON_SIZES[13]} />
                 <span>Design</span>
-            </button>
-
-            {/* ── Schüler / Lehrer ── */}
-            <button
-                onClick={onToggleTeacherMode}
-                className={`flex items-center justify-center gap-1.5 w-[83px] py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
-                    isTeacherMode
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-emerald-800'
-                        : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-1 ring-red-200 dark:ring-red-800'
-                }`}
-                title={isTeacherMode ? 'Lehrer-Modus (Lösungen sichtbar)' : 'Schüler-Modus (Lösungen ausgeblendet)'}
-            >
-                {isTeacherMode ? <GraduationCap className={`${ICON_SIZES[14]} shrink-0`} /> : <BookOpen className={`${ICON_SIZES[14]} shrink-0`} />}
-                <span>{isTeacherMode ? 'Lehrer' : 'Schüler'}</span>
             </button>
 
             {/* Divider */}

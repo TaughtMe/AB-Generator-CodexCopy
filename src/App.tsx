@@ -14,6 +14,7 @@ import { TrashView } from './components/dashboard/TrashView';
 import { DesignEditor } from './components/dashboard/DesignEditor';
 import { TemplateGallery } from './components/dashboard/TemplateGallery';
 import { TopBar } from './components/editor/TopBar';
+import type { ExportVariant } from './components/editor/ExportMenu';
 import { VariantTabs } from './components/editor/VariantTabs';
 import { FloatingToolbar } from './components/editor/FloatingToolbar';
 import { WorksheetCanvas } from './components/editor/WorksheetCanvas';
@@ -42,8 +43,6 @@ function App() {
   const renameVariant = useWorksheetStore((state) => state.renameVariant);
   const reorderVariants = useWorksheetStore((state) => state.reorderVariants);
   const removeVariant = useWorksheetStore((state) => state.removeVariant);
-  const isTeacherMode = useWorksheetStore((state) => state.isTeacherMode);
-  const toggleTeacherMode = useWorksheetStore((state) => state.toggleTeacherMode);
   const showHeader = useWorksheetStore((state) => state.showHeader);
   const setShowHeader = useWorksheetStore((state) => state.setShowHeader);
   const setTitle = useWorksheetStore((state) => state.setTitle);
@@ -101,12 +100,54 @@ function App() {
     }
   };
 
-  const handlePdfExport = () => {
-    window.print();
+  const runPrintExport = async (variant: ExportVariant) => {
+    const root = document.documentElement;
+    const previousVariant = root.dataset.exportVariant;
+    root.dataset.exportVariant = variant;
+
+    const waitForPrint = () => new Promise<void>((resolve) => {
+      let resolved = false;
+
+      const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+        window.removeEventListener('afterprint', handleAfterPrint);
+        resolve();
+      };
+
+      const handleAfterPrint = () => {
+        window.clearTimeout(timeoutId);
+        cleanup();
+      };
+
+      const timeoutId = window.setTimeout(cleanup, 15000);
+      window.addEventListener('afterprint', handleAfterPrint, { once: true });
+      window.print();
+    });
+
+    try {
+      await waitForPrint();
+    } finally {
+      if (previousVariant) {
+        root.dataset.exportVariant = previousVariant;
+      } else {
+        delete root.dataset.exportVariant;
+      }
+    }
   };
 
-  const handleDocxExport = () => {
-    exportToDocx(title, tasksById, taskIds, isTeacherMode);
+  const handlePdfExport = async (variants: ExportVariant[]) => {
+    if (taskIds.length === 0) return;
+    for (const variant of variants) {
+      await runPrintExport(variant);
+    }
+  };
+
+  const handleDocxExport = async (variants: ExportVariant[]) => {
+    if (taskIds.length === 0) return;
+    for (const variant of variants) {
+      await exportToDocx(title, tasksById, taskIds, variant === 'teacher');
+    }
   };
 
   const handleAbgenExport = async () => {
@@ -232,9 +273,9 @@ function App() {
         onSave={handleSave}
         isSaving={isSaving}
         hasTasks={taskIds.length > 0}
-        onExportDocx={handleDocxExport}
-        onExportPDF={handlePdfExport}
         onExportAbgen={handleAbgenExport}
+        onExportPdf={handlePdfExport}
+        onExportDocx={handleDocxExport}
         onShareAbgen={handleAbgenShare}
         canShareAbgen={canShareWorksheetFiles()}
         isAbgenExporting={isAbgenExporting}
@@ -335,8 +376,6 @@ function App() {
           <FloatingToolbar
             showHeader={showHeader}
             onToggleHeaderDesign={handleToggleHeaderDesign}
-            isTeacherMode={isTeacherMode}
-            onToggleTeacherMode={toggleTeacherMode}
             zoomLevel={zoomLevel}
             onZoomLevelChange={setZoomLevel}
             isPlacingNewTask={isPlacingNewTask}

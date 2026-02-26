@@ -20,6 +20,7 @@ interface HeaderFields {
 }
 
 export type AIProvider = 'gemini' | 'openai' | 'local';
+export type AIConnectionStatus = 'unknown' | 'testing' | 'ready' | 'error';
 
 export interface ProviderConfig {
     apiKey: string;
@@ -44,6 +45,12 @@ interface SettingsState {
     schoolType: string;
     subject: string;
     curriculumContext: string;
+    aiConnectionStatusByProvider: Record<AIProvider, AIConnectionStatus>;
+    aiConnectionErrorByProvider: Record<AIProvider, string | null>;
+    availableLocalModels: string[];
+    isFetchingModels: boolean;
+    submitOnEnter: boolean;
+    hasSeenOnboarding: boolean;
     // Design Settings
     schoolName: string;
     logoImageId: number | null;
@@ -68,6 +75,11 @@ interface SettingsActions {
     setSchoolType: (type: string) => void;
     setSubject: (subject: string) => void;
     setCurriculumContext: (context: string) => void;
+    setAiConnectionStatus: (provider: AIProvider, status: AIConnectionStatus, error?: string | null) => void;
+    refreshLocalModels: () => Promise<string[]>;
+    setSubmitOnEnter: (value: boolean) => void;
+    completeOnboarding: () => void;
+    restartOnboarding: () => void;
     // Design Actions
     setSchoolName: (name: string) => void;
     setLogoImageId: (id: number | null) => void;
@@ -83,6 +95,50 @@ interface SettingsActions {
 }
 
 type SettingsStore = SettingsState & SettingsActions;
+
+type PersistedSettingsSlice = Omit<
+    SettingsState,
+    'aiConnectionStatusByProvider' | 'aiConnectionErrorByProvider' | 'availableLocalModels' | 'isFetchingModels'
+>;
+
+function getDefaultAiConnectionStatusByProvider(): Record<AIProvider, AIConnectionStatus> {
+    return {
+        gemini: 'unknown',
+        openai: 'unknown',
+        local: 'unknown',
+    };
+}
+
+function getDefaultAiConnectionErrorByProvider(): Record<AIProvider, string | null> {
+    return {
+        gemini: null,
+        openai: null,
+        local: null,
+    };
+}
+
+function toPersistedSettingsSlice(state: SettingsStore): PersistedSettingsSlice {
+    return {
+        aiProvider: state.aiProvider,
+        providers: state.providers,
+        chatModelPreferences: state.chatModelPreferences,
+        themeMode: state.themeMode,
+        schoolType: state.schoolType,
+        subject: state.subject,
+        curriculumContext: state.curriculumContext,
+        submitOnEnter: state.submitOnEnter,
+        hasSeenOnboarding: state.hasSeenOnboarding,
+        schoolName: state.schoolName,
+        logoImageId: state.logoImageId,
+        logoText: state.logoText,
+        headerFields: state.headerFields,
+        brandColor: state.brandColor,
+        fontFamily: state.fontFamily,
+        showHeaderTitle: state.showHeaderTitle,
+        showWorksheetTitle: state.showWorksheetTitle,
+        applyColorToTasks: state.applyColorToTasks,
+    };
+}
 
 /** Migrate legacy API key from old localStorage entry */
 function migrateLegacyApiKey(): string {
@@ -132,6 +188,12 @@ export const useSettingsStore = create<SettingsStore>()(
             schoolType: '',
             subject: '',
             curriculumContext: '',
+            aiConnectionStatusByProvider: getDefaultAiConnectionStatusByProvider(),
+            aiConnectionErrorByProvider: getDefaultAiConnectionErrorByProvider(),
+            availableLocalModels: [],
+            isFetchingModels: false,
+            submitOnEnter: true,
+            hasSeenOnboarding: false,
             // Design defaults
             schoolName: '',
             logoImageId: null,
@@ -200,6 +262,62 @@ export const useSettingsStore = create<SettingsStore>()(
             setSchoolType: (type) => set({ schoolType: type }),
             setSubject: (subject) => set({ subject }),
             setCurriculumContext: (context) => set({ curriculumContext: context }),
+            setAiConnectionStatus: (provider, status, error = null) =>
+                set((state) => ({
+                    aiConnectionStatusByProvider: {
+                        ...state.aiConnectionStatusByProvider,
+                        [provider]: status,
+                    },
+                    aiConnectionErrorByProvider: {
+                        ...state.aiConnectionErrorByProvider,
+                        [provider]: status === 'error' ? (error ?? 'Unbekannter Verbindungsfehler') : null,
+                    },
+                })),
+            refreshLocalModels: async () => {
+                const { providers } = get();
+                const baseUrlRaw = providers.local.baseUrl?.trim() || 'http://localhost:1234/v1';
+                const normalizedBaseUrl = /\/v1$/i.test(baseUrlRaw.replace(/\/$/, ''))
+                    ? baseUrlRaw.replace(/\/$/, '')
+                    : `${baseUrlRaw.replace(/\/$/, '')}/v1`;
+
+                set({ isFetchingModels: true });
+                try {
+                    const response = await fetch(`${normalizedBaseUrl}/models`, {
+                        headers: providers.local.apiKey?.trim()
+                            ? { Authorization: `Bearer ${providers.local.apiKey}` }
+                            : undefined,
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const payload = (await response.json()) as { data?: Array<{ id?: string }> };
+                    const ids = Array.from(
+                        new Set(
+                            (payload.data ?? [])
+                                .map((entry) => entry.id?.trim() ?? '')
+                                .filter(Boolean),
+                        ),
+                    ).sort((a, b) => a.localeCompare(b));
+
+                    set({
+                        availableLocalModels: ids,
+                    });
+
+                    return ids;
+                } catch {
+                    set({
+                        availableLocalModels: [],
+                    });
+                    return [];
+                } finally {
+                    set({ isFetchingModels: false });
+                }
+            },
+            setSubmitOnEnter: (value) => set({ submitOnEnter: value }),
+            completeOnboarding: () => set({ hasSeenOnboarding: true }),
+            restartOnboarding: () => set({ hasSeenOnboarding: false }),
             // Design Actions
             setSchoolName: (name) => set({ schoolName: name }),
             setLogoImageId: (id) => set({ logoImageId: id }),
@@ -242,14 +360,37 @@ export const useSettingsStore = create<SettingsStore>()(
         }),
         {
             name: 'ab-generator-settings',
-            version: 6,
+            version: 7,
+            partialize: (state) => toPersistedSettingsSlice(state),
             migrate: (persistedState, version) => {
                 if (!persistedState || typeof persistedState !== 'object') {
                     return persistedState as SettingsStore;
                 }
 
-                if (version >= 6) {
+                if (version >= 7) {
                     return persistedState as SettingsStore;
+                }
+
+                if (version === 6) {
+                    const stateV6 = persistedState as Partial<SettingsState> & Record<string, unknown>;
+                    const {
+                        aiConnectionStatusByProvider: _ignoredStatus,
+                        aiConnectionErrorByProvider: _ignoredError,
+                        availableLocalModels: _ignoredModels,
+                        isFetchingModels: _ignoredFetching,
+                        ...rest
+                    } = stateV6;
+
+                    void _ignoredStatus;
+                    void _ignoredError;
+                    void _ignoredModels;
+                    void _ignoredFetching;
+
+                    return {
+                        ...rest,
+                        submitOnEnter: typeof rest.submitOnEnter === 'boolean' ? rest.submitOnEnter : true,
+                        hasSeenOnboarding: typeof rest.hasSeenOnboarding === 'boolean' ? rest.hasSeenOnboarding : false,
+                    } as SettingsStore;
                 }
 
                 if (version === 5) {

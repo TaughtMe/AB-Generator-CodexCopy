@@ -76,7 +76,7 @@ export async function exportToDocx(
     title: string,
     tasksById: Record<string, Task>,
     taskIds: string[],
-    isTeacherMode: boolean,
+    isTeacherVersion: boolean,
 ): Promise<void> {
     const { fontFamily: userFont, brandColor, applyColorToTasks } = useSettingsStore.getState();
     const fontFamily = (userFont || 'Inter').split(',')[0].replace(/["']/g, '').trim();
@@ -105,7 +105,7 @@ export async function exportToDocx(
             console.warn('[docxExport] Header failed, exporting without:', headerErr);
         }
 
-        if (isTeacherMode) {
+        if (isTeacherVersion) {
             allChildren.push(
                 new Paragraph({
                     children: [
@@ -153,7 +153,7 @@ export async function exportToDocx(
             let taskContent: (Paragraph | Table)[] = [];
 
             if (task.type === 'columns') {
-                taskContent = [await renderColumnsTask(task as ColumnsTask, tasksById, isTeacherMode, {
+                taskContent = [await renderColumnsTask(task as ColumnsTask, tasksById, isTeacherVersion, {
                     fontFamily,
                     fontSizePt: FONT_SIZE_PT,
                     taskGapAfter: TASK_GAP_AFTER,
@@ -165,7 +165,7 @@ export async function exportToDocx(
                     docxTheme: DOCX_THEME,
                 })];
             } else {
-                taskContent = await renderTaskContent(task, isTeacherMode, {
+                taskContent = await renderTaskContent(task, isTeacherVersion, {
                     fontFamily,
                     fontSizePt: FONT_SIZE_PT,
                     taskGapAfter: TASK_GAP_AFTER,
@@ -197,7 +197,7 @@ export async function exportToDocx(
         const doc = createStyledDocument(fontFamily, FONT_SIZE_PT, allChildren);
 
         const blob = await Packer.toBlob(doc);
-        const suffix = isTeacherMode ? '_Lehrer' : '_Schueler';
+        const suffix = isTeacherVersion ? '_Lehrer' : '_Schueler';
         const filename = `${title.replace(/[^a-zA-Z0-9äöüÄÖÜß\s-]/g, '')}${suffix}.docx`;
         saveAs(blob, filename);
     } catch (error) {

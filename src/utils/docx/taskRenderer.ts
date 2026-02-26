@@ -70,7 +70,7 @@ interface TaskRendererConfig {
 
 function renderMultipleChoice(
     task: MultipleChoiceTask,
-    isTeacherMode: boolean,
+    isTeacherVersion: boolean,
     config: TaskRendererConfig,
 ): (Paragraph | Table)[] {
     const elements: (Paragraph | Table)[] = [];
@@ -90,7 +90,7 @@ function renderMultipleChoice(
     const MC_CHECKBOX_SIZE_PT = 14;
 
     const optionRows = task.options.map((option) => {
-        const isCorrectTeacher = isTeacherMode && option.isCorrect;
+        const isCorrectTeacher = isTeacherVersion && option.isCorrect;
         const checkChar = isCorrectTeacher ? '☑' : '☐';
         const textColor = isCorrectTeacher ? config.docxTheme.correctAnswer : config.docxTheme.text;
         const isBold = isCorrectTeacher;
@@ -193,7 +193,7 @@ async function renderLineatur(task: LineaturTask, config: TaskRendererConfig): P
     return elements;
 }
 
-function renderCloze(task: ClozeTask, isTeacherMode: boolean, config: TaskRendererConfig): Paragraph[] {
+function renderCloze(task: ClozeTask, isTeacherVersion: boolean, config: TaskRendererConfig): Paragraph[] {
     if (!task.content || !task.content.trim()) {
         return [
             new Paragraph({
@@ -218,7 +218,7 @@ function renderCloze(task: ClozeTask, isTeacherMode: boolean, config: TaskRender
     for (const part of parts) {
         if (part.type === 'gap') {
             const word = part.answer;
-            if (isTeacherMode) {
+            if (isTeacherVersion) {
                 runs.push(
                     new TextRun({
                         text: word,
@@ -543,16 +543,16 @@ function renderHeading(
 
 export async function renderTaskContent(
     task: Task,
-    isTeacherMode: boolean,
+    isTeacherVersion: boolean,
     config: TaskRendererConfig,
 ): Promise<(Paragraph | Table)[]> {
     switch (task.type) {
         case 'multiple-choice':
-            return renderMultipleChoice(task, isTeacherMode, config);
+            return renderMultipleChoice(task, isTeacherVersion, config);
         case 'lineatur':
             return await renderLineatur(task, config);
         case 'cloze':
-            return renderCloze(task, isTeacherMode, config);
+            return renderCloze(task, isTeacherVersion, config);
         case 'math':
             return await renderMath(task, config);
         case 'image-placeholder':
@@ -589,7 +589,7 @@ function layoutToFractions(layout: string): [number, number] {
 export async function renderColumnsTask(
     task: ColumnsTask,
     tasksById: Record<string, Task>,
-    isTeacherMode: boolean,
+    isTeacherVersion: boolean,
     config: TaskRendererConfig,
 ): Promise<Table> {
     /**
@@ -628,7 +628,7 @@ export async function renderColumnsTask(
                 }),
             ];
         }
-        return await renderTaskContent(tasksById[childId], isTeacherMode, config);
+        return await renderTaskContent(tasksById[childId], isTeacherVersion, config);
     };
 
     const [leftContent, rightContent] = await Promise.all([

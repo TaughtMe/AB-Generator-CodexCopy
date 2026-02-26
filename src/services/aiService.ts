@@ -1,8 +1,20 @@
 import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai';
-import type { Task } from '../types/worksheet';
+import type { Task, WorksheetSource } from '../types/worksheet';
 import { useSettingsStore, type AIProvider } from '../store/settingsStore';
 import { PROVIDER_LABELS } from './ai/modelCatalog';
 import type { ChatMessage } from '../types/ai';
+import {
+    AI_JSON_TRUNCATED_USER_MESSAGE,
+    TASK_REVISION_SYSTEM_PROMPT,
+    buildTaskRevisionUserPrompt,
+    looksLikeTruncatedJson,
+    parseTaskRevisionOperations,
+    type AIClassContext,
+    type TaskRevisionResult,
+} from './ai/taskRevision';
+
+export { AI_JSON_TRUNCATED_USER_MESSAGE };
+export type { AIClassContext, TaskRevisionResult };
 
 /* ══════════════════════════════════════════════════
    aiService.ts – Zentrale KI-Fassade
@@ -49,6 +61,31 @@ export function isActiveProviderConfigured(): boolean {
     if (provider === 'local') return Boolean(config.baseUrl?.trim());
 
     return Boolean(config.apiKey?.trim());
+}
+
+export async function testConnection(provider: AIProvider): Promise<{ ok: boolean; message?: string }> {
+    try {
+        if (provider === 'gemini') {
+            const model = getGeminiModel();
+            await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: 'Antworte nur mit OK.' }] }],
+            });
+            return { ok: true };
+        }
+
+        await requestOpenAICompatible({
+            provider,
+            userPrompt: 'Antworte nur mit OK.',
+            systemPrompt: 'Antworte nur mit OK.',
+            modelOverride: provider === 'openai' ? getPreferredChatModel('openai') : getPreferredChatModel('local'),
+        });
+        return { ok: true };
+    } catch (error) {
+        return {
+            ok: false,
+            message: error instanceof Error ? error.message : 'Verbindungstest fehlgeschlagen.',
+        };
+    }
 }
 
 function getMissingConfigurationMessage(provider: AIProvider): string {
@@ -514,6 +551,26 @@ function buildChatUserPrompt(messages: ChatMessage[]): string {
     return `Aktueller Chatverlauf:\n${transcript}\n\nAntworte als nächster Assistenten-Beitrag auf die letzte Lehrkraft-Nachricht.`;
 }
 
+async function generateTaskRevisionText(userPrompt: string): Promise<string> {
+    const { provider } = getActiveProviderState();
+
+    if (provider === 'gemini') {
+        const model = getGeminiModel(getPreferredChatModel('gemini'));
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+            systemInstruction: TASK_REVISION_SYSTEM_PROMPT,
+        });
+        return result.response.text();
+    }
+
+    return requestOpenAICompatible({
+        provider,
+        userPrompt,
+        systemPrompt: TASK_REVISION_SYSTEM_PROMPT,
+        modelOverride: getPreferredChatModel(provider),
+    });
+}
+
 export function compileWorksheetPromptFromChat(messages: ChatMessage[]): string {
     const cleaned = messages
         .map((message) => ({
@@ -690,7 +747,53 @@ export async function modifyTask(task: Task, instruction: string): Promise<Omit<
     return modified;
 }
 
-export async function generateChatAssistantReply(messages: ChatMessage[]): Promise<string> {
+export async function generateTaskRevisionResult(
+    messages: ChatMessage[],
+    tasksById: Record<string, Task>,
+    taskIds: string[],
+    sources: WorksheetSource[],
+    aiClassContext?: AIClassContext,
+): Promise<TaskRevisionResult> {
+    const cleanedMessages = messages.filter((message) => message.content.trim().length > 0);
+    if (cleanedMessages.length === 0) {
+        return { operations: [] };
+    }
+
+    const userPrompt = buildTaskRevisionUserPrompt({
+        messages: cleanedMessages,
+        tasksById,
+        taskIds,
+        sources,
+        aiClassContext,
+    });
+
+    const responseText = await generateTaskRevisionText(userPrompt);
+    const jsonStr = extractJSON(responseText);
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(jsonStr);
+    } catch {
+        if (looksLikeTruncatedJson(responseText) || looksLikeTruncatedJson(jsonStr)) {
+            throw new Error(AI_JSON_TRUNCATED_USER_MESSAGE);
+        }
+        throw new Error(`KI hat keine validen Änderungsoperationen zurückgegeben:\n${responseText.substring(0, 500)}`);
+    }
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return { operations: [] };
+    }
+
+    return {
+        operations: parseTaskRevisionOperations((parsed as { operations?: unknown }).operations, tasksById, taskIds),
+    };
+}
+
+export async function generateChatAssistantReply(
+    messages: ChatMessage[],
+    aiClassContext?: AIClassContext,
+): Promise<string> {
+    void aiClassContext;
     const cleaned = messages.filter((message) => message.content.trim().length > 0);
     if (cleaned.length === 0) {
         return 'Gerne. Womit soll ich dir für dein Arbeitsblatt helfen (Thema, Klasse, Aufgabentypen)?';

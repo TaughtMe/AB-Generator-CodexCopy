@@ -98,6 +98,20 @@ function renderPrintOutput(
     });
 }
 
+function renderTeacherPrintOutput(text: string): React.ReactElement[] {
+    const tokens = tokenizeClozeContent(text);
+    return tokens.map((token, i) => {
+        if (token.type === 'gap') {
+            return (
+                <span key={i} className="cloze-teacher-answer">
+                    {token.answer}
+                </span>
+            );
+        }
+        return <span key={i}>{token.value}</span>;
+    });
+}
+
 /* ── GapStyle Toggle ─────────────────────────────────────────────────── */
 
 function StyleToggle({
@@ -158,6 +172,11 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task }) => {
     const printElements = useMemo(
         () => renderPrintOutput(task.content ?? '', gapStyle, gapMultiplier),
         [task.content, gapStyle, gapMultiplier],
+    );
+
+    const teacherPrintElements = useMemo(
+        () => renderTeacherPrintOutput(task.content ?? ''),
+        [task.content],
     );
 
     const gapCount = useMemo(
@@ -227,7 +246,8 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task }) => {
                         {previewElements}
                     </p>
                     <p className="hidden print:block text-sm text-worksheet-ink leading-loose whitespace-pre-wrap">
-                        {printElements}
+                        <span className="cloze-print-student">{printElements}</span>
+                        <span className="cloze-print-teacher">{teacherPrintElements}</span>
                     </p>
                     {gapCount > 0 && (
                         <p className="no-print mt-1.5 text-[10px] text-worksheet-inkLight">

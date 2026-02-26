@@ -26,12 +26,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
         openWorksheet,
         createNewWorksheet,
         removeWorksheet,
+        duplicateWorksheet,
+        exportWorksheet,
+        shareWorksheet,
+        canShareWorksheetFiles,
         filter,
         setFilter,
         openTemplateGallery,
     } = useWorkspaceStore();
 
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+    const [exportingId, setExportingId] = useState<string | null>(null);
+    const [sharingId, setSharingId] = useState<string | null>(null);
 
     useEffect(() => {
         loadRecent();
@@ -58,6 +65,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
         setDeletingId(meta.id);
         await removeWorksheet(meta.id);
         setDeletingId(null);
+    };
+
+    const handleDuplicate = async (e: React.MouseEvent, meta: WorksheetMeta) => {
+        e.stopPropagation();
+        setDuplicatingId(meta.id);
+        try {
+            await duplicateWorksheet(meta.id);
+        } finally {
+            setDuplicatingId(null);
+        }
+    };
+
+    const handleExport = async (e: React.MouseEvent, meta: WorksheetMeta) => {
+        e.stopPropagation();
+        setExportingId(meta.id);
+        try {
+            await exportWorksheet(meta.id);
+        } finally {
+            setExportingId(null);
+        }
+    };
+
+    const handleShare = async (e: React.MouseEvent, meta: WorksheetMeta) => {
+        e.stopPropagation();
+        setSharingId(meta.id);
+        try {
+            await shareWorksheet(meta.id);
+        } finally {
+            setSharingId(null);
+        }
     };
 
     const handleFilterChange = (newFilter: WorksheetFilter) => {
@@ -105,7 +142,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
                 <WorksheetGrid
                     worksheets={recentWorksheets}
                     deletingId={deletingId}
+                    duplicatingId={duplicatingId}
+                    exportingId={exportingId}
+                    sharingId={sharingId}
+                    canShareWorksheetFiles={canShareWorksheetFiles()}
                     onOpen={handleOpenWorksheet}
+                    onDuplicate={handleDuplicate}
+                    onExport={handleExport}
+                    onShare={handleShare}
                     onDelete={handleDelete}
                 />
             </section>

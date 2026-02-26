@@ -1,9 +1,7 @@
 import {
     Moon,
     Sun,
-    FileDown,
     ArrowLeft,
-    Printer,
     Save,
     List,
     Link,
@@ -17,6 +15,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { IconButton } from '../ui/IconButton';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { ExportMenu, type ExportVariant } from './ExportMenu';
 
 export interface TopBarProps {
     title: string;
@@ -28,9 +27,9 @@ export interface TopBarProps {
     onSave: () => Promise<void> | void;
     isSaving: boolean;
     hasTasks: boolean;
-    onExportDocx: () => void;
-    onExportPDF: () => void;
     onExportAbgen: () => Promise<void> | void;
+    onExportPdf: (variants: ExportVariant[]) => Promise<void> | void;
+    onExportDocx: (variants: ExportVariant[]) => Promise<void> | void;
     onShareAbgen?: () => Promise<void> | void;
     canShareAbgen?: boolean;
     isAbgenExporting?: boolean;
@@ -52,9 +51,9 @@ export function TopBar({
     onSave,
     isSaving,
     hasTasks,
-    onExportDocx,
-    onExportPDF,
     onExportAbgen,
+    onExportPdf,
+    onExportDocx,
     onShareAbgen,
     canShareAbgen = false,
     isAbgenExporting = false,
@@ -190,15 +189,14 @@ export function TopBar({
                         <span>{isAnySaveInProgress ? '...' : 'Speichern'}</span>
                     </button>
 
-                    <button
-                        onClick={onExportAbgen}
-                        disabled={!hasTasks || isAbgenExporting || isAbgenSharing}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
-                        title="Als .abgen-Datei exportieren"
-                    >
-                        <FileDown className={ICON_SIZES[14]} />
-                        <span>{isAbgenExporting ? '...' : '.abgen'}</span>
-                    </button>
+                    <ExportMenu
+                        hasTasks={hasTasks}
+                        onExportAbgen={onExportAbgen}
+                        onExportPdf={onExportPdf}
+                        onExportDocx={onExportDocx}
+                        isAbgenExporting={isAbgenExporting}
+                        isAbgenSharing={isAbgenSharing}
+                    />
 
                     {canShareAbgen && onShareAbgen && (
                         <button
@@ -211,26 +209,6 @@ export function TopBar({
                             <span>{isAbgenSharing ? '...' : 'Teilen'}</span>
                         </button>
                     )}
-
-                    <button
-                        onClick={onExportDocx}
-                        disabled={!hasTasks}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
-                        title="Als Word-Datei exportieren"
-                    >
-                        <FileDown className={ICON_SIZES[14]} />
-                        <span>.docx</span>
-                    </button>
-
-                    <button
-                        onClick={onExportPDF}
-                        disabled={!hasTasks}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
-                        title="Als PDF exportieren (Druckdialog)"
-                    >
-                        <Printer className={ICON_SIZES[14]} />
-                        <span>PDF</span>
-                    </button>
 
                     <button
                         onClick={onOpenSources}

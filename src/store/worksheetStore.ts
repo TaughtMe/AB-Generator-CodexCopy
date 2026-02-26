@@ -33,7 +33,6 @@ export type WorksheetSaveStatus = 'saved' | 'unsaved' | 'saving';
 interface WorksheetStore extends Worksheet {
     // State
     saveStatus: WorksheetSaveStatus;
-    isTeacherMode: boolean;
     showHeader: boolean;
     // Actions
     addTask: (type: TaskType) => void;
@@ -50,7 +49,6 @@ interface WorksheetStore extends Worksheet {
     renameVariant: (variantId: string, label: string) => void;
     reorderVariants: (variantIds: string[]) => void;
     removeVariant: (variantId: string) => void;
-    toggleTeacherMode: () => void;
     setTitle: (title: string) => void;
     setShowHeader: (show: boolean) => void;
     setClassId: (classId: string | undefined) => void;
@@ -552,7 +550,6 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
     chatHistory: [],
     sources: [],
     classId: undefined,
-    isTeacherMode: false,
     showHeader: false,
 
     /**
@@ -783,8 +780,6 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             taskIds: nextTaskIds,
         });
     }),
-
-    toggleTeacherMode: () => set((s) => ({ isTeacherMode: !s.isTeacherMode })),
 
     setTitle: (title) => set({ title, saveStatus: 'unsaved' }),
 

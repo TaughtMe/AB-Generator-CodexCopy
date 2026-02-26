@@ -11,7 +11,6 @@ interface MultipleChoiceEditorProps {
 
 export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task }) => {
     const updateTask = useWorksheetStore((s) => s.updateTask);
-    const isTeacherMode = useWorksheetStore((s) => s.isTeacherMode);
 
     const updateQuestion = (html: string) => {
         updateTask(task.id, { question: html });
@@ -80,7 +79,6 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                                     }`}
                                 title={option.isCorrect ? 'Als falsch markieren' : 'Als richtig markieren'}
                                 data-correct={option.isCorrect}
-                                data-teacher={isTeacherMode}
                             >
                                 <Check className={ICON_SIZES[14]} strokeWidth={3} />
                             </button>
@@ -89,7 +87,6 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                             <span
                                 className="mc-print-checkbox hidden shrink-0 w-5 h-5 border-2 border-worksheet-border rounded-sm"
                                 data-correct={option.isCorrect}
-                                data-teacher={isTeacherMode}
                             />
 
                             {/* Text input */}
