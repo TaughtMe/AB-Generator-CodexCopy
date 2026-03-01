@@ -538,15 +538,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                 <div className="space-y-3">
                                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">
                                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Kontakt</p>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">Support und Rückfragen bitte über die Projektkanäle des Teams.</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Support und Rückfragen: Toby.Bryson@schule.bayern.de</p>
                                     </div>
                                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">
                                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Impressum</p>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">Impressumsangaben werden von der betreibenden Organisation bereitgestellt.</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Vollständige Angaben sind über den Footer-Link „Impressum“ erreichbar.</p>
                                     </div>
                                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-blue-50/70 dark:bg-blue-500/10">
                                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Datenschutz</p>
-                                        <p className="text-sm text-slate-600 dark:text-slate-300">Wichtiger Hinweis: Daten verlassen standardmäßig nicht den Browser. API-Anfragen werden nur bei aktiver KI-Nutzung direkt an den gewählten Anbieter gesendet.</p>
+                                        <p className="text-sm text-slate-600 dark:text-slate-300">Hinweise zu lokaler Speicherung, optionaler KI-Nutzung und externen Diensten stehen im Footer unter „Datenschutz“.</p>
                                     </div>
                                 </div>
                             </div>
