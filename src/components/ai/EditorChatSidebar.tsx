@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Loader2, MessageSquare, RefreshCw, Send, Sparkles, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, MessageSquare, Paperclip, RefreshCw, Send, Sparkles, XCircle } from 'lucide-react';
 import {
     getActiveProviderLabel,
     isActiveProviderConfigured,
@@ -35,7 +35,11 @@ function buildVariantPresetInstruction(
     }
 }
 
-export const EditorChatSidebar: React.FC = () => {
+interface EditorChatSidebarProps {
+    onOpenSources?: () => void;
+}
+
+export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSources }) => {
     const chatMessages = useWorkspaceStore((s) => s.chatMessages);
     const isChatLoading = useWorkspaceStore((s) => s.isChatLoading);
     const chatError = useWorkspaceStore((s) => s.chatError);
@@ -67,7 +71,7 @@ export const EditorChatSidebar: React.FC = () => {
     const input = aiSidebarDraft;
     const setInput = setAiSidebarDraft;
 
-    const providerReady = useMemo(() => isActiveProviderConfigured(), [aiProvider, providers]);
+    const providerReady = isActiveProviderConfigured();
     const activeVariantLabel = useMemo(
         () => variants.find((variant) => variant.id === activeVariantId)?.label ?? 'Standard',
         [variants, activeVariantId],
@@ -207,6 +211,15 @@ export const EditorChatSidebar: React.FC = () => {
                         title="Neues Gespräch"
                     >
                         Neu
+                    </button>
+                    <button
+                        onClick={onOpenSources}
+                        disabled={!onOpenSources || isChatLoading || isChatGenerating}
+                        className="text-xs px-2.5 py-1 rounded-full bg-white/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer inline-flex items-center gap-1"
+                        title="Unterrichtsmaterialien hochladen und aktivieren"
+                    >
+                        <Paperclip className={ICON_SIZES[11]} />
+                        <span>Quellen</span>
                     </button>
                     <button
                         onClick={openVariantPanel}

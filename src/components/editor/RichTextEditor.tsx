@@ -6,13 +6,21 @@ import FontFamily from '@tiptap/extension-font-family';
 import TextStyle from '@tiptap/extension-text-style';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import { CellSelection, deleteColumn, deleteRow } from '@tiptap/pm/tables';
 import {
     Bold, Italic, Underline as UnderlineIcon,
     List, ListOrdered, Undo2, Redo2,
+    AlignLeft, AlignCenter, AlignRight, AlignJustify,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { ColorPickerDropdown } from './ColorPickerDropdown';
+import { useFontStore } from '../../store/fontStore';
+import { StyledTableCell, StyledTableHeader } from './tiptapTableStyling';
+import { FontSize, FONT_SIZE_OPTIONS } from './tiptapFontSize';
+import { TextAlign } from './tiptapTextAlign';
 
 /* ══════════════════════════════════════════════════
    RichTextEditor – Wiederverwendbarer Tiptap-Editor
@@ -36,6 +44,8 @@ export interface RichTextEditorProps {
     className?: string;
     /** Toolbar ausblenden (z.B. für kompakte Felder) */
     hideToolbar?: boolean;
+    /** Optionaler Hook für Zugriff auf die Editor-Instanz (z.B. Table-Actions). */
+    onEditorReady?: (editor: Editor | null) => void;
 }
 
 /** Prüft ob ein String HTML-Tags enthält */
@@ -80,7 +90,10 @@ export function RichTextEditor({
     minRows = 3,
     className,
     hideToolbar = false,
+    onEditorReady,
 }: RichTextEditorProps) {
+    const customFonts = useFontStore((state) => state.customFonts);
+
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
@@ -96,8 +109,17 @@ export function RichTextEditor({
             FontFamily.configure({
                 types: ['textStyle'],
             }),
+            FontSize,
+            TextAlign.configure({
+                types: ['heading', 'paragraph', 'tableCell', 'tableHeader'],
+            }),
             Underline,
             Placeholder.configure({ placeholder }),
+            // Default table keymaps bleiben aktiv (Tab = nächste Zelle, Ende = neue Zeile, Enter = Zeilenumbruch in Zelle).
+            Table.configure({ resizable: true }),
+            TableRow,
+            StyledTableHeader,
+            StyledTableCell,
         ],
         content: plainTextToHtml(value),
         onUpdate: ({ editor: ed }: { editor: Editor }) => {
@@ -107,6 +129,26 @@ export function RichTextEditor({
             attributes: {
                 class: 'rich-text-content outline-none',
                 style: `min-height: ${minRows * 1.6}em`,
+            },
+            handleKeyDown: (view, event) => {
+                if (event.key !== 'Backspace' && event.key !== 'Delete') {
+                    return false;
+                }
+
+                const { selection } = view.state;
+                if (!(selection instanceof CellSelection)) {
+                    return false;
+                }
+
+                if (selection.isRowSelection()) {
+                    return deleteRow(view.state, view.dispatch);
+                }
+
+                if (selection.isColSelection()) {
+                    return deleteColumn(view.state, view.dispatch);
+                }
+
+                return false;
             },
         },
     });
@@ -122,6 +164,12 @@ export function RichTextEditor({
         }
     }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    useEffect(() => {
+        if (!onEditorReady) return;
+        onEditorReady(editor ?? null);
+        return () => onEditorReady(null);
+    }, [editor, onEditorReady]);
+
     const toggleBold = useCallback(() => editor?.chain().focus().toggleBold().run(), [editor]);
     const toggleItalic = useCallback(() => editor?.chain().focus().toggleItalic().run(), [editor]);
     const toggleUnderline = useCallback(() => editor?.chain().focus().toggleUnderline().run(), [editor]);
@@ -132,9 +180,10 @@ export function RichTextEditor({
 
     if (!editor) return null;
 
-    const textStyleAttrs = editor.getAttributes('textStyle') as { color?: string; fontFamily?: string };
+    const textStyleAttrs = editor.getAttributes('textStyle') as { color?: string; fontFamily?: string; fontSize?: string };
     const selectedColor = normalizeColorForInput(textStyleAttrs.color);
     const selectedFontFamily = typeof textStyleAttrs.fontFamily === 'string' ? textStyleAttrs.fontFamily : '';
+    const selectedFontSize = typeof textStyleAttrs.fontSize === 'string' ? textStyleAttrs.fontSize : '';
 
     return (
         <div className={clsx('rounded-lg border border-worksheet-border bg-worksheet-field overflow-visible transition-colors focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500 print:bg-transparent print:border-none', className)}>
@@ -162,11 +211,61 @@ export function RichTextEditor({
 
                     <div className="hidden sm:block w-px h-4 bg-slate-200 mx-0.5" />
 
+                    <ToolbarButton
+                        icon={AlignLeft}
+                        isActive={editor.isActive({ textAlign: 'left' })}
+                        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                        title="Linksbündig"
+                    />
+                    <ToolbarButton
+                        icon={AlignCenter}
+                        isActive={editor.isActive({ textAlign: 'center' })}
+                        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                        title="Zentriert"
+                    />
+                    <ToolbarButton
+                        icon={AlignRight}
+                        isActive={editor.isActive({ textAlign: 'right' })}
+                        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                        title="Rechtsbündig"
+                    />
+                    <ToolbarButton
+                        icon={AlignJustify}
+                        isActive={editor.isActive({ textAlign: 'justify' })}
+                        onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+                        title="Blocksatz"
+                    />
+
+                    <div className="hidden sm:block w-px h-4 bg-slate-200 mx-0.5" />
+
                     <ColorPickerDropdown
                         value={selectedColor}
                         onChange={(color) => editor.chain().focus().setColor(color).run()}
                         title="Textfarbe wählen"
                     />
+
+                    <select
+                        value={selectedFontSize}
+                        onChange={(event) => {
+                            const size = event.target.value;
+                            const chain = editor.chain().focus();
+                            if (!size) {
+                                chain.unsetFontSize().run();
+                                return;
+                            }
+                            chain.setFontSize(size).run();
+                        }}
+                        className="h-7 min-w-[78px] rounded border border-slate-200 bg-white px-2 text-xs text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                        title="Schriftgröße"
+                        aria-label="Schriftgröße wählen"
+                    >
+                        <option value="">Standard</option>
+                        {FONT_SIZE_OPTIONS.map((size) => (
+                            <option key={size} value={size}>
+                                {size}
+                            </option>
+                        ))}
+                    </select>
 
                     <select
                         value={selectedFontFamily}
@@ -183,11 +282,22 @@ export function RichTextEditor({
                         title="Schriftart"
                         aria-label="Schriftart wählen"
                     >
-                        {FONT_FAMILY_OPTIONS.map((option) => (
-                            <option key={option.label} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
+                        <optgroup label="Standard">
+                            {FONT_FAMILY_OPTIONS.map((option) => (
+                                <option key={option.label} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </optgroup>
+                        {customFonts.length > 0 && (
+                            <optgroup label="Eigene Schriftarten">
+                                {customFonts.map((font) => (
+                                    <option key={font.id} value={font.name}>
+                                        {font.name}
+                                    </option>
+                                ))}
+                            </optgroup>
+                        )}
                     </select>
 
                     <div className="hidden sm:block w-px h-4 bg-slate-200 mx-0.5" />

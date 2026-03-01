@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, CheckSquare, Type, Grid3X3, Image, Columns, Calculator, Scissors, Copy, MoreVertical, FileDown, Share2, Heading } from 'lucide-react';
+import { Trash2, CheckSquare, Type, Grid3X3, Image, Columns, Calculator, Scissors, Copy, MoreVertical, FileDown, Share2, Heading, Table } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -64,6 +64,7 @@ function taskIcon(type: string) {
         case 'lineatur': return <Grid3X3 className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'image-placeholder': return <Image className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'columns': return <Columns className={`${ICON_SIZES[7]} shrink-0`} />;
+        case 'table': return <Table className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'math': return <Calculator className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'page-break': return <Scissors className={`${ICON_SIZES[7]} shrink-0`} />;
         default: return <Type className={`${ICON_SIZES[7]} shrink-0`} />;

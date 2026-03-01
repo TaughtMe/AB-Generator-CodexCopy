@@ -10,9 +10,10 @@ import {
     HeightRule,
     TableLayoutType,
     AlignmentType,
+    ShadingType,
     convertMillimetersToTwip,
 } from 'docx';
-import type { Task, MultipleChoiceTask, LineaturTask, ClozeTask, MathTask, ImagePlaceholderTask, ColumnsTask, InstructionTask, HeadingTask } from '../../types/worksheet';
+import type { Task, MultipleChoiceTask, LineaturTask, ClozeTask, MathTask, ImagePlaceholderTask, ColumnsTask, InstructionTask, HeadingTask, TableTask } from '../../types/worksheet';
 import { renderLineBlockToImage } from '../lineBlockToImage';
 import { convertMathToImage } from '../mathExportUtils';
 import { mmToPx, A4_INNER_WIDTH_MM } from '../mmToEmu';
@@ -26,6 +27,92 @@ import {
     tokenizeClozeContent,
 } from '../clozeParser';
 import { htmlToDocxParagraphs } from './htmlToDocx';
+
+type DocxAlignment = (typeof AlignmentType)[keyof typeof AlignmentType];
+
+/* ── CSS-Helper für Tabellen-Zellen (Slice 3) ── */
+
+/**
+ * Parst einen CSS-Farbwert (#xxx, #xxxxxx, rgb) in ein 6-stelliges HEX ohne '#'.
+ * Gibt undefined zurück, wenn das Format nicht erkannt wird.
+ */
+function cssColorToHex(color: string): string | undefined {
+    const c = color.trim();
+    const h6 = /^#([0-9A-Fa-f]{6})$/.exec(c);
+    if (h6) return h6[1].toUpperCase();
+    const h3 = /^#([0-9A-Fa-f]{3})$/.exec(c);
+    if (h3) {
+        const [r, g, b] = h3[1].split('');
+        return `${r}${r}${g}${g}${b}${b}`.toUpperCase();
+    }
+    const rgb = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/.exec(c);
+    if (rgb) {
+        return [rgb[1], rgb[2], rgb[3]]
+            .map((n) => parseInt(n, 10).toString(16).padStart(2, '0'))
+            .join('')
+            .toUpperCase();
+    }
+    return undefined;
+}
+
+interface CellDocxStyle {
+    shading?: { fill: string; type: typeof ShadingType.CLEAR };
+    borderColor?: string; // 6-stellig hex, ohne '#'
+    borderWidthSize?: number; // docx border size (eighth-points)
+}
+
+/** Standard-Hintergrund für <th>-Kopfzellen (aus dem Editor-CSS). */
+const DEFAULT_HEADER_BG = 'F1F5F9';
+
+/**
+ * Liest background-color, border-color und border-width aus dem
+ * inline-style eines <td>/<th>-Elements und gibt docx-kompatible
+ * Werte zurück.
+ */
+function parseCellStyle(cell: Element | undefined): CellDocxStyle {
+    if (!cell) return {};
+    const styleAttr = cell.getAttribute('style') ?? '';
+    const result: CellDocxStyle = {};
+
+    // Background-Color
+    const bgMatch = /background-color\s*:\s*([^;]+)/i.exec(styleAttr);
+    if (bgMatch) {
+        const hex = cssColorToHex(bgMatch[1]);
+        if (hex) result.shading = { fill: hex, type: ShadingType.CLEAR };
+    }
+
+    // Border-Color (border: 1px solid #xxx oder border-color: #xxx)
+    const borderMatch = /(?:border(?:-color)?\s*:[^;]*?)(#[0-9A-Fa-f]{3,6}|rgb\([^)]+\))/i.exec(styleAttr);
+    if (borderMatch) {
+        const hex = cssColorToHex(borderMatch[1]);
+        if (hex) result.borderColor = hex;
+    }
+
+    // Border-Width (border-width: 2px / 3px)
+    const bwMatch = /border-width\s*:\s*(\d+(?:\.\d+)?)\s*px/i.exec(styleAttr);
+    if (bwMatch) {
+        const px = parseFloat(bwMatch[1]);
+        // CSS px → docx eighth-points (~1px ≈ 1pt ≈ 8 eighth-points)
+        result.borderWidthSize = Math.max(2, Math.round(px * 8));
+    }
+
+    return result;
+}
+
+function parseCellAlignment(cell: Element | undefined): DocxAlignment | undefined {
+    if (!cell) return undefined;
+    const styleAttr = cell.getAttribute('style') ?? '';
+    const alignMatch = /text-align\s*:\s*(left|center|right|justify)/i.exec(styleAttr);
+    if (!alignMatch) return undefined;
+
+    switch (alignMatch[1].toLowerCase()) {
+        case 'left': return AlignmentType.LEFT;
+        case 'center': return AlignmentType.CENTER;
+        case 'right': return AlignmentType.RIGHT;
+        case 'justify': return AlignmentType.JUSTIFIED;
+        default: return undefined;
+    }
+}
 
 /**
  * Renderer-Layer der modularisierten DOCX-Pipeline.
@@ -541,6 +628,186 @@ function renderHeading(
     ];
 }
 
+function renderTableTask(
+    task: TableTask,
+    config: TaskRendererConfig,
+): (Paragraph | Table)[] {
+    const fallbackRows = Math.max(1, Math.min(20, Math.round(task.rows || 3)));
+    const fallbackCols = Math.max(1, Math.min(10, Math.round(task.cols || 3)));
+
+    const hasHtmlContent = Boolean(task.content && task.content.trim().length > 0);
+    const parser = typeof DOMParser !== 'undefined' ? new DOMParser() : null;
+    const doc = parser && hasHtmlContent
+        ? parser.parseFromString(task.content, 'text/html')
+        : null;
+    const htmlTable = doc?.querySelector('table') ?? null;
+
+    // Fallback: Kein <table>-Markup vorhanden -> als normaler Rich-Text exportieren.
+    if (!htmlTable) {
+        if (!hasHtmlContent) {
+            const rows = Array.from({ length: fallbackRows }, (_, rowIndex) => (
+                new TableRow({
+                    children: Array.from({ length: fallbackCols }, (_, colIndex) => {
+                        const colWidthBase = Math.floor(config.a4InnerWidthDxa / fallbackCols);
+                        const colWidth = colIndex === fallbackCols - 1
+                            ? config.a4InnerWidthDxa - colWidthBase * (fallbackCols - 1)
+                            : colWidthBase;
+                        return new TableCell({
+                            children: rowIndex === 0
+                                ? [
+                                    new Paragraph({
+                                        children: [
+                                            new TextRun({
+                                                text: '',
+                                                font: config.fontFamily,
+                                                size: config.fontSizePt * 2,
+                                                bold: true,
+                                                color: config.docxTheme.text,
+                                            }),
+                                        ],
+                                    }),
+                                ]
+                                : [new Paragraph({ children: [] })],
+                            width: { size: colWidth, type: WidthType.DXA },
+                            verticalAlign: VerticalAlign.TOP,
+                            borders: {
+                                top: { style: 'single', size: 2, color: 'CBD5E1' },
+                                bottom: { style: 'single', size: 2, color: 'CBD5E1' },
+                                left: { style: 'single', size: 2, color: 'CBD5E1' },
+                                right: { style: 'single', size: 2, color: 'CBD5E1' },
+                            },
+                        });
+                    }),
+                })
+            ));
+
+            return [
+                new Table({
+                    rows,
+                    width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
+                    layout: TableLayoutType.FIXED,
+                    borders: {
+                        top: { style: 'single', size: 2, color: 'CBD5E1' },
+                        bottom: { style: 'single', size: 2, color: 'CBD5E1' },
+                        left: { style: 'single', size: 2, color: 'CBD5E1' },
+                        right: { style: 'single', size: 2, color: 'CBD5E1' },
+                        insideHorizontal: { style: 'single', size: 2, color: 'CBD5E1' },
+                        insideVertical: { style: 'single', size: 2, color: 'CBD5E1' },
+                    },
+                }),
+            ];
+        }
+
+        return htmlToDocxParagraphs(task.content, {
+            fontFamily: config.fontFamily,
+            fontSizePt: config.fontSizePt,
+            color: config.docxTheme.text,
+        }, 80);
+    }
+
+    const tableRows = Array.from(htmlTable.querySelectorAll('tr'));
+    const colCount = Math.max(
+        1,
+        ...tableRows.map((row) => Math.max(1, row.querySelectorAll('th,td').length)),
+    );
+    const columnBaseWidth = Math.floor(config.a4InnerWidthDxa / colCount);
+
+    // ── Spaltenbreiten aus colwidth-Attribut der ersten Zeile lesen ──
+    const firstRowCells = tableRows[0]
+        ? Array.from(tableRows[0].querySelectorAll('th,td'))
+        : [];
+    const cellPixelWidths: number[] = firstRowCells.map((c) => {
+        const cw = c.getAttribute('colwidth');
+        return cw ? parseInt(cw, 10) : 0;
+    });
+    const hasCustomWidths = cellPixelWidths.some((w) => w > 0);
+    const totalPixelWidth = cellPixelWidths.reduce((s, w) => s + (w || 0), 0) || 1;
+
+    // Sammle Border-Info aus allen Zellen, um Table-Level-Borders abzuleiten
+    let dominantBorderColor = 'CBD5E1';
+    let dominantBorderSize = 2;
+
+    const docxRows = tableRows.map((rowElement) => {
+        const cells = Array.from(rowElement.querySelectorAll('th,td'));
+        const rowCells = Array.from({ length: colCount }, (_, colIndex) => {
+            const cell = cells[colIndex];
+            const isHeaderCell = cell?.tagName.toLowerCase() === 'th';
+            const cellHtml = cell?.innerHTML?.trim() ?? '';
+            const cellAlignment = parseCellAlignment(cell);
+            const cellParagraphs = cellHtml
+                ? htmlToDocxParagraphs(cellHtml, {
+                    fontFamily: config.fontFamily,
+                    fontSizePt: config.fontSizePt,
+                    color: config.docxTheme.text,
+                    bold: isHeaderCell || undefined,
+                }, 40, { defaultAlignment: cellAlignment })
+                : [];
+
+            // Proportionale Spaltenbreite wenn colwidth vorhanden
+            let colWidth: number;
+            if (hasCustomWidths && cellPixelWidths[colIndex] > 0) {
+                colWidth = Math.round(
+                    (cellPixelWidths[colIndex] / totalPixelWidth) * config.a4InnerWidthDxa,
+                );
+            } else {
+                colWidth = colIndex === colCount - 1
+                    ? config.a4InnerWidthDxa - columnBaseWidth * (colCount - 1)
+                    : columnBaseWidth;
+            }
+
+            // Tiptap background-color, border-color & border-width auslesen
+            const cellDocxStyle = parseCellStyle(cell);
+
+            // Standard-Hintergrund für Header-Zellen anwenden (wie im Editor-CSS)
+            if (isHeaderCell && !cellDocxStyle.shading) {
+                cellDocxStyle.shading = { fill: DEFAULT_HEADER_BG, type: ShadingType.CLEAR };
+            }
+
+            const borderHex = cellDocxStyle.borderColor ?? 'CBD5E1';
+            const borderSize = cellDocxStyle.borderWidthSize ?? 2;
+            const cellBorder = { style: 'single' as const, size: borderSize, color: borderHex };
+
+            // Dominante Border-Werte für das Table-Level-Border merken
+            if (cellDocxStyle.borderColor) dominantBorderColor = cellDocxStyle.borderColor;
+            if (cellDocxStyle.borderWidthSize) dominantBorderSize = cellDocxStyle.borderWidthSize;
+
+            return new TableCell({
+                children: cellParagraphs.length > 0 ? cellParagraphs : [new Paragraph({ children: [] })],
+                width: { size: colWidth, type: WidthType.DXA },
+                verticalAlign: VerticalAlign.TOP,
+                shading: cellDocxStyle.shading,
+                borders: {
+                    top: cellBorder,
+                    bottom: cellBorder,
+                    left: cellBorder,
+                    right: cellBorder,
+                },
+            });
+        });
+
+        return new TableRow({ children: rowCells });
+    });
+
+    // Table-Level-Borders basierend auf den tatsächlichen Zell-Styles
+    const tableBorder = { style: 'single' as const, size: dominantBorderSize, color: dominantBorderColor };
+
+    return [
+        new Table({
+            rows: docxRows,
+            width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
+            layout: TableLayoutType.FIXED,
+            borders: {
+                top: tableBorder,
+                bottom: tableBorder,
+                left: tableBorder,
+                right: tableBorder,
+                insideHorizontal: tableBorder,
+                insideVertical: tableBorder,
+            },
+        }),
+    ];
+}
+
 export async function renderTaskContent(
     task: Task,
     isTeacherVersion: boolean,
@@ -561,6 +828,8 @@ export async function renderTaskContent(
             return renderInstruction(task as InstructionTask, config);
         case 'heading':
             return renderHeading(task as HeadingTask, config);
+        case 'table':
+            return renderTableTask(task as TableTask, config);
         default:
             return [
                 new Paragraph({
@@ -640,6 +909,16 @@ export async function renderColumnsTask(
         ...config.noTableBorders,
     };
 
+    // Slice 2: Explizite Gap-Zelle zwischen den Spalten statt "virtuell abgezogener" Breite.
+    // Word versteht Layout-Tabellen mit festen Spaltenbreiten zuverlässig; der Abstand
+    // wird als leere Zelle ohne Rahmen und Inhalt abgebildet.
+    const gapCell = new TableCell({
+        children: [new Paragraph({ children: [] })],
+        width: { size: COLUMN_GAP_DXA, type: WidthType.DXA },
+        borders: cellBorders,
+        verticalAlign: VerticalAlign.TOP,
+    });
+
     const leftCell = new TableCell({
         children: leftContent.length > 0 ? leftContent : [new Paragraph({ children: [] })],
         width: { size: leftWidth, type: WidthType.DXA },
@@ -657,7 +936,7 @@ export async function renderColumnsTask(
     return new Table({
         rows: [
             new TableRow({
-                children: [leftCell, rightCell],
+                children: [leftCell, gapCell, rightCell],
             }),
         ],
         width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },

@@ -4,7 +4,7 @@ import {
     ArrowLeft,
     Save,
     List,
-    Link,
+    FileText,
     Cloud,
     Check,
     Loader2,
@@ -215,7 +215,7 @@ export function TopBar({
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer active:scale-95"
                         title="Quellen verwalten"
                     >
-                        <Link className={ICON_SIZES[14]} />
+                        <FileText className={ICON_SIZES[14]} />
                         <span>Quellen</span>
                     </button>
 

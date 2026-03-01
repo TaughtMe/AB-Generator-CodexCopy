@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Loader2, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, Loader2, Paperclip, Send, Sparkles } from 'lucide-react';
 import {
     compileWorksheetPromptFromChat,
     generateTasksFromCompiledPrompt,
@@ -9,7 +9,9 @@ import {
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useSourceStore } from '../../store/sourceStore';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { SourcesManagerModal } from '../editor/SourcesManagerModal';
 
 interface ChatAssistantProps {
     onBack: () => void;
@@ -32,8 +34,11 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
 
     const addTasksFromAI = useWorksheetStore((s) => s.addTasksFromAI);
     const resetWorksheet = useWorksheetStore((s) => s.resetWorksheet);
+    const sourceCount = useSourceStore((s) => s.sources.length);
+    const activeSourceCount = useSourceStore((s) => s.sources.filter((source) => source.isActive).length);
 
     const [input, setInput] = useState('');
+    const [showSourcesManager, setShowSourcesManager] = useState(false);
     const historyRef = useRef<HTMLDivElement>(null);
     const submitOnEnter = useSettingsStore((s) => s.submitOnEnter);
 
@@ -115,6 +120,15 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                         className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Neues Gespräch
+                    </button>
+                    <button
+                        onClick={() => setShowSourcesManager(true)}
+                        disabled={isChatLoading || isChatGenerating}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Unterrichtsmaterialien für den KI-Kontext verwalten"
+                    >
+                        <Paperclip className={ICON_SIZES[14]} />
+                        Quellen ({activeSourceCount}/{sourceCount})
                     </button>
                 </div>
 
@@ -211,6 +225,11 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                     </form>
                 </div>
             </div>
+
+            <SourcesManagerModal
+                isOpen={showSourcesManager}
+                onClose={() => setShowSourcesManager(false)}
+            />
         </div>
     );
 };

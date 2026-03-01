@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, Send, Sparkles, X } from 'lucide-react';
 import {
     compileWorksheetPromptFromChat,
@@ -51,11 +51,9 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
     const resetWorksheet = useWorksheetStore((s) => s.resetWorksheet);
     const addTasksFromAI = useWorksheetStore((s) => s.addTasksFromAI);
 
-    const aiProvider = useSettingsStore((s) => s.aiProvider);
-    const providers = useSettingsStore((s) => s.providers);
     const submitOnEnter = useSettingsStore((s) => s.submitOnEnter);
 
-    const providerReady = useMemo(() => isActiveProviderConfigured(), [aiProvider, providers]);
+    const providerReady = isActiveProviderConfigured();
     const historyRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
 

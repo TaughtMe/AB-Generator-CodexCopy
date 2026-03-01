@@ -1,4 +1,4 @@
-export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction' | 'heading';
+export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction' | 'heading' | 'table';
 import type { ChatMessage } from './ai';
 
 export type ColumnsLayout = '50-50' | '60-40' | '40-60';
@@ -80,7 +80,14 @@ export interface HeadingTask extends BaseTask {
     text: string;
 }
 
-export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask;
+export interface TableTask extends BaseTask {
+    type: 'table';
+    content: string;
+    rows: number;
+    cols: number;
+}
+
+export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask | TableTask;
 
 export interface WorksheetTaskState {
     tasksById: Record<string, Task>;

@@ -106,6 +106,30 @@ export function validateForExport(
                 // Leerer Text ist erlaubt – Fallback wird im UI/Export gerendert.
                 break;
 
+            case 'table':
+                if (!Number.isFinite(task.rows) || task.rows < 1 || task.rows > 20) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Tabelle hat eine ungültige Zeilenanzahl (erwartet: 1 bis 20).',
+                    });
+                }
+                if (!Number.isFinite(task.cols) || task.cols < 1 || task.cols > 10) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Tabelle hat eine ungültige Spaltenanzahl (erwartet: 1 bis 10).',
+                    });
+                }
+                if (!task.content || !/<table[\s>]/i.test(task.content)) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Tabelle enthält noch keine Tabellenstruktur. Nutze "Tabelle anwenden".',
+                    });
+                }
+                break;
+
             case 'columns': {
                 const cols = task as ColumnsTask;
                 // Both slots empty

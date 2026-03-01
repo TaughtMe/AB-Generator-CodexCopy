@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai';
 import type { Task, WorksheetSource } from '../types/worksheet';
 import { useSettingsStore, type AIProvider } from '../store/settingsStore';
+import { useSourceStore } from '../store/sourceStore';
 import { PROVIDER_LABELS } from './ai/modelCatalog';
 import type { ChatMessage } from '../types/ai';
 import {
@@ -48,6 +49,45 @@ function getPreferredChatModel(provider: AIProvider): string {
     return preferred;
 }
 
+const MAX_CONTEXT_TOTAL_CHARS = 45000;
+const MAX_CONTEXT_SOURCE_CHARS = 10000;
+
+function buildActiveSourceContextBlock(): string {
+    const allSources = useSourceStore.getState().sources;
+    const activeSources = allSources.filter((source) => source.isActive && source.extractedText.trim().length > 0);
+    if (activeSources.length === 0) return '';
+
+    let usedChars = 0;
+    const chunks: string[] = [];
+
+    for (const source of activeSources) {
+        if (usedChars >= MAX_CONTEXT_TOTAL_CHARS) break;
+        const trimmedText = source.extractedText.trim();
+        const slice = trimmedText.slice(0, MAX_CONTEXT_SOURCE_CHARS);
+        const remaining = MAX_CONTEXT_TOTAL_CHARS - usedChars;
+        const finalSlice = slice.slice(0, remaining);
+        if (!finalSlice) continue;
+
+        chunks.push(`[Quelle: ${source.name}]\n${finalSlice}`);
+        usedChars += finalSlice.length;
+    }
+
+    if (chunks.length === 0) return '';
+
+    return [
+        'Nutze ausschließlich die folgenden Unterrichtsmaterialien als Basis für deine Generierung:',
+        '<context>',
+        chunks.join('\n\n'),
+        '</context>',
+    ].join('\n');
+}
+
+function withInjectedSourceContext(systemPrompt: string): string {
+    const sourceContextBlock = buildActiveSourceContextBlock();
+    if (!sourceContextBlock) return systemPrompt;
+    return `${systemPrompt}\n\n${sourceContextBlock}`;
+}
+
 export function getActiveProviderLabel(): string {
     const { provider } = getActiveProviderState();
     return PROVIDER_LABELS[provider];
@@ -69,6 +109,7 @@ export async function testConnection(provider: AIProvider): Promise<{ ok: boolea
             const model = getGeminiModel();
             await model.generateContent({
                 contents: [{ role: 'user', parts: [{ text: 'Antworte nur mit OK.' }] }],
+                systemInstruction: withInjectedSourceContext('Antworte nur mit OK.'),
             });
             return { ok: true };
         }
@@ -76,7 +117,7 @@ export async function testConnection(provider: AIProvider): Promise<{ ok: boolea
         await requestOpenAICompatible({
             provider,
             userPrompt: 'Antworte nur mit OK.',
-            systemPrompt: 'Antworte nur mit OK.',
+            systemPrompt: withInjectedSourceContext('Antworte nur mit OK.'),
             modelOverride: provider === 'openai' ? getPreferredChatModel('openai') : getPreferredChatModel('local'),
         });
         return { ok: true };
@@ -255,12 +296,12 @@ const geminiAdapter: ProviderAdapter = {
 
         const result = await model.generateContent({
             contents: [{ role: 'user', parts }],
-            systemInstruction: buildSystemPrompt({
+            systemInstruction: withInjectedSourceContext(buildSystemPrompt({
                 subjectName: options.subjectName,
                 curriculumText: options.curriculumText,
                 className: options.className,
                 classCharacteristic: options.classCharacteristic,
-            }),
+            })),
         });
 
         return result.response.text();
@@ -272,7 +313,7 @@ const geminiAdapter: ProviderAdapter = {
 
         const result = await model.generateContent({
             contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            systemInstruction: MODIFY_SYSTEM_PROMPT,
+            systemInstruction: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
         });
 
         return result.response.text();
@@ -284,7 +325,7 @@ const geminiAdapter: ProviderAdapter = {
 
         const result = await model.generateContent({
             contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            systemInstruction: CHAT_ASSISTANT_SYSTEM_PROMPT,
+            systemInstruction: withInjectedSourceContext(CHAT_ASSISTANT_SYSTEM_PROMPT),
         });
 
         return result.response.text();
@@ -294,7 +335,7 @@ const geminiAdapter: ProviderAdapter = {
         const model = getGeminiModel();
         const result = await model.generateContent({
             contents: [{ role: 'user', parts: [{ text: compiledPrompt }] }],
-            systemInstruction: BASE_SYSTEM_PROMPT,
+            systemInstruction: withInjectedSourceContext(BASE_SYSTEM_PROMPT),
         });
 
         return result.response.text();
@@ -306,12 +347,12 @@ const openaiAdapter: ProviderAdapter = {
         return requestOpenAICompatible({
             provider: 'openai',
             userPrompt: buildGenerateUserPrompt(options),
-            systemPrompt: buildSystemPrompt({
+            systemPrompt: withInjectedSourceContext(buildSystemPrompt({
                 subjectName: options.subjectName,
                 curriculumText: options.curriculumText,
                 className: options.className,
                 classCharacteristic: options.classCharacteristic,
-            }),
+            })),
             screenshotBase64: options.screenshotBase64,
         });
     },
@@ -320,7 +361,7 @@ const openaiAdapter: ProviderAdapter = {
         return requestOpenAICompatible({
             provider: 'openai',
             userPrompt: buildModifyUserPrompt(task, instruction),
-            systemPrompt: MODIFY_SYSTEM_PROMPT,
+            systemPrompt: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
         });
     },
 
@@ -328,7 +369,7 @@ const openaiAdapter: ProviderAdapter = {
         return requestOpenAICompatible({
             provider: 'openai',
             userPrompt: buildChatUserPrompt(messages),
-            systemPrompt: CHAT_ASSISTANT_SYSTEM_PROMPT,
+            systemPrompt: withInjectedSourceContext(CHAT_ASSISTANT_SYSTEM_PROMPT),
             modelOverride: getPreferredChatModel('openai'),
         });
     },
@@ -337,7 +378,7 @@ const openaiAdapter: ProviderAdapter = {
         return requestOpenAICompatible({
             provider: 'openai',
             userPrompt: compiledPrompt,
-            systemPrompt: BASE_SYSTEM_PROMPT,
+            systemPrompt: withInjectedSourceContext(BASE_SYSTEM_PROMPT),
         });
     },
 };
@@ -347,12 +388,12 @@ const localAdapter: ProviderAdapter = {
         return requestOpenAICompatible({
             provider: 'local',
             userPrompt: buildGenerateUserPrompt(options),
-            systemPrompt: buildSystemPrompt({
+            systemPrompt: withInjectedSourceContext(buildSystemPrompt({
                 subjectName: options.subjectName,
                 curriculumText: options.curriculumText,
                 className: options.className,
                 classCharacteristic: options.classCharacteristic,
-            }),
+            })),
             screenshotBase64: options.screenshotBase64,
         });
     },
@@ -361,7 +402,7 @@ const localAdapter: ProviderAdapter = {
         return requestOpenAICompatible({
             provider: 'local',
             userPrompt: buildModifyUserPrompt(task, instruction),
-            systemPrompt: MODIFY_SYSTEM_PROMPT,
+            systemPrompt: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
         });
     },
 
@@ -369,7 +410,7 @@ const localAdapter: ProviderAdapter = {
         return requestOpenAICompatible({
             provider: 'local',
             userPrompt: buildChatUserPrompt(messages),
-            systemPrompt: CHAT_ASSISTANT_SYSTEM_PROMPT,
+            systemPrompt: withInjectedSourceContext(CHAT_ASSISTANT_SYSTEM_PROMPT),
             modelOverride: getPreferredChatModel('local'),
         });
     },
@@ -378,7 +419,7 @@ const localAdapter: ProviderAdapter = {
         return requestOpenAICompatible({
             provider: 'local',
             userPrompt: compiledPrompt,
-            systemPrompt: BASE_SYSTEM_PROMPT,
+            systemPrompt: withInjectedSourceContext(BASE_SYSTEM_PROMPT),
         });
     },
 };
@@ -530,7 +571,8 @@ Antworte NUR mit dem JSON-Array.`;
 }
 
 function buildModifyUserPrompt(task: Task, instruction: string): string {
-    const { id: _, ...taskData } = task;
+    const { id: removedId, ...taskData } = task;
+    void removedId;
 
     return `Aktuelle Aufgabe:
 ${JSON.stringify(taskData, null, 2)}
@@ -558,7 +600,7 @@ async function generateTaskRevisionText(userPrompt: string): Promise<string> {
         const model = getGeminiModel(getPreferredChatModel('gemini'));
         const result = await model.generateContent({
             contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            systemInstruction: TASK_REVISION_SYSTEM_PROMPT,
+            systemInstruction: withInjectedSourceContext(TASK_REVISION_SYSTEM_PROMPT),
         });
         return result.response.text();
     }
@@ -566,7 +608,7 @@ async function generateTaskRevisionText(userPrompt: string): Promise<string> {
     return requestOpenAICompatible({
         provider,
         userPrompt,
-        systemPrompt: TASK_REVISION_SYSTEM_PROMPT,
+        systemPrompt: withInjectedSourceContext(TASK_REVISION_SYSTEM_PROMPT),
         modelOverride: getPreferredChatModel(provider),
     });
 }

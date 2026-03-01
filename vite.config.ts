@@ -38,7 +38,7 @@ async function resolvePwaPlugin(): Promise<PluginOption | null> {
         clientsClaim: true,
       },
     })
-  } catch (error) {
+  } catch {
     console.warn('[vite] vite-plugin-pwa not installed yet, PWA disabled for this run.')
     return null
   }

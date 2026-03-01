@@ -24,6 +24,16 @@ export interface ImageRecord {
     createdAt: Date;
 }
 
+export type CustomFontFormat = 'ttf' | 'otf' | 'woff' | 'woff2';
+
+export interface CustomFontRecord {
+    id?: number;
+    name: string;
+    data: string;
+    format: CustomFontFormat;
+    createdAt: Date;
+}
+
 /* ── Worksheet Records ── */
 
 export interface WorksheetRecord {
@@ -119,6 +129,7 @@ export interface UpdateClassProfileInput {
 
 class ABGeneratorDB extends Dexie {
     images!: EntityTable<ImageRecord, 'id'>;
+    customFonts!: EntityTable<CustomFontRecord, 'id'>;
     worksheets!: EntityTable<WorksheetRecord, 'id'>;
     designTemplates!: EntityTable<DesignTemplateRecord, 'id'>;
     classProfiles!: EntityTable<ClassProfileRecord, 'id'>;
@@ -165,6 +176,15 @@ class ABGeneratorDB extends Dexie {
             designTemplates: 'id, nameLower, updatedAt, createdAt, lastUsedAt',
             classProfiles: 'id, nameLower, subjectId, updatedAt, createdAt',
         });
+
+        // Version 7: add custom fonts table for local uploaded fonts
+        this.version(7).stores({
+            images: '++id, name, createdAt',
+            customFonts: '++id, name, createdAt',
+            worksheets: 'id, title, updatedAt, subjectId, classId, deletedAt',
+            designTemplates: 'id, nameLower, updatedAt, createdAt, lastUsedAt',
+            classProfiles: 'id, nameLower, subjectId, updatedAt, createdAt',
+        });
     }
 }
 
@@ -172,6 +192,10 @@ const db = new ABGeneratorDB();
 
 export async function listWorksheetRecords(): Promise<WorksheetRecord[]> {
     return db.worksheets.toArray();
+}
+
+export async function listCustomFontRecords(): Promise<CustomFontRecord[]> {
+    return db.customFonts.orderBy('createdAt').toArray();
 }
 
 export async function listDesignTemplateRecords(): Promise<DesignTemplateRecord[]> {
@@ -187,6 +211,15 @@ export async function replaceWorksheetRecords(records: WorksheetRecord[]): Promi
         await db.worksheets.clear();
         if (records.length > 0) {
             await db.worksheets.bulkPut(records);
+        }
+    });
+}
+
+export async function replaceCustomFontRecords(records: CustomFontRecord[]): Promise<void> {
+    await db.transaction('rw', db.customFonts, async () => {
+        await db.customFonts.clear();
+        if (records.length > 0) {
+            await db.customFonts.bulkPut(records);
         }
     });
 }
@@ -212,6 +245,24 @@ export async function replaceClassProfileRecords(records: ClassProfileRecord[]):
 export async function clearAllIndexedDbData(): Promise<void> {
     await db.delete();
     await db.open();
+}
+
+/* ══════════════════════════════════════════════════
+   Custom Font CRUD Helpers
+   ══════════════════════════════════════════════════ */
+
+export async function addCustomFont(name: string, data: string, format: CustomFontFormat): Promise<number> {
+    const id = await db.customFonts.add({
+        name,
+        data,
+        format,
+        createdAt: new Date(),
+    });
+    return id as number;
+}
+
+export async function deleteCustomFont(id: number): Promise<void> {
+    await db.customFonts.delete(id);
 }
 
 /* ══════════════════════════════════════════════════
@@ -534,6 +585,9 @@ function toWorksheetMeta(rec: WorksheetRecord): WorksheetMeta {
                 break;
             case 'columns':
                 label = label || `Spalten ${t.layout}`;
+                break;
+            case 'table':
+                label = label || `Tabelle ${t.rows}×${t.cols}`;
                 break;
             case 'page-break':
                 label = '— Seitenumbruch —';

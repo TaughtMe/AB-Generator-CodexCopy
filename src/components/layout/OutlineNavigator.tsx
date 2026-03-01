@@ -30,6 +30,7 @@ import {
     Columns,
     Scissors,
     Image as ImageIcon,
+    Table,
     X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -55,6 +56,7 @@ const TASK_ICON: Record<TaskType, React.ElementType> = {
     'columns': Columns,
     'page-break': Scissors,
     'image-placeholder': ImageIcon,
+    'table': Table,
 };
 
 /** Lesbare Kurzbezeichnungen */
@@ -68,6 +70,7 @@ const TASK_LABEL: Record<TaskType, string> = {
     'columns': 'Zweispaltig',
     'page-break': 'Seitenumbruch',
     'image-placeholder': 'Bild',
+    'table': 'Tabelle',
 };
 
 // ── Einzelner Eintrag (sortierbar) ────────────────────────────────────

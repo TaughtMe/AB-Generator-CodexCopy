@@ -131,6 +131,15 @@ function createNewTask(type: TaskType): Task {
                 text: 'Zwischenüberschrift',
                 showNumber: false,
             };
+        case 'table':
+            return {
+                ...base,
+                type: 'table',
+                title: 'Tabelle',
+                content: '',
+                rows: 3,
+                cols: 3,
+            };
         default:
             throw new Error(`Unsupported task type: ${type}`);
     }
@@ -329,6 +338,30 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 ...task,
                 title: typeof task.title === 'string' ? task.title : fallback.title,
                 text: typeof task.text === 'string' ? task.text : fallback.text,
+            };
+        }
+
+        case 'table': {
+            const fallback: TaskByType<'table'> = fallbackTask.type === 'table'
+                ? fallbackTask
+                : createDefaultTaskOfType('table');
+
+            const rows =
+                typeof task.rows === 'number' && Number.isFinite(task.rows)
+                    ? Math.max(1, Math.min(20, Math.round(task.rows)))
+                    : fallback.rows;
+
+            const cols =
+                typeof task.cols === 'number' && Number.isFinite(task.cols)
+                    ? Math.max(1, Math.min(10, Math.round(task.cols)))
+                    : fallback.cols;
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                content: typeof task.content === 'string' ? task.content : fallback.content,
+                rows,
+                cols,
             };
         }
 

@@ -8,6 +8,7 @@ import { MathTaskEditor } from './MathTaskEditor';
 import { ColumnsEditor } from './ColumnsEditor';
 import { InstructionTaskEditor } from './InstructionTaskEditor';
 import { HeadingEditor } from './HeadingEditor';
+import { TableEditor } from './TableEditor';
 import { UnknownTaskFallback } from './UnknownTaskFallback';
 
 /**
@@ -35,7 +36,7 @@ interface TaskComponentRegistry {
  * - Der Editor bleibt offen für Erweiterungen, ohne zentrale Switch-Blöcke in
  *   mehreren UI-Dateien zu duplizieren.
  */
-export const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
+const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
     'multiple-choice': {
         editor: MultipleChoiceEditor as React.ComponentType<{ task: Task }>,
     },
@@ -62,6 +63,9 @@ export const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
     },
     'heading': {
         editor: HeadingEditor as React.ComponentType<{ task: Task }>,
+    },
+    'table': {
+        editor: TableEditor as React.ComponentType<{ task: Task }>,
     },
 };
 

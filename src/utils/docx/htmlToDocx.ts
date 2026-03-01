@@ -1,4 +1,6 @@
-import { Paragraph, TextRun } from 'docx';
+import { AlignmentType, Paragraph, TextRun } from 'docx';
+
+type DocxAlignment = (typeof AlignmentType)[keyof typeof AlignmentType];
 
 /* ══════════════════════════════════════════════════
    htmlToDocxParagraphs – Konvertiert HTML-Content aus dem
@@ -26,6 +28,16 @@ interface InlineStyle {
     bold: boolean;
     italic: boolean;
     underline: boolean;
+    /** Hex-Farbe ohne '#', z. B. 'FF0000'. Überschreibt den Style-Default. */
+    color?: string;
+    /** Font-Name aus inline-style (z. B. 'Roboto'). Überschreibt den Style-Default. */
+    fontFamily?: string;
+    /** Schriftgröße in Half-Points aus inline-style. Überschreibt den Style-Default. */
+    fontSizeHalfPt?: number;
+}
+
+interface HtmlToDocxParagraphOptions {
+    defaultAlignment?: DocxAlignment;
 }
 
 /**
@@ -36,12 +48,13 @@ export function htmlToDocxParagraphs(
     html: string,
     style: DocxTextStyle,
     spacingAfter = 80,
+    options: HtmlToDocxParagraphOptions = {},
 ): Paragraph[] {
     if (!html || !html.trim()) return [];
 
     // Wenn kein HTML → Plain-Text-Fallback
     if (!/<[a-z][\s\S]*>/i.test(html)) {
-        return plainTextToParagraphs(html, style, spacingAfter);
+        return plainTextToParagraphs(html, style, spacingAfter, options.defaultAlignment);
     }
 
     const paragraphs: Paragraph[] = [];
@@ -69,6 +82,7 @@ export function htmlToDocxParagraphs(
                         ],
                         spacing: { after: 40 },
                         indent: { left: 360 }, // ~0.25 inch indent
+                        alignment: options.defaultAlignment,
                     }),
                 );
             });
@@ -81,13 +95,87 @@ export function htmlToDocxParagraphs(
                     new Paragraph({
                         children: runs,
                         spacing: { after: spacingAfter },
+                        alignment: block.align ?? options.defaultAlignment,
                     }),
                 );
             }
         }
     }
 
-    return paragraphs.length > 0 ? paragraphs : plainTextToParagraphs(stripAllTags(html), style, spacingAfter);
+    return paragraphs.length > 0
+        ? paragraphs
+        : plainTextToParagraphs(stripAllTags(html), style, spacingAfter, options.defaultAlignment);
+}
+
+/* ── CSS-Style-Parser ── */
+
+/**
+ * Parst einen CSS-inline-style-String (z. B. "color: #ff0000; font-weight: bold")
+ * und gibt ein Record<property, value> zurück – alles lower-cased, getrimmt.
+ */
+function extractStyleProps(tag: string): Record<string, string> {
+    const styleMatch = /style="([^"]*)"/i.exec(tag);
+    if (!styleMatch) return {};
+    const result: Record<string, string> = {};
+    styleMatch[1].split(';').forEach((decl) => {
+        const colon = decl.indexOf(':');
+        if (colon === -1) return;
+        const prop = decl.slice(0, colon).trim().toLowerCase();
+        const val = decl.slice(colon + 1).trim();
+        if (prop && val) result[prop] = val;
+    });
+    return result;
+}
+
+/**
+ * Konvertiert einen CSS-Farbwert (#abc, #aabbcc, rgb(r,g,b)) in ein
+ * 6-stelliges HEX-String ohne '#' für docx.js.
+ * Gibt undefined zurück, wenn kein gültiger Wert erkannt wird.
+ */
+function cssColorToDocxHex(color: string): string | undefined {
+    const c = color.trim();
+    const hex6 = /^#([0-9A-Fa-f]{6})$/.exec(c);
+    if (hex6) return hex6[1].toUpperCase();
+    const hex3 = /^#([0-9A-Fa-f]{3})$/.exec(c);
+    if (hex3) {
+        const [r, g, b] = hex3[1].split('');
+        return `${r}${r}${g}${g}${b}${b}`.toUpperCase();
+    }
+    const rgb = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/.exec(c);
+    if (rgb) {
+        return [rgb[1], rgb[2], rgb[3]]
+            .map((n) => parseInt(n, 10).toString(16).padStart(2, '0'))
+            .join('')
+            .toUpperCase();
+    }
+    return undefined;
+}
+
+/**
+ * Mapt einen CSS text-align-Wert auf AlignmentType.
+ */
+function cssAlignToDocx(align: string): DocxAlignment | undefined {
+    switch (align.trim().toLowerCase()) {
+        case 'center': return AlignmentType.CENTER;
+        case 'right': return AlignmentType.RIGHT;
+        case 'justify': return AlignmentType.JUSTIFIED;
+        case 'left': return AlignmentType.LEFT;
+        default: return undefined;
+    }
+}
+
+function parseCssFontSizeToHalfPoints(value: string): number | undefined {
+    const sizeMatch = /(\d+(?:\.\d+)?)\s*(px|pt|em|rem)/i.exec(value);
+    if (!sizeMatch) return undefined;
+
+    const numeric = parseFloat(sizeMatch[1]);
+    const unit = sizeMatch[2].toLowerCase();
+
+    if (unit === 'pt') return Math.max(2, Math.round(numeric * 2));
+    if (unit === 'px') return Math.max(2, Math.round(numeric * 1.5));
+    if (unit === 'em' || unit === 'rem') return Math.max(2, Math.round(numeric * 24));
+
+    return undefined;
 }
 
 /* ── Block-Splitter ── */
@@ -95,6 +183,8 @@ export function htmlToDocxParagraphs(
 interface Block {
     type: 'paragraph' | 'list';
     html: string;
+    /** text-align aus dem <p>-Tag, falls vorhanden */
+    align?: DocxAlignment;
 }
 
 function splitIntoBlocks(html: string): Block[] {
@@ -138,7 +228,14 @@ function pushParagraphBlocks(blocks: Block[], html: string): void {
             const loose = html.slice(lastIdx, m.index).trim();
             if (loose) blocks.push({ type: 'paragraph', html: loose });
         }
-        blocks.push({ type: 'paragraph', html: m[0] });
+        // Alignment aus dem öffnenden <p>-Tag extrahieren
+        const align = (() => {
+            const openTag = /^<p(\s[^>]*)?>/.exec(m[0]);
+            if (!openTag) return undefined;
+            const props = extractStyleProps(openTag[0]);
+            return props['text-align'] ? cssAlignToDocx(props['text-align']) : undefined;
+        })();
+        blocks.push({ type: 'paragraph', html: m[0], align });
         lastIdx = m.index + m[0].length;
     }
 
@@ -174,12 +271,17 @@ function parseInlineRuns(html: string, style: DocxTextStyle): TextRun[] {
         const text = stripAllTags(frag.text).replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
         if (!text) continue;
 
+        // Per-Fragment-Farbe (aus span style) hat Vorrang vor der globalen Style-Farbe
+        const resolvedColor = frag.style.color ?? style.color;
+        const resolvedFont = frag.style.fontFamily ?? style.fontFamily;
+        const resolvedSizeHalfPt = frag.style.fontSizeHalfPt ?? style.fontSizePt * 2;
+
         runs.push(
             new TextRun({
                 text,
-                font: style.fontFamily,
-                size: style.fontSizePt * 2,
-                color: style.color,
+                font: resolvedFont,
+                size: resolvedSizeHalfPt,
+                color: resolvedColor,
                 bold: style.bold || frag.style.bold || undefined,
                 italics: style.italics || frag.style.italic || undefined,
                 underline: (style.underline || frag.style.underline) ? {} : undefined,
@@ -199,7 +301,7 @@ function tokenizeInline(html: string): InlineFragment[] {
     const fragments: InlineFragment[] = [];
 
     // Einfacher Stack-basierter Parser für verschachtelte Inline-Tags
-    const tagPattern = /<\/?(?:strong|b|em|i|u|br|p|span)[\s>\/][^>]*>|<\/?(?:strong|b|em|i|u|br|p|span)>/gi;
+    const tagPattern = /<\/?(?:strong|b|em|i|u|br|p|span)[\s>/][^>]*>|<\/?(?:strong|b|em|i|u|br|p|span)>/gi;
     const styleStack: InlineStyle[] = [{ bold: false, italic: false, underline: false }];
 
     let lastIndex = 0;
@@ -242,6 +344,36 @@ function tokenizeInline(html: string): InlineFragment[] {
                 newStyle.underline = true;
             }
 
+            // Slice 1: CSS-inline-style-Attribute auf span-Tags auswerten
+            if (tag.startsWith('<span')) {
+                const props = extractStyleProps(match[0]);
+                if (props['color']) {
+                    const hex = cssColorToDocxHex(props['color']);
+                    if (hex) newStyle.color = hex;
+                }
+                if (props['font-weight'] === 'bold' || props['font-weight'] === '700') {
+                    newStyle.bold = true;
+                }
+                if (props['font-style'] === 'italic') {
+                    newStyle.italic = true;
+                }
+                if (props['text-decoration']?.includes('underline')) {
+                    newStyle.underline = true;
+                }
+                // Font-Family aus inline-style (z. B. Tiptap FontFamily-Extension)
+                if (props['font-family']) {
+                    newStyle.fontFamily = props['font-family']
+                        .split(',')[0]
+                        .replace(/["']/g, '')
+                        .trim();
+                }
+                // Font-Size aus inline-style
+                if (props['font-size']) {
+                    const halfPoints = parseCssFontSizeToHalfPoints(props['font-size']);
+                    if (halfPoints) newStyle.fontSizeHalfPt = halfPoints;
+                }
+            }
+
             styleStack.push(newStyle);
         }
 
@@ -274,7 +406,12 @@ function stripAllTags(html: string): string {
     return html.replace(/<[^>]*>/g, '');
 }
 
-function plainTextToParagraphs(text: string, style: DocxTextStyle, spacingAfter: number): Paragraph[] {
+function plainTextToParagraphs(
+    text: string,
+    style: DocxTextStyle,
+    spacingAfter: number,
+    alignment?: DocxAlignment,
+): Paragraph[] {
     return text.split('\n').map(
         (line) =>
             new Paragraph({
@@ -289,6 +426,7 @@ function plainTextToParagraphs(text: string, style: DocxTextStyle, spacingAfter:
                     }),
                 ],
                 spacing: { after: spacingAfter },
+                alignment,
             }),
     );
 }

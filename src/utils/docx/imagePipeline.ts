@@ -9,7 +9,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
-        img.onerror = (_e) =>
+        img.onerror = () =>
             reject(new Error('[imageUtils] Failed to load image from source'));
         img.crossOrigin = 'anonymous';
         img.src = src;

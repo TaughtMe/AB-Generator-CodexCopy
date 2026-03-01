@@ -20,7 +20,7 @@ import {
 import {
     Scissors, Trash2,
     ListChecks, TextCursorInput, Sigma, FileText,
-    Type, Columns, Image as ImageIcon, Heading,
+    Type, Columns, Image as ImageIcon, Heading, Table,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Task, TaskType } from '../../types/worksheet';
@@ -54,6 +54,7 @@ const TASK_TYPE_OPTIONS: TaskOption[] = [
     { type: 'multiple-choice',   label: 'Multiple Choice',   icon: ListChecks,      group: 'task' },
     { type: 'cloze',             label: 'Lückentext',        icon: TextCursorInput, group: 'task' },
     { type: 'math',              label: 'Mathematik',        icon: Sigma,           group: 'task' },
+    { type: 'table',             label: 'Tabelle',           icon: Table,           group: 'task' },
     { type: 'lineatur',          label: 'Lineatur / Raster', icon: Type,            group: 'layout' },
     { type: 'columns',           label: 'Zweispaltig',       icon: Columns,         group: 'layout' },
     { type: 'page-break',        label: 'Seitenumbruch',     icon: Scissors,        group: 'layout' },

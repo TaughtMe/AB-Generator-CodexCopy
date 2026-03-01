@@ -5,6 +5,7 @@ import { exportToDocx } from './utils/docx';
 import { useWorksheetStore } from './store/worksheetStore';
 import { useWorkspaceStore } from './store/workspaceStore';
 import { useSettingsStore } from './store/settingsStore';
+import { useFontStore } from './store/fontStore';
 import { captureWorksheetThumbnail } from './utils/thumbnailCapture';
 import { ChatAssistant } from './components/ai/ChatAssistant';
 import { EditorChatSidebar } from './components/ai/EditorChatSidebar';
@@ -71,6 +72,7 @@ function App() {
   const brandColor = useSettingsStore((state) => state.brandColor);
   const themeMode = useSettingsStore((state) => state.themeMode);
   const toggleThemeMode = useSettingsStore((state) => state.toggleThemeMode);
+  const loadCustomFonts = useFontStore((state) => state.loadCustomFonts);
 
   const [dashboardView, setDashboardView] = useState<DashboardView>('dashboard');
   const [showDesignEditor, setShowDesignEditor] = useState(false);
@@ -88,6 +90,10 @@ function App() {
   useEffect(() => {
     void loadClassProfiles();
   }, [loadClassProfiles]);
+
+  useEffect(() => {
+    void loadCustomFonts();
+  }, [loadCustomFonts]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -345,7 +351,7 @@ function App() {
 
         {isAiSidebarOpen && (
           <div className="no-print hidden lg:flex w-80 xl:w-96 shrink-0 min-h-0 h-[calc(100vh-90px)] sticky top-[90px] pl-2 pr-2 pb-2">
-            <EditorChatSidebar />
+            <EditorChatSidebar onOpenSources={() => setShowSourcesManager(true)} />
           </div>
         )}
       </div>

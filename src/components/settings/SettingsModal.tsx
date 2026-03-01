@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Cpu, Database, Loader2, MessageSquare, Moon, RefreshCw, Settings, Sun, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Cpu, Database, Loader2, MessageSquare, Moon, RefreshCw, Settings, Sun, Type, X, XCircle } from 'lucide-react';
 import { useSettingsStore, type AIProvider } from '../../store/settingsStore';
 import { PROVIDER_LABELS, PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
 import { testConnection } from '../../services/aiService';
@@ -9,8 +9,9 @@ import { exportLocalBackup, importLocalBackup } from '../../utils/dataManagement
 import { clearAllIndexedDbData } from '../../store/dexieStore';
 import { IconButton } from '../ui/IconButton';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { FontUpload } from './FontUpload';
 
-type SettingsTab = 'display' | 'ai' | 'chat' | 'data' | 'legal';
+type SettingsTab = 'display' | 'fonts' | 'ai' | 'chat' | 'data' | 'legal';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ interface SettingsModalProps {
 
 const TABS: Array<{ id: SettingsTab; label: string; icon: React.ElementType }> = [
     { id: 'display', label: 'Anzeige', icon: Sun },
+    { id: 'fonts', label: 'Schriftarten', icon: Type },
     { id: 'ai', label: 'KI', icon: Cpu },
     { id: 'chat', label: 'KI-Chat', icon: MessageSquare },
     { id: 'data', label: 'Datenverwaltung', icon: Database },
@@ -291,6 +293,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     </button>
                                 </div>
                             </div>
+                        )}
+
+                        {activeTab === 'fonts' && (
+                            <FontUpload />
                         )}
 
                         {activeTab === 'ai' && (
