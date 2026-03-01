@@ -51,6 +51,42 @@ function getPreferredChatModel(provider: AIProvider): string {
 
 const MAX_CONTEXT_TOTAL_CHARS = 45000;
 const MAX_CONTEXT_SOURCE_CHARS = 10000;
+const MODEL_SELECTION_ERROR_PATTERNS = [
+    /\bmodel\b[\s\S]*\bnot found\b/i,
+    /\bnot found\b[\s\S]*\bmodel\b/i,
+    /\bunknown model\b/i,
+    /\bno such model\b/i,
+    /\bunsupported model\b/i,
+    /\bmodel\b[\s\S]*\bnot supported\b/i,
+    /\binvalid model\b/i,
+    /\bnot a valid model\b/i,
+    /\bmodel\b[\s\S]*\bdoes not exist\b/i,
+];
+
+function isModelSelectionError(message: string): boolean {
+    const normalized = message.trim();
+    if (!normalized) return false;
+    return MODEL_SELECTION_ERROR_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function getModelSelectionErrorMessage(provider: AIProvider): string {
+    return `Gewähltes Modell für ${PROVIDER_LABELS[provider]} ist nicht verfügbar. Bitte in den Einstellungen ein anderes Modell auswählen.`;
+}
+
+function normalizeProviderError(provider: AIProvider, error: unknown, fallbackMessage?: string): Error {
+    const rawMessage = typeof error === 'string'
+        ? error
+        : error instanceof Error
+            ? error.message
+            : '';
+    const message = rawMessage.trim() || fallbackMessage || `${PROVIDER_LABELS[provider]} Anfrage fehlgeschlagen.`;
+
+    if (isModelSelectionError(message)) {
+        return new Error(getModelSelectionErrorMessage(provider));
+    }
+
+    return new Error(message);
+}
 
 function buildActiveSourceContextBlock(): string {
     const allSources = useSourceStore.getState().sources;
@@ -122,9 +158,10 @@ export async function testConnection(provider: AIProvider): Promise<{ ok: boolea
         });
         return { ok: true };
     } catch (error) {
+        const normalizedError = normalizeProviderError(provider, error, 'Verbindungstest fehlgeschlagen.');
         return {
             ok: false,
-            message: error instanceof Error ? error.message : 'Verbindungstest fehlgeschlagen.',
+            message: normalizedError.message,
         };
     }
 }
@@ -250,9 +287,17 @@ async function requestOpenAICompatible(params: {
     if (!response || !response.ok) {
         const detail = (payload as { error?: { message?: string } })?.error?.message;
         if (params.provider === 'local') {
-            throw new Error(detail || 'Lokaler KI-Server nicht erreichbar. Tipp: im Dev-Container statt 127.0.0.1 ggf. host.docker.internal nutzen.');
+            throw normalizeProviderError(
+                params.provider,
+                detail,
+                'Lokaler KI-Server nicht erreichbar. Tipp: im Dev-Container statt 127.0.0.1 ggf. host.docker.internal nutzen.',
+            );
         }
-        throw new Error(detail || `${PROVIDER_LABELS[params.provider]} Anfrage fehlgeschlagen${response ? ` (HTTP ${response.status})` : ''}.`);
+        throw normalizeProviderError(
+            params.provider,
+            detail,
+            `${PROVIDER_LABELS[params.provider]} Anfrage fehlgeschlagen${response ? ` (HTTP ${response.status})` : ''}.`,
+        );
     }
 
     const message = (payload as {
@@ -273,72 +318,88 @@ async function requestOpenAICompatible(params: {
         if (text) return text;
     }
 
-    throw new Error(`${PROVIDER_LABELS[params.provider]} hat keine lesbare Antwort geliefert.`);
+    throw normalizeProviderError(params.provider, `${PROVIDER_LABELS[params.provider]} hat keine lesbare Antwort geliefert.`);
 }
 
 const geminiAdapter: ProviderAdapter = {
     async generateTasksText(options) {
-        const model = getGeminiModel();
-        const userPrompt = buildGenerateUserPrompt(options);
+        try {
+            const model = getGeminiModel();
+            const userPrompt = buildGenerateUserPrompt(options);
 
-        const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
-            { text: userPrompt },
-        ];
+            const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+                { text: userPrompt },
+            ];
 
-        if (options.screenshotBase64) {
-            parts.push({
-                inlineData: {
-                    mimeType: 'image/png',
-                    data: options.screenshotBase64,
-                },
+            if (options.screenshotBase64) {
+                parts.push({
+                    inlineData: {
+                        mimeType: 'image/png',
+                        data: options.screenshotBase64,
+                    },
+                });
+            }
+
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts }],
+                systemInstruction: withInjectedSourceContext(buildSystemPrompt({
+                    subjectName: options.subjectName,
+                    curriculumText: options.curriculumText,
+                    className: options.className,
+                    classCharacteristic: options.classCharacteristic,
+                })),
             });
+
+            return result.response.text();
+        } catch (error) {
+            throw normalizeProviderError('gemini', error);
         }
-
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts }],
-            systemInstruction: withInjectedSourceContext(buildSystemPrompt({
-                subjectName: options.subjectName,
-                curriculumText: options.curriculumText,
-                className: options.className,
-                classCharacteristic: options.classCharacteristic,
-            })),
-        });
-
-        return result.response.text();
     },
 
     async modifyTaskText(task, instruction) {
-        const model = getGeminiModel();
-        const userPrompt = buildModifyUserPrompt(task, instruction);
+        try {
+            const model = getGeminiModel();
+            const userPrompt = buildModifyUserPrompt(task, instruction);
 
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            systemInstruction: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
-        });
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                systemInstruction: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
+            });
 
-        return result.response.text();
+            return result.response.text();
+        } catch (error) {
+            throw normalizeProviderError('gemini', error);
+        }
     },
 
     async chatAssistantText(messages) {
-        const model = getGeminiModel(getPreferredChatModel('gemini'));
-        const userPrompt = buildChatUserPrompt(messages);
+        try {
+            const model = getGeminiModel(getPreferredChatModel('gemini'));
+            const userPrompt = buildChatUserPrompt(messages);
 
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            systemInstruction: withInjectedSourceContext(CHAT_ASSISTANT_SYSTEM_PROMPT),
-        });
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                systemInstruction: withInjectedSourceContext(CHAT_ASSISTANT_SYSTEM_PROMPT),
+            });
 
-        return result.response.text();
+            return result.response.text();
+        } catch (error) {
+            throw normalizeProviderError('gemini', error);
+        }
     },
 
     async generateTasksFromCompiledPromptText(compiledPrompt) {
-        const model = getGeminiModel();
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: compiledPrompt }] }],
-            systemInstruction: withInjectedSourceContext(BASE_SYSTEM_PROMPT),
-        });
+        try {
+            const model = getGeminiModel();
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: compiledPrompt }] }],
+                systemInstruction: withInjectedSourceContext(BASE_SYSTEM_PROMPT),
+            });
 
-        return result.response.text();
+            return result.response.text();
+        } catch (error) {
+            throw normalizeProviderError('gemini', error);
+        }
     },
 };
 
@@ -597,12 +658,16 @@ async function generateTaskRevisionText(userPrompt: string): Promise<string> {
     const { provider } = getActiveProviderState();
 
     if (provider === 'gemini') {
-        const model = getGeminiModel(getPreferredChatModel('gemini'));
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            systemInstruction: withInjectedSourceContext(TASK_REVISION_SYSTEM_PROMPT),
-        });
-        return result.response.text();
+        try {
+            const model = getGeminiModel(getPreferredChatModel('gemini'));
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                systemInstruction: withInjectedSourceContext(TASK_REVISION_SYSTEM_PROMPT),
+            });
+            return result.response.text();
+        } catch (error) {
+            throw normalizeProviderError('gemini', error);
+        }
     }
 
     return requestOpenAICompatible({

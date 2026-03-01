@@ -15,7 +15,6 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { PROVIDER_MODEL_OPTIONS, getModelLabel } from '../../services/ai/modelCatalog';
 import { useLocalModels } from '../../hooks/useLocalModels';
 import { useOpenAIModels } from '../../hooks/useOpenAIModels';
-import { useGeminiModels } from '../../hooks/useGeminiModels';
 import type { Task } from '../../types/worksheet';
 
 /* ══════════════════════════════════════════════════
@@ -63,18 +62,11 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
     const selectedClass = classes.find((c) => c.id === selectedClassId);
     const activeConfig = providers[aiProvider];
     const { models: detectedLocalModels } = useLocalModels(activeConfig.baseUrl ?? '', isOpen && aiProvider === 'local');
-    const { models: detectedGeminiModels } = useGeminiModels(activeConfig.apiKey ?? '', isOpen && aiProvider === 'gemini');
     const { models: detectedOpenAIModels } = useOpenAIModels(activeConfig.baseUrl ?? '', activeConfig.apiKey ?? '', isOpen && aiProvider === 'openai');
-    const mergedGeminiModels = Array.from(
-        new Map([
-            ...detectedGeminiModels,
-            ...PROVIDER_MODEL_OPTIONS.gemini,
-        ].map((option) => [option.value, option])).values()
-    );
     const modelOptions = aiProvider === 'local' && detectedLocalModels.length > 0
         ? detectedLocalModels
-        : aiProvider === 'gemini' && mergedGeminiModels.length > 0
-            ? mergedGeminiModels
+        : aiProvider === 'gemini'
+            ? PROVIDER_MODEL_OPTIONS.gemini
         : aiProvider === 'openai' && detectedOpenAIModels.length > 0
             ? detectedOpenAIModels
             : PROVIDER_MODEL_OPTIONS[aiProvider];

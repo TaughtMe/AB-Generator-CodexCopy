@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ProviderModelOption } from '../services/ai/modelCatalog';
+import { PROVIDER_MODEL_OPTIONS, type ProviderModelOption } from '../services/ai/modelCatalog';
 import { filterModelOptions } from '../services/ai/modelFilter';
 
 interface GeminiModelEntry {
@@ -13,6 +13,10 @@ interface GeminiModelsResponse {
     models?: GeminiModelEntry[];
 }
 
+const EXPLICIT_GEMINI_MODEL_IDS = new Set(
+    PROVIDER_MODEL_OPTIONS.gemini.map((option) => option.value.toLowerCase()),
+);
+
 function normalizeModelName(rawName: string): string {
     return rawName.replace(/^models\//, '');
 }
@@ -25,8 +29,10 @@ function isGeminiTextModel(entry: GeminiModelEntry): boolean {
     const supportsGenerateContent = methods.some((m) => m.toLowerCase() === 'generatecontent');
     if (!supportsGenerateContent) return false;
 
-    const match = modelName.match(/^gemini-(\d+(?:\.\d+)?)-(flash|pro)(?:-latest)?$/);
+    const match = modelName.match(/^gemini-(\d+(?:\.\d+)?)-(flash|pro)$/);
     if (!match) return false;
+
+    if (!EXPLICIT_GEMINI_MODEL_IDS.has(modelName)) return false;
 
     const version = Number.parseFloat(match[1]);
     return Number.isFinite(version) && version >= 2.5;
@@ -46,7 +52,7 @@ function mapModelToOption(entry: GeminiModelEntry): ProviderModelOption | null {
 
 function getGeminiSortMeta(modelValue: string): { version: number; tier: number } {
     const normalized = modelValue.toLowerCase();
-    const match = normalized.match(/^gemini-(\d+(?:\.\d+)?)-(flash|pro)(?:-latest)?$/);
+    const match = normalized.match(/^gemini-(\d+(?:\.\d+)?)-(flash|pro)$/);
 
     if (!match) return { version: -1, tier: 99 };
 

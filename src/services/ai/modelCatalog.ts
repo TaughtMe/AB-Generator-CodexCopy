@@ -14,12 +14,12 @@ export const PROVIDER_LABELS: Record<AIProvider, string> = {
 
 export const PROVIDER_MODEL_OPTIONS: Record<AIProvider, ProviderModelOption[]> = {
     gemini: [
-        { value: 'gemini-3.1-flash', label: 'Gemini Flash 3.1', desc: 'Neu & sehr schnell' },
-        { value: 'gemini-3.1-pro', label: 'Gemini 3.1 Pro', desc: 'Höchste Qualität' },
-        { value: 'gemini-3.0-flash', label: 'Gemini Flash 3.0', desc: 'Neu & sehr schnell' },
-        { value: 'gemini-3.0-pro', label: 'Gemini 3.0 Pro', desc: 'Höchste Qualität' },
-        { value: 'gemini-2.5-flash', label: 'Gemini Flash 2.5', desc: 'Stabiler Standard' },
-        { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', desc: 'Höhere Qualität' },
+        { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Kostenoptimiert)', desc: 'Günstig und stabil' },
+        { value: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash', desc: 'Schnell mit moderner Qualität' },
+        { value: 'gemini-3.1-flash', label: 'Gemini 3.1 Flash', desc: 'Neueste Flash-Generation' },
+        { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', desc: 'Höhere Qualität für komplexe Inhalte' },
+        { value: 'gemini-3.0-pro', label: 'Gemini 3.0 Pro', desc: 'Leistungsstark für anspruchsvolle Aufgaben' },
+        { value: 'gemini-3.1-pro', label: 'Gemini 3.1 Pro', desc: 'Maximale Qualität' },
     ],
     openai: [
         { value: 'gpt-5.2-mini', label: 'GPT-5.2 mini', desc: 'Aktueller schneller Standard' },

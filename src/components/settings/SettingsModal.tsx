@@ -3,7 +3,6 @@ import { CheckCircle2, Cpu, Database, Loader2, MessageSquare, Moon, RefreshCw, S
 import { useSettingsStore, type AIProvider } from '../../store/settingsStore';
 import { PROVIDER_LABELS, PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
 import { testConnection } from '../../services/aiService';
-import { useGeminiModels } from '../../hooks/useGeminiModels';
 import { useOpenAIModels } from '../../hooks/useOpenAIModels';
 import { exportLocalBackup, importLocalBackup } from '../../utils/dataManagement';
 import { clearAllIndexedDbData } from '../../store/dexieStore';
@@ -59,29 +58,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const restartOnboarding = useSettingsStore((state) => state.restartOnboarding);
 
     const activeConfig = providers[aiProvider];
-    const { models: detectedGeminiModels } = useGeminiModels(activeConfig.apiKey ?? '', isOpen && aiProvider === 'gemini');
     const { models: detectedOpenAIModels } = useOpenAIModels(activeConfig.baseUrl ?? '', activeConfig.apiKey ?? '', isOpen && aiProvider === 'openai');
     const localModelOptions = useMemo(
         () => availableLocalModels.map((id) => ({ value: id, label: id, desc: 'Vom lokalen Server erkannt' })),
         [availableLocalModels],
     );
 
-    const mergedGeminiModels = useMemo(
-        () => Array.from(
-            new Map([
-                ...detectedGeminiModels,
-                ...PROVIDER_MODEL_OPTIONS.gemini,
-            ].map((option) => [option.value, option])).values()
-        ),
-        [detectedGeminiModels]
-    );
-
     const modelOptions = useMemo(() => {
         if (aiProvider === 'local' && localModelOptions.length > 0) return localModelOptions;
-        if (aiProvider === 'gemini' && mergedGeminiModels.length > 0) return mergedGeminiModels;
+        if (aiProvider === 'gemini') return PROVIDER_MODEL_OPTIONS.gemini;
         if (aiProvider === 'openai' && detectedOpenAIModels.length > 0) return detectedOpenAIModels;
         return PROVIDER_MODEL_OPTIONS[aiProvider];
-    }, [aiProvider, localModelOptions, mergedGeminiModels, detectedOpenAIModels]);
+    }, [aiProvider, localModelOptions, detectedOpenAIModels]);
 
     const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
     const effectiveChatModel = chatPreference === 'auto' ? activeConfig.model : chatPreference;

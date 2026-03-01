@@ -155,6 +155,93 @@ const LEGACY_GEMINI_MODEL_MAP = {
     pro: 'gemini-3.0-pro',
 } as const;
 
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+const DEFAULT_OPENAI_MODEL = 'gpt-5.2-mini';
+const DEFAULT_LOCAL_MODEL = 'qwen2.5-7b-instruct';
+
+const EXPLICIT_GEMINI_MODEL_IDS = new Set([
+    'gemini-2.5-flash',
+    'gemini-3.0-flash',
+    'gemini-3.1-flash',
+    'gemini-2.5-pro',
+    'gemini-3.0-pro',
+    'gemini-3.1-pro',
+]);
+
+const DEFAULT_PROVIDER_MODELS: Record<AIProvider, string> = {
+    gemini: DEFAULT_GEMINI_MODEL,
+    openai: DEFAULT_OPENAI_MODEL,
+    local: DEFAULT_LOCAL_MODEL,
+};
+
+function sanitizeProviderModel(provider: AIProvider, model: string | undefined | null): string {
+    const normalized = typeof model === 'string' ? model.trim() : '';
+
+    if (provider === 'gemini') {
+        return EXPLICIT_GEMINI_MODEL_IDS.has(normalized) ? normalized : DEFAULT_GEMINI_MODEL;
+    }
+
+    return normalized || DEFAULT_PROVIDER_MODELS[provider];
+}
+
+function sanitizeSelectedModelIds(provider: AIProvider, ids: string[] | undefined): string[] {
+    const normalized = Array.from(new Set((ids ?? []).map((id) => id.trim()).filter(Boolean)));
+
+    if (provider !== 'gemini') {
+        return normalized;
+    }
+
+    return normalized.filter((id) => EXPLICIT_GEMINI_MODEL_IDS.has(id));
+}
+
+function sanitizeChatPreference(
+    provider: AIProvider,
+    preference: string | undefined,
+    sanitizedProviderModel: string,
+): string {
+    const normalized = typeof preference === 'string' ? preference.trim() : '';
+    if (!normalized || normalized === 'auto') return 'auto';
+
+    if (provider !== 'gemini') {
+        return normalized;
+    }
+
+    return EXPLICIT_GEMINI_MODEL_IDS.has(normalized) ? normalized : sanitizedProviderModel;
+}
+
+function sanitizeModelState<T extends SettingsStore>(state: T): T {
+    const geminiModel = sanitizeProviderModel('gemini', state.providers?.gemini?.model);
+    const openaiModel = sanitizeProviderModel('openai', state.providers?.openai?.model);
+    const localModel = sanitizeProviderModel('local', state.providers?.local?.model);
+
+    return {
+        ...state,
+        providers: {
+            ...state.providers,
+            gemini: {
+                ...state.providers.gemini,
+                model: geminiModel,
+                selectedModelIds: sanitizeSelectedModelIds('gemini', state.providers.gemini.selectedModelIds),
+            },
+            openai: {
+                ...state.providers.openai,
+                model: openaiModel,
+                selectedModelIds: sanitizeSelectedModelIds('openai', state.providers.openai.selectedModelIds),
+            },
+            local: {
+                ...state.providers.local,
+                model: localModel,
+                selectedModelIds: sanitizeSelectedModelIds('local', state.providers.local.selectedModelIds),
+            },
+        },
+        chatModelPreferences: {
+            gemini: sanitizeChatPreference('gemini', state.chatModelPreferences?.gemini, geminiModel),
+            openai: sanitizeChatPreference('openai', state.chatModelPreferences?.openai, openaiModel),
+            local: sanitizeChatPreference('local', state.chatModelPreferences?.local, localModel),
+        },
+    };
+}
+
 export const useSettingsStore = create<SettingsStore>()(
     persist(
         (set, get) => ({
@@ -163,18 +250,18 @@ export const useSettingsStore = create<SettingsStore>()(
             providers: {
                 gemini: {
                     apiKey: migrateLegacyApiKey(),
-                    model: 'gemini-2.5-flash',
+                    model: DEFAULT_GEMINI_MODEL,
                     selectedModelIds: [],
                 },
                 openai: {
                     apiKey: '',
-                    model: 'gpt-5.2-mini',
+                    model: DEFAULT_OPENAI_MODEL,
                     baseUrl: 'https://api.openai.com/v1',
                     selectedModelIds: [],
                 },
                 local: {
                     apiKey: '',
-                    model: 'qwen2.5-7b-instruct',
+                    model: DEFAULT_LOCAL_MODEL,
                     baseUrl: 'http://localhost:1234/v1',
                     selectedModelIds: [],
                 },
@@ -223,7 +310,7 @@ export const useSettingsStore = create<SettingsStore>()(
                         ...state.providers,
                         [provider]: {
                             ...state.providers[provider],
-                            model,
+                            model: sanitizeProviderModel(provider, model),
                         },
                     },
                 })),
@@ -243,17 +330,20 @@ export const useSettingsStore = create<SettingsStore>()(
                         ...state.providers,
                         [provider]: {
                             ...state.providers[provider],
-                            selectedModelIds: Array.from(new Set(ids.filter(Boolean))),
+                            selectedModelIds: sanitizeSelectedModelIds(provider, ids),
                         },
                     },
                 })),
             setChatModelPreference: (provider, model) =>
-                set((state) => ({
-                    chatModelPreferences: {
-                        ...state.chatModelPreferences,
-                        [provider]: model || 'auto',
-                    },
-                })),
+                set((state) => {
+                    const providerModel = sanitizeProviderModel(provider, state.providers[provider].model);
+                    return {
+                        chatModelPreferences: {
+                            ...state.chatModelPreferences,
+                            [provider]: sanitizeChatPreference(provider, model, providerModel),
+                        },
+                    };
+                }),
             setThemeMode: (mode) => set({ themeMode: mode }),
             toggleThemeMode: () =>
                 set((state) => ({
@@ -360,15 +450,36 @@ export const useSettingsStore = create<SettingsStore>()(
         }),
         {
             name: 'ab-generator-settings',
-            version: 7,
+            version: 8,
             partialize: (state) => toPersistedSettingsSlice(state),
+            merge: (persistedState, currentState) => {
+                const persisted = (persistedState ?? {}) as Partial<SettingsStore>;
+                const merged = {
+                    ...currentState,
+                    ...persisted,
+                    providers: {
+                        ...currentState.providers,
+                        ...(persisted.providers ?? {}),
+                    },
+                    chatModelPreferences: {
+                        ...currentState.chatModelPreferences,
+                        ...(persisted.chatModelPreferences ?? {}),
+                    },
+                } as SettingsStore;
+
+                return sanitizeModelState(merged);
+            },
             migrate: (persistedState, version) => {
                 if (!persistedState || typeof persistedState !== 'object') {
                     return persistedState as SettingsStore;
                 }
 
-                if (version >= 7) {
-                    return persistedState as SettingsStore;
+                if (version >= 8) {
+                    return sanitizeModelState(persistedState as SettingsStore);
+                }
+
+                if (version === 7) {
+                    return sanitizeModelState(persistedState as SettingsStore);
                 }
 
                 if (version === 6) {
@@ -386,28 +497,28 @@ export const useSettingsStore = create<SettingsStore>()(
                     void _ignoredModels;
                     void _ignoredFetching;
 
-                    return {
+                    return sanitizeModelState({
                         ...rest,
                         submitOnEnter: typeof rest.submitOnEnter === 'boolean' ? rest.submitOnEnter : true,
                         hasSeenOnboarding: typeof rest.hasSeenOnboarding === 'boolean' ? rest.hasSeenOnboarding : false,
-                    } as SettingsStore;
+                    } as SettingsStore);
                 }
 
                 if (version === 5) {
                     const stateV5 = persistedState as SettingsStore;
-                    return {
+                    return sanitizeModelState({
                         ...stateV5,
                         chatModelPreferences: {
                             gemini: stateV5.chatModelPreferences?.gemini ?? 'auto',
                             openai: stateV5.chatModelPreferences?.openai ?? 'auto',
                             local: stateV5.chatModelPreferences?.local ?? 'auto',
                         },
-                    } as SettingsStore;
+                    } as SettingsStore);
                 }
 
                 if (version === 4) {
                     const stateV4 = persistedState as SettingsStore;
-                    return {
+                    return sanitizeModelState({
                         ...stateV4,
                         chatModelPreferences: {
                             gemini: stateV4.chatModelPreferences?.gemini ?? 'auto',
@@ -417,13 +528,13 @@ export const useSettingsStore = create<SettingsStore>()(
                         showHeaderTitle: stateV4.showHeaderTitle ?? true,
                         showWorksheetTitle: stateV4.showWorksheetTitle ?? true,
                         applyColorToTasks: stateV4.applyColorToTasks ?? true,
-                    } as SettingsStore;
+                    } as SettingsStore);
                 }
 
                 if (version === 3) {
                     const stateV3 = persistedState as SettingsStore;
 
-                    return {
+                    return sanitizeModelState({
                         ...stateV3,
                         chatModelPreferences: {
                             gemini: stateV3.chatModelPreferences?.gemini ?? 'auto',
@@ -445,7 +556,7 @@ export const useSettingsStore = create<SettingsStore>()(
                                 selectedModelIds: stateV3.providers.local.selectedModelIds ?? [],
                             },
                         },
-                    } as SettingsStore;
+                    } as SettingsStore);
                 }
 
                 if (version === 2) {
@@ -453,11 +564,11 @@ export const useSettingsStore = create<SettingsStore>()(
                     const geminiModel =
                         stateV2.providers?.gemini?.model === 'gemini-2.5-pro'
                             ? 'gemini-3.0-pro'
-                            : stateV2.providers?.gemini?.model ?? 'gemini-2.5-flash';
+                            : stateV2.providers?.gemini?.model ?? DEFAULT_GEMINI_MODEL;
 
-                    const openaiModel = stateV2.providers?.openai?.model ?? 'gpt-5.2-mini';
+                    const openaiModel = stateV2.providers?.openai?.model ?? DEFAULT_OPENAI_MODEL;
 
-                    return {
+                    return sanitizeModelState({
                         ...stateV2,
                         chatModelPreferences: {
                             gemini: stateV2.chatModelPreferences?.gemini ?? 'auto',
@@ -481,7 +592,7 @@ export const useSettingsStore = create<SettingsStore>()(
                                 selectedModelIds: stateV2.providers.local.selectedModelIds ?? [],
                             },
                         },
-                    } as SettingsStore;
+                    } as SettingsStore);
                 }
 
                 const legacyState = persistedState as {
@@ -492,10 +603,10 @@ export const useSettingsStore = create<SettingsStore>()(
                 };
 
                 const mappedLegacyModel = legacyState.geminiModel
-                    ? LEGACY_GEMINI_MODEL_MAP[legacyState.geminiModel] ?? 'gemini-2.5-flash'
-                    : 'gemini-2.5-flash';
+                    ? LEGACY_GEMINI_MODEL_MAP[legacyState.geminiModel] ?? DEFAULT_GEMINI_MODEL
+                    : DEFAULT_GEMINI_MODEL;
 
-                return {
+                return sanitizeModelState({
                     ...legacyState,
                     aiProvider: legacyState.aiProvider ?? 'gemini',
                     chatModelPreferences: {
@@ -511,19 +622,19 @@ export const useSettingsStore = create<SettingsStore>()(
                         },
                         openai: {
                             apiKey: '',
-                            model: 'gpt-5.2-mini',
+                            model: DEFAULT_OPENAI_MODEL,
                             baseUrl: 'https://api.openai.com/v1',
                             selectedModelIds: [],
                         },
                         local: {
                             apiKey: '',
-                            model: 'qwen2.5-7b-instruct',
+                            model: DEFAULT_LOCAL_MODEL,
                             baseUrl: 'http://localhost:1234/v1',
                             selectedModelIds: [],
                         },
                         ...(legacyState.providers ?? {}),
                     },
-                } as SettingsStore;
+                } as SettingsStore);
             },
         }
     )
