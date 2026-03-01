@@ -4,6 +4,7 @@ import { RichTextEditor } from '../editor/RichTextEditor';
 
 interface Props {
     task: InstructionTask;
+    isActive?: boolean;
 }
 
 /**
@@ -11,7 +12,7 @@ interface Props {
  * Nutzt Tiptap-Rich-Text für Fett, Kursiv, Unterstrichen, Listen.
  * Abwärtskompatibel: Plain-Text wird automatisch in HTML migriert.
  */
-export function InstructionTaskEditor({ task }: Props) {
+export function InstructionTaskEditor({ task, isActive = true }: Props) {
     const updateTask = useWorksheetStore((s) => s.updateTask);
 
     return (
@@ -21,10 +22,13 @@ export function InstructionTaskEditor({ task }: Props) {
                 onChange={(html) => updateTask(task.id, { text: html } as Partial<InstructionTask>)}
                 placeholder="Aufgabentext eingeben…"
                 minRows={3}
+                hideToolbar={!isActive}
             />
-            <p className="mt-1 text-[10px] text-worksheet-inkLight no-print">
-                Freier Aufgabentext – formatiere mit der Toolbar (Fett, Kursiv, Listen).
-            </p>
+            {isActive && (
+                <p className="mt-1 text-[10px] text-worksheet-inkLight no-print">
+                    Freier Aufgabentext – formatiere mit der Toolbar (Fett, Kursiv, Listen).
+                </p>
+            )}
         </div>
     );
 }

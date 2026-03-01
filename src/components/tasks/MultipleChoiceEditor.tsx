@@ -7,9 +7,10 @@ import { ICON_SIZES } from '../ui/iconSizes';
 
 interface MultipleChoiceEditorProps {
     task: MultipleChoiceTask;
+    isActive?: boolean;
 }
 
-export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task }) => {
+export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task, isActive = true }) => {
     const updateTask = useWorksheetStore((s) => s.updateTask);
 
     const updateQuestion = (html: string) => {
@@ -51,37 +52,49 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
         <div className="space-y-4">
             {/* Question */}
             <div>
-                <label className="block text-xs font-medium text-worksheet-inkLight mb-1.5 uppercase tracking-wider no-print">
-                    Frage
-                </label>
+                {isActive && (
+                    <label className="block text-xs font-medium text-worksheet-inkLight mb-1.5 uppercase tracking-wider no-print">
+                        Frage
+                    </label>
+                )}
                 <RichTextEditor
                     value={task.question}
                     onChange={updateQuestion}
                     placeholder="Stelle hier deine Frage…"
                     minRows={2}
+                    hideToolbar={!isActive}
                 />
             </div>
 
             {/* Options */}
             <div>
-                <label className="block text-xs font-medium text-worksheet-inkLight mb-2 uppercase tracking-wider no-print">
-                    Antwortmöglichkeiten
-                </label>
+                {isActive && (
+                    <label className="block text-xs font-medium text-worksheet-inkLight mb-2 uppercase tracking-wider no-print">
+                        Antwortmöglichkeiten
+                    </label>
+                )}
                 <div className="space-y-2">
                     {task.options.map((option) => (
                         <div key={option.id} className="flex items-center gap-2 group/option">
                             {/* Correct toggle – mc-correct-marker controls print visibility */}
-                            <button
-                                onClick={() => toggleCorrect(option.id)}
-                                className={`mc-correct-marker shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${option.isCorrect
-                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200'
-                                    : 'border-worksheet-border text-transparent hover:border-emerald-400'
-                                    }`}
-                                title={option.isCorrect ? 'Als falsch markieren' : 'Als richtig markieren'}
-                                data-correct={option.isCorrect}
-                            >
-                                <Check className={ICON_SIZES[14]} strokeWidth={3} />
-                            </button>
+                            {isActive ? (
+                                <button
+                                    onClick={() => toggleCorrect(option.id)}
+                                    className={`mc-correct-marker shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${option.isCorrect
+                                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200'
+                                        : 'border-worksheet-border text-transparent hover:border-emerald-400'
+                                        }`}
+                                    title={option.isCorrect ? 'Als falsch markieren' : 'Als richtig markieren'}
+                                    data-correct={option.isCorrect}
+                                >
+                                    <Check className={ICON_SIZES[14]} strokeWidth={3} />
+                                </button>
+                            ) : (
+                                <span
+                                    className="shrink-0 w-5 h-5 border-2 border-worksheet-border rounded-sm"
+                                    data-correct={option.isCorrect}
+                                />
+                            )}
 
                             {/* Print-only checkbox indicator */}
                             <span
@@ -98,26 +111,30 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                             />
 
                             {/* Delete option */}
-                            <button
-                                onClick={() => removeOption(option.id)}
-                                disabled={task.options.length <= 2}
-                                className="shrink-0 p-1.5 text-worksheet-inkLight/60 hover:text-red-500 rounded transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover/option:opacity-100 no-print"
-                                title="Option entfernen"
-                            >
-                                <Trash2 className={ICON_SIZES[14]} />
-                            </button>
+                            {isActive && (
+                                <button
+                                    onClick={() => removeOption(option.id)}
+                                    disabled={task.options.length <= 2}
+                                    className="shrink-0 p-1.5 text-worksheet-inkLight/60 hover:text-red-500 rounded transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover/option:opacity-100 no-print"
+                                    title="Option entfernen"
+                                >
+                                    <Trash2 className={ICON_SIZES[14]} />
+                                </button>
+                            )}
                         </div>
                     ))}
                 </div>
             </div>
 
             {/* Add option */}
-            <button
-                onClick={addOption}
-                className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-600 font-medium transition-colors cursor-pointer no-print"
-            >
-                <Plus className={ICON_SIZES[16]} /> Option hinzufügen
-            </button>
+            {isActive && (
+                <button
+                    onClick={addOption}
+                    className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-600 font-medium transition-colors cursor-pointer no-print"
+                >
+                    <Plus className={ICON_SIZES[16]} /> Option hinzufügen
+                </button>
+            )}
         </div>
     );
 };

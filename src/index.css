@@ -179,8 +179,13 @@ body {
 }
 
 .tiptap .selectedCell {
-    background-color: rgba(200, 200, 255, 0.4) !important;
+    box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
     caret-color: transparent;
+}
+
+/* Override prosemirror-tables ::after overlay so user-set cell bg stays visible */
+.tiptap .selectedCell::after {
+    background: transparent !important;
 }
 
 .tiptap .column-resize-handle {
@@ -191,4 +196,19 @@ body {
     pointer-events: none;
     top: 0;
     width: 2px;
+}
+
+/* ──── Print/PDF Task Wrapper Cleanup ──── */
+@media print {
+    .a4-page .task-card,
+    .a4-page [data-task-id],
+    .dark .a4-page .task-card,
+    .dark .a4-page [data-task-id] {
+        border: 0 !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+        background: transparent !important;
+        ring-width: 0 !important;
+    }
 }

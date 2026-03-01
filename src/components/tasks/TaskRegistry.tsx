@@ -19,7 +19,7 @@ import { UnknownTaskFallback } from './UnknownTaskFallback';
  */
 
 interface TaskComponentRegistry {
-    editor: React.ComponentType<{ task: Task }>;
+    editor: React.ComponentType<{ task: Task; isActive?: boolean }>;
 }
 
 /**
@@ -38,34 +38,34 @@ interface TaskComponentRegistry {
  */
 const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
     'multiple-choice': {
-        editor: MultipleChoiceEditor as React.ComponentType<{ task: Task }>,
+        editor: MultipleChoiceEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'lineatur': {
-        editor: LineaturEditor as React.ComponentType<{ task: Task }>,
+        editor: LineaturEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'cloze': {
-        editor: ClozeEditor as React.ComponentType<{ task: Task }>,
+        editor: ClozeEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'image-placeholder': {
-        editor: ImagePlaceholderEditor as React.ComponentType<{ task: Task }>,
+        editor: ImagePlaceholderEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'math': {
-        editor: MathTaskEditor as React.ComponentType<{ task: Task }>,
+        editor: MathTaskEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'page-break': {
-        editor: (() => null) as React.ComponentType<{ task: Task }>, // Rendered separately – never shown in TaskCard
+        editor: (() => null) as React.ComponentType<{ task: Task; isActive?: boolean }>, // Rendered separately – never shown in TaskCard
     },
     'columns': {
-        editor: ColumnsEditor as React.ComponentType<{ task: Task }>,
+        editor: ColumnsEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'instruction': {
-        editor: InstructionTaskEditor as React.ComponentType<{ task: Task }>,
+        editor: InstructionTaskEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'heading': {
-        editor: HeadingEditor as React.ComponentType<{ task: Task }>,
+        editor: HeadingEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'table': {
-        editor: TableEditor as React.ComponentType<{ task: Task }>,
+        editor: TableEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
 };
 
@@ -73,11 +73,11 @@ const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
  * Schlanker Resolver zwischen Taskdaten und passendem Editor.
  * Unknown-Fallback schützt UI und KI-Flows gegen unvollständige Migrationsstände.
  */
-export const TaskEditorRenderer: React.FC<{ task: Task }> = ({ task }) => {
+export const TaskEditorRenderer: React.FC<{ task: Task; isActive?: boolean }> = ({ task, isActive = true }) => {
     const entry = TASK_REGISTRY[task.type];
     if (!entry) {
         return <UnknownTaskFallback type={task.type} />;
     }
     const Component = entry.editor;
-    return <Component task={task} />;
+    return <Component task={task} isActive={isActive} />;
 };

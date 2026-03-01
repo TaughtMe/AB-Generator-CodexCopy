@@ -18,6 +18,7 @@ import {
 
 interface ClozeEditorProps {
     task: ClozeTask;
+    isActive?: boolean;
 }
 
 /* ── Preview-Renderer ────────────────────────────────────────────────── */
@@ -149,7 +150,7 @@ function StyleToggle({
 
 /* ── Main Component ──────────────────────────────────────────────────── */
 
-export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task }) => {
+export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true }) => {
     const updateTask = useWorksheetStore((s) => s.updateTask);
 
     const gapStyle: ClozeGapStyle = task.gapStyle ?? DEFAULT_CLOZE_GAP_STYLE;
@@ -187,54 +188,60 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task }) => {
     return (
         <div className="space-y-3">
             {/* ── Hinweis ── */}
-            <div className="no-print flex items-start gap-2 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 print:bg-transparent print:border-none">
-                <Info className={`${ICON_SIZES[14]} mt-0.5 flex-shrink-0 text-blue-500`} />
-                <p className="text-xs text-blue-700 leading-relaxed">
-                    <strong>Tipp:</strong> Setze Wörter in eckige Klammern (z.&nbsp;B.{' '}
-                    <code className="bg-blue-100 rounded px-1">[Haus]</code>
-                    ), um sie auf dem Arbeitsblatt als Lücke darzustellen.
-                </p>
-            </div>
+            {isActive && (
+                <div className="no-print flex items-start gap-2 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 print:bg-transparent print:border-none">
+                    <Info className={`${ICON_SIZES[14]} mt-0.5 flex-shrink-0 text-blue-500`} />
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                        <strong>Tipp:</strong> Setze Wörter in eckige Klammern (z.&nbsp;B.{' '}
+                        <code className="bg-blue-100 rounded px-1">[Haus]</code>
+                        ), um sie auf dem Arbeitsblatt als Lücke darzustellen.
+                    </p>
+                </div>
+            )}
 
             {/* ── Eingabefeld ── */}
-            <textarea
-                value={task.content ?? ''}
-                onChange={handleContent}
-                placeholder="Text eingeben … z.B.: Die [Sonne] scheint jeden [Tag]."
-                spellCheck
-                rows={5}
-                className="no-print w-full px-3 py-2 rounded-md border border-worksheet-border bg-worksheet-field text-sm text-worksheet-ink placeholder:text-worksheet-inkLight focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none resize-y transition-shadow print:bg-transparent print:border-none"
-            />
+            {isActive && (
+                <textarea
+                    value={task.content ?? ''}
+                    onChange={handleContent}
+                    placeholder="Text eingeben … z.B.: Die [Sonne] scheint jeden [Tag]."
+                    spellCheck
+                    rows={5}
+                    className="no-print w-full px-3 py-2 rounded-md border border-worksheet-border bg-worksheet-field text-sm text-worksheet-ink placeholder:text-worksheet-inkLight focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none resize-y transition-shadow print:bg-transparent print:border-none"
+                />
+            )}
 
             {/* ── Einstellungs-Toolbar ── */}
-            <div className="no-print flex flex-wrap items-center gap-4 bg-worksheet-field border border-worksheet-border rounded-md px-3 py-2 print:bg-transparent print:border-none">
-                {/* Linienstil */}
-                <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-medium text-worksheet-inkLight whitespace-nowrap">
-                        Linienstil
-                    </span>
-                    <StyleToggle value={gapStyle} onChange={handleGapStyle} />
-                </div>
+            {isActive && (
+                <div className="no-print flex flex-wrap items-center gap-4 bg-worksheet-field border border-worksheet-border rounded-md px-3 py-2 print:bg-transparent print:border-none">
+                    {/* Linienstil */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-medium text-worksheet-inkLight whitespace-nowrap">
+                            Linienstil
+                        </span>
+                        <StyleToggle value={gapStyle} onChange={handleGapStyle} />
+                    </div>
 
-                {/* Platzfaktor */}
-                <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-                    <span className="text-[11px] font-medium text-worksheet-inkLight whitespace-nowrap">
-                        Platz für Schüler
-                    </span>
-                    <input
-                        type="range"
-                        min="1"
-                        max="3"
-                        step="0.5"
-                        value={gapMultiplier}
-                        onChange={handleMultiplier}
-                        className="flex-1 accent-blue-500 cursor-pointer"
-                    />
-                    <span className="text-[11px] font-semibold text-worksheet-ink w-8 text-right tabular-nums">
-                        {gapMultiplier.toFixed(1)}x
-                    </span>
+                    {/* Platzfaktor */}
+                    <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+                        <span className="text-[11px] font-medium text-worksheet-inkLight whitespace-nowrap">
+                            Platz für Schüler
+                        </span>
+                        <input
+                            type="range"
+                            min="1"
+                            max="3"
+                            step="0.5"
+                            value={gapMultiplier}
+                            onChange={handleMultiplier}
+                            className="flex-1 accent-blue-500 cursor-pointer"
+                        />
+                        <span className="text-[11px] font-semibold text-worksheet-ink w-8 text-right tabular-nums">
+                            {gapMultiplier.toFixed(1)}x
+                        </span>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* ── Live-Vorschau ── */}
             {(task.content ?? '').trim() && (
@@ -242,14 +249,19 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task }) => {
                     <p className="no-print text-[10px] font-semibold uppercase tracking-wide text-worksheet-inkLight mb-1.5">
                         Vorschau Schüler*in
                     </p>
-                    <p className="no-print text-sm text-worksheet-ink leading-loose">
-                        {previewElements}
-                    </p>
-                    <p className="hidden print:block text-sm text-worksheet-ink leading-loose whitespace-pre-wrap">
+                    {isActive && (
+                        <p className="no-print text-sm text-worksheet-ink leading-loose">
+                            {previewElements}
+                        </p>
+                    )}
+                    <p className={clsx(
+                        'text-sm text-worksheet-ink leading-loose whitespace-pre-wrap',
+                        isActive ? 'hidden print:block' : 'block',
+                    )}>
                         <span className="cloze-print-student">{printElements}</span>
                         <span className="cloze-print-teacher">{teacherPrintElements}</span>
                     </p>
-                    {gapCount > 0 && (
+                    {isActive && gapCount > 0 && (
                         <p className="no-print mt-1.5 text-[10px] text-worksheet-inkLight">
                             {gapCount} {gapCount === 1 ? 'Lücke' : 'Lücken'} erkannt &middot;{' '}
                             {gapStyle === 'continuous' ? 'Durchgehende Linie' : 'Linie pro Buchstabe'} &middot;{' '}

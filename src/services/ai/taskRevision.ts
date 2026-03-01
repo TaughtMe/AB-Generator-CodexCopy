@@ -394,6 +394,7 @@ function sanitizeRevisionUpdatesForTask(task: Task, rawUpdates: Record<string, u
             const caption = parseString(rawUpdates.caption);
             const widthMm = parseNumber(rawUpdates.widthMm);
             const heightMm = parseNumber(rawUpdates.heightMm);
+            const imageAlign = parseString(rawUpdates.imageAlign);
 
             if (caption !== undefined) {
                 (updates as Partial<Extract<Task, { type: 'image-placeholder' }>>).caption = caption;
@@ -403,6 +404,12 @@ function sanitizeRevisionUpdatesForTask(task: Task, rawUpdates: Record<string, u
             }
             if (heightMm !== undefined) {
                 (updates as Partial<Extract<Task, { type: 'image-placeholder' }>>).heightMm = heightMm;
+            }
+            if (imageAlign && ['left', 'center', 'right'].includes(imageAlign)) {
+                (updates as Partial<Extract<Task, { type: 'image-placeholder' }>>).imageAlign = imageAlign as Extract<
+                    Task,
+                    { type: 'image-placeholder' }
+                >['imageAlign'];
             }
             break;
         }

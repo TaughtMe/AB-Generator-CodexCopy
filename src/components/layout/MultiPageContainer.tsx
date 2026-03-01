@@ -13,7 +13,11 @@ import React, { useRef, useState, useEffect, useCallback, type ReactElement } fr
 const MM_TO_PX = 96 / 25.4; // ~3.7795
 const PAGE_CONTENT_HEIGHT_MM = 257;
 const PAGE_CONTENT_HEIGHT_PX = PAGE_CONTENT_HEIGHT_MM * MM_TO_PX;
-const GAP_PX = 12; // space-y-3 = 12px
+
+function parsePx(value: string): number {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
 
 interface MultiPageContainerProps {
     children: React.ReactNode;
@@ -42,19 +46,26 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
 
         const newBreaks = new Set<number>();
         let currentHeight = 0;
+        let previousMarginBottom = 0;
 
         childNodes.forEach((node, index) => {
             // Use offsetHeight (CSS layout pixels) instead of getBoundingClientRect().height
             // because getBoundingClientRect is distorted by ancestor CSS transforms (e.g. zoom slider).
             const height = node.offsetHeight;
-            const gap = index > 0 ? GAP_PX : 0;
+            const computedStyle = window.getComputedStyle(node);
+            const marginTop = parsePx(computedStyle.marginTop);
+            const marginBottom = parsePx(computedStyle.marginBottom);
+            const gapBefore = index === 0 ? marginTop : Math.max(previousMarginBottom, marginTop);
+            const projectedHeight = currentHeight + gapBefore + height;
 
-            if (currentHeight + height + gap > PAGE_CONTENT_HEIGHT_PX && currentHeight > 0) {
+            if (projectedHeight > PAGE_CONTENT_HEIGHT_PX && currentHeight > 0) {
                 newBreaks.add(index);
-                currentHeight = height;
+                currentHeight = marginTop + height;
             } else {
-                currentHeight += height + gap;
+                currentHeight = projectedHeight;
             }
+
+            previousMarginBottom = marginBottom;
         });
 
         setBreakIndices((prev) => {
@@ -136,7 +147,7 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
     return (
         <div className="a4-desk">
             <div className="a4-page bg-worksheet-paper text-worksheet-ink shadow-lg" style={pageStyle} data-brand-color={brandColor}>
-                <div ref={containerRef} className="space-y-3">
+                <div ref={containerRef} className="flow-root">
                     {renderItems}
                 </div>
             </div>

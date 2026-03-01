@@ -1,6 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ElementType } from 'react';
 import { BubbleMenu, type Editor } from '@tiptap/react';
-import { Combine, Paintbrush, PanelLeft, PanelTop, Plus, Split, TableProperties } from 'lucide-react';
+import {
+    Combine,
+    Eraser,
+    Paintbrush,
+    PanelBottom,
+    PanelLeft,
+    PanelRight,
+    PanelTop,
+    Plus,
+    Split,
+    TableProperties,
+} from 'lucide-react';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import type { TableTask } from '../../types/worksheet';
 import { RichTextEditor } from '../editor/RichTextEditor';
@@ -12,6 +23,7 @@ function containsTableMarkup(html: string): boolean {
 
 interface TableEditorProps {
     task: TableTask;
+    isActive?: boolean;
 }
 
 const TABLE_COLOR_PRESETS: Array<{ label: string; value: string | null; swatchClass: string }> = [
@@ -22,22 +34,46 @@ const TABLE_COLOR_PRESETS: Array<{ label: string; value: string | null; swatchCl
     { label: 'Rosé Pastell', value: '#fce7f3', swatchClass: 'bg-pink-100' },
 ];
 
-const BORDER_WIDTH_OPTIONS: Array<{ label: string; value: string | null }> = [
-    { label: 'Standard', value: null },
+const BORDER_WIDTH_OPTIONS: Array<{ label: string; value: string }> = [
+    { label: 'Fein (1px)', value: '1px' },
     { label: 'Mittel (2px)', value: '2px' },
     { label: 'Dick (3px)', value: '3px' },
+];
+const BORDER_COLOR_OPTIONS: Array<{ label: string; value: string }> = [
+    { label: 'Schwarz', value: '#000000' },
+    { label: 'Grau', value: '#64748b' },
+    { label: 'Blau', value: '#2563eb' },
+    { label: 'Grün', value: '#15803d' },
+    { label: 'Rot', value: '#b91c1c' },
+];
+
+type BorderSideKey = 'borderTop' | 'borderRight' | 'borderBottom' | 'borderLeft';
+type BorderApplyMode = 'all' | 'none' | BorderSideKey;
+
+const BORDER_ACTIONS: Array<{ mode: BorderApplyMode; label: string; icon: ElementType }> = [
+    { mode: 'all', label: 'Alle Rahmenlinien', icon: TableProperties },
+    { mode: 'none', label: 'Keine Rahmenlinie', icon: Eraser },
+    { mode: 'borderTop', label: 'Nur Oben', icon: PanelTop },
+    { mode: 'borderBottom', label: 'Nur Unten', icon: PanelBottom },
+    { mode: 'borderLeft', label: 'Nur Links', icon: PanelLeft },
+    { mode: 'borderRight', label: 'Nur Rechts', icon: PanelRight },
 ];
 
 type CellStylePatch = {
     backgroundColor?: string | null;
-    borderWidth?: string | null;
+    borderTop?: string | null;
+    borderRight?: string | null;
+    borderBottom?: string | null;
+    borderLeft?: string | null;
 };
 
-export function TableEditor({ task }: TableEditorProps) {
+export function TableEditor({ task, isActive = true }: TableEditorProps) {
     const updateTask = useWorksheetStore((state) => state.updateTask);
     const [editor, setEditor] = useState<Editor | null>(null);
     const didAutoInitRef = useRef(false);
     const [openMenu, setOpenMenu] = useState<'color' | 'border' | null>(null);
+    const [selectedBorderWidth, setSelectedBorderWidth] = useState<string>('2px');
+    const [selectedBorderColor, setSelectedBorderColor] = useState<string>('#000000');
 
     useEffect(() => {
         if (!editor) return;
@@ -80,6 +116,11 @@ export function TableEditor({ task }: TableEditorProps) {
         };
     }, [editor]);
 
+    useEffect(() => {
+        if (isActive) return;
+        setOpenMenu(null);
+    }, [isActive]);
+
     const applyTableCellAttributes = (patch: CellStylePatch) => {
         if (!editor) return;
         editor
@@ -95,8 +136,29 @@ export function TableEditor({ task }: TableEditorProps) {
         setOpenMenu(null);
     };
 
-    const handleApplyBorderWidth = (width: string | null) => {
-        applyTableCellAttributes({ borderWidth: width });
+    const applyBorderMode = (mode: BorderApplyMode) => {
+        const borderValue = `${selectedBorderWidth} solid ${selectedBorderColor}`;
+        let patch: CellStylePatch;
+
+        if (mode === 'all') {
+            patch = {
+                borderTop: borderValue,
+                borderRight: borderValue,
+                borderBottom: borderValue,
+                borderLeft: borderValue,
+            };
+        } else if (mode === 'none') {
+            patch = {
+                borderTop: 'none',
+                borderRight: 'none',
+                borderBottom: 'none',
+                borderLeft: 'none',
+            };
+        } else {
+            patch = { [mode]: borderValue };
+        }
+
+        applyTableCellAttributes(patch);
         setOpenMenu(null);
     };
 
@@ -145,7 +207,7 @@ export function TableEditor({ task }: TableEditorProps) {
             {editor && (
                 <BubbleMenu
                     editor={editor}
-                    shouldShow={({ editor: currentEditor }) => currentEditor.isActive('table')}
+                    shouldShow={({ editor: currentEditor }) => isActive && currentEditor.isActive('table')}
                     tippyOptions={{
                         duration: 120,
                         placement: 'top',
@@ -194,28 +256,69 @@ export function TableEditor({ task }: TableEditorProps) {
                                 onMouseDown={(event) => event.preventDefault()}
                                 onClick={() => setOpenMenu((current) => (current === 'border' ? null : 'border'))}
                                 className="h-7 w-7 rounded-md text-slate-600 hover:bg-slate-200/80 flex items-center justify-center transition-colors cursor-pointer"
-                                title="Rahmenstärke"
-                                aria-label="Rahmenstärke"
+                                title="Tabellenrahmen"
+                                aria-label="Tabellenrahmen"
                             >
                                 <TableProperties className={ICON_SIZES[14]} />
                             </button>
 
                             {openMenu === 'border' && (
                                 <div
-                                    className="absolute top-8 left-0 z-20 min-w-[170px] rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
+                                    className="absolute top-8 left-0 z-20 w-[230px] rounded-lg border border-slate-200 bg-white p-2 shadow-lg"
                                     onMouseDown={(event) => event.preventDefault()}
                                 >
-                                    {BORDER_WIDTH_OPTIONS.map((option) => (
-                                        <button
-                                            key={option.label}
-                                            type="button"
-                                            onClick={() => handleApplyBorderWidth(option.value)}
-                                            className="w-full px-2 py-1.5 rounded text-xs text-slate-700 hover:bg-slate-100 cursor-pointer text-left"
-                                            title={option.label}
-                                        >
-                                            {option.label}
-                                        </button>
-                                    ))}
+                                    <div className="space-y-2 border-b border-slate-100 pb-2">
+                                        <div className="flex flex-wrap gap-1">
+                                            {BORDER_WIDTH_OPTIONS.map((option) => (
+                                                <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => setSelectedBorderWidth(option.value)}
+                                                    className={`rounded border px-2 py-1 text-[11px] cursor-pointer ${
+                                                        selectedBorderWidth === option.value
+                                                            ? 'border-blue-400 bg-blue-50 text-blue-700'
+                                                            : 'border-slate-200 text-slate-700 hover:bg-slate-100'
+                                                    }`}
+                                                    title={option.label}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-1">
+                                            {BORDER_COLOR_OPTIONS.map((option) => (
+                                                <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => setSelectedBorderColor(option.value)}
+                                                    className={`h-6 w-6 rounded border cursor-pointer ${
+                                                        selectedBorderColor === option.value ? 'border-blue-500 ring-1 ring-blue-300' : 'border-slate-200'
+                                                    }`}
+                                                    style={{ backgroundColor: option.value }}
+                                                    title={option.label}
+                                                    aria-label={option.label}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-2 grid grid-cols-2 gap-1">
+                                        {BORDER_ACTIONS.map((action) => {
+                                            const ActionIcon = action.icon;
+                                            return (
+                                                <button
+                                                    key={action.mode}
+                                                    type="button"
+                                                    onClick={() => applyBorderMode(action.mode)}
+                                                    className="rounded border border-slate-200 px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-100 cursor-pointer flex items-center gap-1.5"
+                                                    title={action.label}
+                                                >
+                                                    <ActionIcon className={ICON_SIZES[14]} />
+                                                    <span className="truncate">{action.label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -285,32 +388,37 @@ export function TableEditor({ task }: TableEditorProps) {
                     placeholder="Tabelleninhalt eingeben…"
                     minRows={4}
                     className="flex-1"
+                    hideToolbar={!isActive}
                 />
 
-                <button
-                    type="button"
-                    onClick={handleAddColumnAfter}
-                    title="Spalte hinzufügen"
-                    aria-label="Spalte hinzufügen"
-                    disabled={!canMutateTable}
-                    className="no-print flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                    <Plus className={ICON_SIZES[14]} />
-                </button>
+                {isActive && (
+                    <button
+                        type="button"
+                        onClick={handleAddColumnAfter}
+                        title="Spalte hinzufügen"
+                        aria-label="Spalte hinzufügen"
+                        disabled={!canMutateTable}
+                        className="no-print flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <Plus className={ICON_SIZES[14]} />
+                    </button>
+                )}
             </div>
 
-            <div className="no-print flex justify-center">
-                <button
-                    type="button"
-                    onClick={handleAddRowAfter}
-                    title="Zeile hinzufügen"
-                    aria-label="Zeile hinzufügen"
-                    disabled={!canMutateTable}
-                    className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                    <Plus className={ICON_SIZES[14]} />
-                </button>
-            </div>
+            {isActive && (
+                <div className="no-print flex justify-center">
+                    <button
+                        type="button"
+                        onClick={handleAddRowAfter}
+                        title="Zeile hinzufügen"
+                        aria-label="Zeile hinzufügen"
+                        disabled={!canMutateTable}
+                        className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <Plus className={ICON_SIZES[14]} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

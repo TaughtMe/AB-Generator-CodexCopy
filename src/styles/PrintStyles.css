@@ -97,9 +97,28 @@
         break-inside: avoid;
         page-break-inside: avoid;
         border: none !important;
+        border-width: 0 !important;
+        border-color: transparent !important;
+        outline: none !important;
         box-shadow: none !important;
         background: transparent !important;
-        margin-bottom: 2mm;
+    }
+
+    .task-block {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    /* Defensively override screen styles that force task borders inside .a4-page */
+    .a4-page .task-card,
+    .dark .a4-page .task-card {
+        border: none !important;
+        border-width: 0 !important;
+        border-color: transparent !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+        ring-width: 0 !important;
     }
 
     /* ── Multiple-Choice: Student mode print ── */
@@ -198,7 +217,7 @@
         color: var(--task-accent-color, #000000) !important;
         margin-bottom: 2mm !important;
         padding-bottom: 1mm !important;
-        border-bottom: 1px solid var(--task-accent-color, #1e293b) !important;
+        border-bottom: none !important;
     }
 
     /* ── Two-column layout: preserve grid in print ── */

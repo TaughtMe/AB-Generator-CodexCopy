@@ -12,6 +12,7 @@ import type {
     LineaturTask,
     MultipleChoiceOption,
     ClozeGapStyle,
+    ImageAlignment,
 } from '../types/worksheet';
 import type { ChatMessage } from '../types/ai';
 import type { WorksheetSource } from '../types/worksheet';
@@ -34,6 +35,7 @@ interface WorksheetStore extends Worksheet {
     // State
     saveStatus: WorksheetSaveStatus;
     showHeader: boolean;
+    activeTaskId: string | null;
     // Actions
     addTask: (type: TaskType) => void;
     /** Fügt einen neuen Task an einer bestimmten Position ein */
@@ -51,6 +53,7 @@ interface WorksheetStore extends Worksheet {
     removeVariant: (variantId: string) => void;
     setTitle: (title: string) => void;
     setShowHeader: (show: boolean) => void;
+    setActiveTask: (id: string | null) => void;
     setClassId: (classId: string | undefined) => void;
     setChatHistory: (messages: ChatMessage[]) => void;
     setSources: (sources: WorksheetSource[]) => void;
@@ -82,6 +85,7 @@ const DEFAULT_LINE_STYLE: LineStyle = 'grid-5mm';
 const VALID_LINE_STYLES: LineStyle[] = ['grid-5mm', 'grid-10mm', 'lines-8mm', 'primary-4-lines'];
 const VALID_COLUMNS_LAYOUTS: ColumnsLayout[] = ['50-50', '60-40', '40-60'];
 const VALID_CLOZE_GAP_STYLES: ClozeGapStyle[] = ['continuous', 'per-letter'];
+const VALID_IMAGE_ALIGNMENTS: ImageAlignment[] = ['left', 'center', 'right'];
 
 /**
  * Erzeugt ein neues Task-Objekt mit einer frischen UUID.
@@ -109,9 +113,9 @@ function createNewTask(type: TaskType): Task {
                 lineRows: 4,
             };
         case 'cloze':
-            return { ...base, type: 'cloze', content: '' };
+            return { ...base, type: 'cloze', title: 'Lückentext', content: '' };
         case 'image-placeholder':
-            return { ...base, type: 'image-placeholder', caption: '', widthMm: 80, heightMm: 60 };
+            return { ...base, type: 'image-placeholder', caption: '', imageAlign: 'left', widthMm: 80, heightMm: 60 };
         case 'math':
             return { ...base, type: 'math', content: '' };
         case 'page-break':
@@ -260,12 +264,16 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 typeof task.imageId === 'number' && Number.isFinite(task.imageId)
                     ? task.imageId
                     : fallback.imageId;
+            const imageAlign = VALID_IMAGE_ALIGNMENTS.includes(task.imageAlign as ImageAlignment)
+                ? (task.imageAlign as ImageAlignment)
+                : (fallback.imageAlign ?? 'left');
 
             return {
                 ...task,
                 title: typeof task.title === 'string' ? task.title : fallback.title,
                 caption: typeof task.caption === 'string' ? task.caption : fallback.caption,
                 imageId,
+                imageAlign,
                 widthMm:
                     typeof task.widthMm === 'number' && Number.isFinite(task.widthMm)
                         ? Math.max(10, Math.round(task.widthMm))
@@ -395,7 +403,7 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
 
     for (const [id, task] of Object.entries(tasksById)) {
         if (task.type === 'image-placeholder') {
-            const imageTask = task as ImagePlaceholderTask & { imageId?: unknown };
+            const imageTask = task as ImagePlaceholderTask & { imageId?: unknown; imageAlign?: unknown };
             const rawImageId = imageTask.imageId;
             const numericImageId =
                 typeof rawImageId === 'number'
@@ -403,12 +411,16 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
                     : typeof rawImageId === 'string'
                         ? Number(rawImageId)
                         : undefined;
+            const normalizedImageAlign = VALID_IMAGE_ALIGNMENTS.includes(imageTask.imageAlign as ImageAlignment)
+                ? (imageTask.imageAlign as ImageAlignment)
+                : 'left';
 
             normalized[id] = {
                 ...task,
                 imageId: typeof numericImageId === 'number' && Number.isFinite(numericImageId)
                     ? numericImageId
                     : undefined,
+                imageAlign: normalizedImageAlign,
             };
             continue;
         }
@@ -584,6 +596,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
     sources: [],
     classId: undefined,
     showHeader: false,
+    activeTaskId: null,
 
     /**
      * Erstellt einen Root-Task und hängt ihn an das Ende von `taskIds`.
@@ -707,6 +720,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         const activeVariant = state.variants[getActiveVariantIndex(state)];
         if (!activeVariant) return state;
         const { [id]: removed, ...remainingTasks } = activeVariant.tasksById;
+        const removedTaskIds = new Set<string>([id]);
 
         // If the removed task is a columns container, also remove its children
         if (removed && removed.type === 'columns') {
@@ -714,6 +728,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             for (const childId of cols.children) {
                 if (childId && remainingTasks[childId]) {
                     delete remainingTasks[childId];
+                    removedTaskIds.add(childId);
                 }
             }
         }
@@ -733,10 +748,20 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             }
         }
 
-        return syncActiveVariantTaskStateUnsaved(state, {
+        const nextState = syncActiveVariantTaskStateUnsaved(state, {
             tasksById: remainingTasks,
             taskIds: activeVariant.taskIds.filter((taskId) => taskId !== id),
         });
+
+        const nextActiveTaskId =
+            state.activeTaskId && !removedTaskIds.has(state.activeTaskId) && remainingTasks[state.activeTaskId]
+                ? state.activeTaskId
+                : null;
+
+        return {
+            ...nextState,
+            activeTaskId: nextActiveTaskId,
+        };
     }),
 
     reorderTasks: (taskIds) => set((state) => syncActiveVariantTaskStateUnsaved(state, {
@@ -818,6 +843,12 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
 
     setShowHeader: (show) => set({ showHeader: show }),
 
+    setActiveTask: (id) => set((state) => {
+        if (id === null) return { activeTaskId: null };
+        if (!state.tasksById[id]) return { activeTaskId: null };
+        return { activeTaskId: id };
+    }),
+
     setClassId: (classId) => set({ classId: classId?.trim() || undefined, saveStatus: 'unsaved' }),
 
     setChatHistory: (messages) => set({ chatHistory: messages, saveStatus: 'unsaved' }),
@@ -859,6 +890,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             sources: normalizeLegacySources(sources),
             classId: typeof classId === 'string' && classId.trim() ? classId : undefined,
             saveStatus: 'saved',
+            activeTaskId: null,
         };
     }),
 
@@ -875,6 +907,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             sources: [],
             classId: undefined,
             saveStatus: 'unsaved',
+            activeTaskId: null,
         };
     }),
 
@@ -961,6 +994,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             tasksById: target.tasksById,
             taskIds: target.taskIds,
             saveStatus: 'unsaved',
+            activeTaskId: null,
         };
     }),
 
@@ -1021,6 +1055,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             tasksById: activeVariant.tasksById,
             taskIds: activeVariant.taskIds,
             saveStatus: 'unsaved',
+            activeTaskId: null,
         };
     }),
 
@@ -1045,6 +1080,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             tasksById: nextActiveVariant.tasksById,
             taskIds: nextActiveVariant.taskIds,
             saveStatus: 'unsaved',
+            activeTaskId: null,
         };
     }),
 

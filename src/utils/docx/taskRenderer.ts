@@ -13,7 +13,19 @@ import {
     ShadingType,
     convertMillimetersToTwip,
 } from 'docx';
-import type { Task, MultipleChoiceTask, LineaturTask, ClozeTask, MathTask, ImagePlaceholderTask, ColumnsTask, InstructionTask, HeadingTask, TableTask } from '../../types/worksheet';
+import type {
+    Task,
+    MultipleChoiceTask,
+    LineaturTask,
+    ClozeTask,
+    MathTask,
+    ImagePlaceholderTask,
+    ColumnsTask,
+    InstructionTask,
+    HeadingTask,
+    TableTask,
+    ImageAlignment,
+} from '../../types/worksheet';
 import { renderLineBlockToImage } from '../lineBlockToImage';
 import { convertMathToImage } from '../mathExportUtils';
 import { mmToPx, A4_INNER_WIDTH_MM } from '../mmToEmu';
@@ -29,6 +41,19 @@ import {
 import { htmlToDocxParagraphs } from './htmlToDocx';
 
 type DocxAlignment = (typeof AlignmentType)[keyof typeof AlignmentType];
+type BorderStyleValue = 'none' | 'single';
+
+function imageAlignmentToDocx(value: ImageAlignment | undefined): DocxAlignment {
+    switch (value) {
+        case 'center':
+            return AlignmentType.CENTER;
+        case 'right':
+            return AlignmentType.RIGHT;
+        case 'left':
+        default:
+            return AlignmentType.LEFT;
+    }
+}
 
 /* ── CSS-Helper für Tabellen-Zellen (Slice 3) ── */
 
@@ -57,44 +82,134 @@ function cssColorToHex(color: string): string | undefined {
 
 interface CellDocxStyle {
     shading?: { fill: string; type: typeof ShadingType.CLEAR };
-    borderColor?: string; // 6-stellig hex, ohne '#'
-    borderWidthSize?: number; // docx border size (eighth-points)
+    borders: {
+        top: { style: BorderStyleValue; size: number; color: string };
+        right: { style: BorderStyleValue; size: number; color: string };
+        bottom: { style: BorderStyleValue; size: number; color: string };
+        left: { style: BorderStyleValue; size: number; color: string };
+    };
 }
 
 /** Standard-Hintergrund für <th>-Kopfzellen (aus dem Editor-CSS). */
 const DEFAULT_HEADER_BG = 'F1F5F9';
+const DEFAULT_CELL_BORDER_COLOR = 'CBD5E1';
+const DEFAULT_CELL_BORDER_SIZE = 2;
+
+function defaultCellBorder() {
+    return {
+        style: 'single' as const,
+        size: DEFAULT_CELL_BORDER_SIZE,
+        color: DEFAULT_CELL_BORDER_COLOR,
+    };
+}
+
+function readCellStyleValue(cell: Element, cssProperty: string): string | undefined {
+    const styleAttr = cell.getAttribute('style') ?? '';
+    const hasHTMLElementApi = typeof HTMLElement !== 'undefined';
+
+    if (hasHTMLElementApi && cell instanceof HTMLElement) {
+        const inlineValue = cell.style.getPropertyValue(cssProperty).trim();
+        if (inlineValue) return inlineValue;
+    }
+
+    const escapedProperty = cssProperty.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const styleMatch = new RegExp(`${escapedProperty}\\s*:\\s*([^;]+)`, 'i').exec(styleAttr);
+    if (styleMatch?.[1]) return styleMatch[1].trim();
+
+    if (typeof window !== 'undefined' && typeof getComputedStyle === 'function' && hasHTMLElementApi && cell instanceof HTMLElement) {
+        const computedValue = getComputedStyle(cell).getPropertyValue(cssProperty).trim();
+        if (computedValue) return computedValue;
+    }
+
+    return undefined;
+}
+
+function cssBorderWidthToDocxSize(borderWidth: string | undefined): number {
+    if (!borderWidth) return DEFAULT_CELL_BORDER_SIZE;
+    const widthMatch = /(\d+(?:\.\d+)?)\s*px/i.exec(borderWidth);
+    if (!widthMatch) return DEFAULT_CELL_BORDER_SIZE;
+    const px = parseFloat(widthMatch[1]);
+    return Math.max(2, Math.round(px * 8));
+}
+
+function parseBorderDeclaration(borderValue: string | undefined): { style: BorderStyleValue; size: number; color: string } {
+    if (!borderValue) return defaultCellBorder();
+
+    const normalized = borderValue.trim().toLowerCase();
+    if (!normalized || normalized === 'none' || normalized === '0' || normalized === '0px' || /\bnone\b/.test(normalized)) {
+        return {
+            style: 'none',
+            size: 0,
+            color: DEFAULT_CELL_BORDER_COLOR,
+        };
+    }
+
+    const colorMatch = /(#[0-9A-Fa-f]{3,6}|rgb\([^)]+\))/i.exec(borderValue);
+    const parsedColor = colorMatch ? cssColorToHex(colorMatch[1]) : undefined;
+
+    return {
+        style: 'single',
+        size: cssBorderWidthToDocxSize(borderValue),
+        color: parsedColor ?? DEFAULT_CELL_BORDER_COLOR,
+    };
+}
+
+function buildLegacyBorderDeclaration(cell: Element): string | undefined {
+    const sharedBorder = readCellStyleValue(cell, 'border');
+    if (sharedBorder) return sharedBorder;
+
+    const sharedBorderWidth = readCellStyleValue(cell, 'border-width');
+    const sharedBorderStyle = readCellStyleValue(cell, 'border-style') ?? 'solid';
+    const sharedBorderColor = readCellStyleValue(cell, 'border-color') ?? '#cbd5e1';
+    if (!sharedBorderWidth) return undefined;
+
+    return `${sharedBorderWidth} ${sharedBorderStyle} ${sharedBorderColor}`;
+}
 
 /**
- * Liest background-color, border-color und border-width aus dem
- * inline-style eines <td>/<th>-Elements und gibt docx-kompatible
- * Werte zurück.
+ * Liest background-color und border-top/right/bottom/left aus
+ * inline/computed styles eines <td>/<th>-Elements und gibt
+ * docx-kompatible Werte zurück.
  */
 function parseCellStyle(cell: Element | undefined): CellDocxStyle {
-    if (!cell) return {};
-    const styleAttr = cell.getAttribute('style') ?? '';
-    const result: CellDocxStyle = {};
+    if (!cell) {
+        return {
+            borders: {
+                top: defaultCellBorder(),
+                right: defaultCellBorder(),
+                bottom: defaultCellBorder(),
+                left: defaultCellBorder(),
+            },
+        };
+    }
 
-    // Background-Color
-    const bgMatch = /background-color\s*:\s*([^;]+)/i.exec(styleAttr);
-    if (bgMatch) {
-        const hex = cssColorToHex(bgMatch[1]);
+    const result: CellDocxStyle = {
+        borders: {
+            top: defaultCellBorder(),
+            right: defaultCellBorder(),
+            bottom: defaultCellBorder(),
+            left: defaultCellBorder(),
+        },
+    };
+
+    const bgValue = readCellStyleValue(cell, 'background-color');
+    if (bgValue) {
+        const hex = cssColorToHex(bgValue);
         if (hex) result.shading = { fill: hex, type: ShadingType.CLEAR };
     }
 
-    // Border-Color (border: 1px solid #xxx oder border-color: #xxx)
-    const borderMatch = /(?:border(?:-color)?\s*:[^;]*?)(#[0-9A-Fa-f]{3,6}|rgb\([^)]+\))/i.exec(styleAttr);
-    if (borderMatch) {
-        const hex = cssColorToHex(borderMatch[1]);
-        if (hex) result.borderColor = hex;
-    }
+    const legacyBorder = buildLegacyBorderDeclaration(cell);
+    const borderTopValue = readCellStyleValue(cell, 'border-top') ?? legacyBorder;
+    const borderRightValue = readCellStyleValue(cell, 'border-right') ?? legacyBorder;
+    const borderBottomValue = readCellStyleValue(cell, 'border-bottom') ?? legacyBorder;
+    const borderLeftValue = readCellStyleValue(cell, 'border-left') ?? legacyBorder;
 
-    // Border-Width (border-width: 2px / 3px)
-    const bwMatch = /border-width\s*:\s*(\d+(?:\.\d+)?)\s*px/i.exec(styleAttr);
-    if (bwMatch) {
-        const px = parseFloat(bwMatch[1]);
-        // CSS px → docx eighth-points (~1px ≈ 1pt ≈ 8 eighth-points)
-        result.borderWidthSize = Math.max(2, Math.round(px * 8));
-    }
+    result.borders = {
+        top: parseBorderDeclaration(borderTopValue),
+        right: parseBorderDeclaration(borderRightValue),
+        bottom: parseBorderDeclaration(borderBottomValue),
+        left: parseBorderDeclaration(borderLeftValue),
+    };
 
     return result;
 }
@@ -133,8 +248,6 @@ interface DocxTheme {
     fieldLabel: string;
     error: string;
 }
-
-type BorderStyleValue = 'none' | 'single';
 
 interface TaskRendererConfig {
     fontFamily: string;
@@ -396,6 +509,7 @@ async function renderMath(task: MathTask, config: TaskRendererConfig): Promise<P
 
 async function renderImagePlaceholder(task: ImagePlaceholderTask, config: TaskRendererConfig): Promise<Paragraph[]> {
     const paragraphs: Paragraph[] = [];
+    const imageAlignment = imageAlignmentToDocx(task.imageAlign);
 
     if (task.caption && task.caption.trim()) {
         paragraphs.push(
@@ -409,6 +523,7 @@ async function renderImagePlaceholder(task: ImagePlaceholderTask, config: TaskRe
                         color: config.docxTheme.fieldLabel,
                     }),
                 ],
+                alignment: imageAlignment,
                 spacing: { after: 80 },
             }),
         );
@@ -450,6 +565,7 @@ async function renderImagePlaceholder(task: ImagePlaceholderTask, config: TaskRe
                                 type: 'png',
                             }),
                         ],
+                        alignment: imageAlignment,
                         spacing: { after: config.taskGapAfter },
                     }),
                 );
@@ -466,6 +582,7 @@ async function renderImagePlaceholder(task: ImagePlaceholderTask, config: TaskRe
                                 italics: true,
                             }),
                         ],
+                        alignment: imageAlignment,
                     }),
                 );
             }
@@ -482,6 +599,7 @@ async function renderImagePlaceholder(task: ImagePlaceholderTask, config: TaskRe
                             italics: true,
                         }),
                     ],
+                    alignment: imageAlignment,
                 }),
             );
         }
@@ -497,6 +615,7 @@ async function renderImagePlaceholder(task: ImagePlaceholderTask, config: TaskRe
                         italics: true,
                     }),
                 ],
+                alignment: imageAlignment,
                 spacing: { after: config.taskGapAfter },
             }),
         );
@@ -723,10 +842,6 @@ function renderTableTask(
     const hasCustomWidths = cellPixelWidths.some((w) => w > 0);
     const totalPixelWidth = cellPixelWidths.reduce((s, w) => s + (w || 0), 0) || 1;
 
-    // Sammle Border-Info aus allen Zellen, um Table-Level-Borders abzuleiten
-    let dominantBorderColor = 'CBD5E1';
-    let dominantBorderSize = 2;
-
     const docxRows = tableRows.map((rowElement) => {
         const cells = Array.from(rowElement.querySelectorAll('th,td'));
         const rowCells = Array.from({ length: colCount }, (_, colIndex) => {
@@ -755,7 +870,7 @@ function renderTableTask(
                     : columnBaseWidth;
             }
 
-            // Tiptap background-color, border-color & border-width auslesen
+            // Tiptap background-color und border-top/right/bottom/left auslesen
             const cellDocxStyle = parseCellStyle(cell);
 
             // Standard-Hintergrund für Header-Zellen anwenden (wie im Editor-CSS)
@@ -763,24 +878,16 @@ function renderTableTask(
                 cellDocxStyle.shading = { fill: DEFAULT_HEADER_BG, type: ShadingType.CLEAR };
             }
 
-            const borderHex = cellDocxStyle.borderColor ?? 'CBD5E1';
-            const borderSize = cellDocxStyle.borderWidthSize ?? 2;
-            const cellBorder = { style: 'single' as const, size: borderSize, color: borderHex };
-
-            // Dominante Border-Werte für das Table-Level-Border merken
-            if (cellDocxStyle.borderColor) dominantBorderColor = cellDocxStyle.borderColor;
-            if (cellDocxStyle.borderWidthSize) dominantBorderSize = cellDocxStyle.borderWidthSize;
-
             return new TableCell({
                 children: cellParagraphs.length > 0 ? cellParagraphs : [new Paragraph({ children: [] })],
                 width: { size: colWidth, type: WidthType.DXA },
                 verticalAlign: VerticalAlign.TOP,
                 shading: cellDocxStyle.shading,
                 borders: {
-                    top: cellBorder,
-                    bottom: cellBorder,
-                    left: cellBorder,
-                    right: cellBorder,
+                    top: cellDocxStyle.borders.top,
+                    right: cellDocxStyle.borders.right,
+                    bottom: cellDocxStyle.borders.bottom,
+                    left: cellDocxStyle.borders.left,
                 },
             });
         });
@@ -788,22 +895,12 @@ function renderTableTask(
         return new TableRow({ children: rowCells });
     });
 
-    // Table-Level-Borders basierend auf den tatsächlichen Zell-Styles
-    const tableBorder = { style: 'single' as const, size: dominantBorderSize, color: dominantBorderColor };
-
     return [
         new Table({
             rows: docxRows,
             width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
             layout: TableLayoutType.FIXED,
-            borders: {
-                top: tableBorder,
-                bottom: tableBorder,
-                left: tableBorder,
-                right: tableBorder,
-                insideHorizontal: tableBorder,
-                insideVertical: tableBorder,
-            },
+            borders: config.noTableBorders,
         }),
     ];
 }

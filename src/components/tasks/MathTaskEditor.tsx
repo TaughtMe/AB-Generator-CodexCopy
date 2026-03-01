@@ -9,14 +9,15 @@ import { MathInput } from './MathInput';
 
 interface MathTaskEditorProps {
     task: MathTask;
+    isActive?: boolean;
 }
 
-export const MathTaskEditor: React.FC<MathTaskEditorProps> = ({ task }) => {
+export const MathTaskEditor: React.FC<MathTaskEditorProps> = ({ task, isActive = true }) => {
     const updateTask = useWorksheetStore((s) => s.updateTask);
 
     const handleChange = (content: string) => {
         updateTask(task.id, { content });
     };
 
-    return <MathInput value={task.content} onChange={handleChange} />;
+    return <MathInput value={task.content} onChange={handleChange} isActive={isActive} />;
 };

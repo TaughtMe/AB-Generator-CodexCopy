@@ -29,6 +29,7 @@ import { WorksheetHeader } from '../layout/WorksheetHeader';
 import { TaskEditorRenderer } from '../tasks/TaskRegistry';
 import { TaskCard } from '../tasks/TaskCard';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { useWorksheetStore } from '../../store/worksheetStore';
 
 /* ══════════════════════════════════════════════════
    WorksheetCanvas – Editor-Fläche mit DnD + Placement-Modus.
@@ -99,6 +100,8 @@ export function WorksheetCanvas({
     onCancelPlacing,
 }: WorksheetCanvasProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
+    const activeTaskId = useWorksheetStore((state) => state.activeTaskId);
+    const setActiveTask = useWorksheetStore((state) => state.setActiveTask);
 
     /* ── Placement-Modus State ── */
     /** Index, an dem die Indikator-Linie angezeigt wird (0 = ganz oben) */
@@ -303,6 +306,13 @@ export function WorksheetCanvas({
         }
     }, []);
 
+    const handleCanvasPointerDownCapture = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        if (isPlacingNewTask) return;
+        const target = event.target as HTMLElement;
+        if (target.closest('.a4-page')) return;
+        setActiveTask(null);
+    }, [isPlacingNewTask, setActiveTask]);
+
     return (
         <div
             ref={canvasRef}
@@ -315,6 +325,7 @@ export function WorksheetCanvas({
             }}
             onMouseMove={isPlacingNewTask ? handleMouseMove : undefined}
             onClick={isPlacingNewTask ? handleCanvasClick : undefined}
+            onPointerDownCapture={handleCanvasPointerDownCapture}
         >
             {/* DndContext AUSSERHALB des zoom-container, damit DragOverlay
                 korrekt am Viewport positioniert wird (CSS transform erzeugt
@@ -344,19 +355,29 @@ export function WorksheetCanvas({
                             {taskIds.map((id, idx) => {
                                 const task = tasksById[id];
                                 if (!task) return null;
+                                const isTaskActive = activeTaskId === id;
 
                                 /* Platzierungs-Indikator VOR diesem Task */
                                 const showIndicator = isPlacingNewTask && menuAtIndex === null && hoverIndex === idx;
+                                const isTaskNumberHidden = task.showNumber === false;
+                                const taskWrapperClassName = clsx(
+                                    'task-block print:break-inside-avoid print:mb-0',
+                                    isTaskNumberHidden ? 'mt-2 print:mt-2' : 'mt-8 print:mt-8',
+                                );
 
                                 if (task.type === 'page-break') {
                                     return (
                                         <div
                                             key={id}
                                             ref={(el) => setTaskRef(id, el)}
+                                            onClick={() => setActiveTask(id)}
                                         >
                                             {showIndicator && <PlacementIndicator />}
                                             <div
-                                                className="page-break-task relative my-2"
+                                                className={clsx(
+                                                    "page-break-task relative my-2",
+                                                    isTaskActive ? "ring-1 ring-blue-500/40 rounded" : undefined,
+                                                )}
                                                 style={{ breakAfter: 'page' }}
                                             >
                                                 <div className="flex items-center gap-2">
@@ -366,13 +387,18 @@ export function WorksheetCanvas({
                                                         Seitenumbruch
                                                     </span>
                                                     <div className="flex-1 border-t-2 border-dashed border-worksheet-border" />
-                                                    <button
-                                                        onClick={() => onRemoveTask(id)}
-                                                        className="p-0.5 text-worksheet-inkLight hover:text-red-500 transition-colors cursor-pointer no-print"
-                                                        title="Seitenumbruch entfernen"
-                                                    >
-                                                        <Trash2 className={ICON_SIZES[12]} />
-                                                    </button>
+                                                    {isTaskActive && (
+                                                        <button
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                onRemoveTask(id);
+                                                            }}
+                                                            className="p-0.5 text-worksheet-inkLight hover:text-red-500 transition-colors cursor-pointer no-print"
+                                                            title="Seitenumbruch entfernen"
+                                                        >
+                                                            <Trash2 className={ICON_SIZES[12]} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -383,18 +409,21 @@ export function WorksheetCanvas({
                                     <div
                                         key={id}
                                         ref={(el) => setTaskRef(id, el)}
+                                        className={taskWrapperClassName}
+                                        onClick={() => setActiveTask(task.id)}
                                     >
                                         {showIndicator && <PlacementIndicator />}
                                         <TaskCard
                                             id={id}
                                             task={task}
+                                            isActive={isTaskActive}
                                             taskNumber={taskNumberMap[id] ?? null}
                                             onRemove={onRemoveTask}
                                             onDuplicate={onDuplicateTask}
                                             onToggleNumber={onToggleTaskNumber}
                                             onUpdateTask={onUpdateTask}
                                         >
-                                            <TaskEditorRenderer task={task} />
+                                            <TaskEditorRenderer task={task} isActive={isTaskActive} />
                                         </TaskCard>
                                     </div>
                                 );

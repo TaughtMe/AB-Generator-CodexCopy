@@ -36,6 +36,7 @@ export interface LineaturTask extends BaseTask {
 }
 
 export type ClozeGapStyle = 'continuous' | 'per-letter';
+export type ImageAlignment = 'left' | 'center' | 'right';
 
 export interface ClozeTask extends BaseTask {
     type: 'cloze';
@@ -48,6 +49,7 @@ export interface ImagePlaceholderTask extends BaseTask {
     type: 'image-placeholder';
     imageId?: number;   // Dexie-ID des hochgeladenen Bildes
     caption: string;
+    imageAlign?: ImageAlignment; // Default: 'left'
     widthMm: number;    // Breite auf dem A4-Blatt
     heightMm: number;   // Höhe auf dem A4-Blatt
 }

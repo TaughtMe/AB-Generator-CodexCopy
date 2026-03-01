@@ -236,7 +236,6 @@ function App() {
               onOpenEditor={() => setCurrentView('editor')}
               onOpenAIChat={() => setCurrentView('ai-chat')}
               onOpenDesignEditor={() => setShowDesignEditor(true)}
-              onOpenSettings={() => setShowSettingsModal(true)}
             />
           )}
           {currentView === 'dashboard' && dashboardView === 'profiles' && (

@@ -13,6 +13,7 @@ import { ICON_SIZES } from '../ui/iconSizes';
 interface MathInputProps {
     value: string;
     onChange: (value: string) => void;
+    isActive?: boolean;
 }
 
 /** Toolbar snippet definition */
@@ -53,7 +54,7 @@ const GREEK_LETTERS = [
     { label: 'Ω', latex: '\\Omega ' },
 ];
 
-export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
+export const MathInput: React.FC<MathInputProps> = ({ value, onChange, isActive = true }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [showGreek, setShowGreek] = useState(false);
 
@@ -95,7 +96,8 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
     return (
         <div className="space-y-2">
             {/* ── Toolbar ── */}
-            <div className="flex items-center gap-1 flex-wrap no-print">
+            {isActive && (
+                <div className="flex items-center gap-1 flex-wrap no-print">
                 {/* Snippet Buttons */}
                 {SNIPPETS.map((s) => (
                     <button
@@ -138,27 +140,30 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                         </div>
                     )}
                 </div>
-            </div>
+                </div>
+            )}
 
             {/* ── Split-View: Editor + Live Preview nebeneinander ── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className={`grid grid-cols-1 ${isActive ? 'md:grid-cols-2' : ''} gap-2`}>
                 {/* LaTeX-Editor */}
-                <div>
-                    <p className="text-[10px] font-medium text-worksheet-inkLight mb-1 no-print">LaTeX-Code</p>
-                    <textarea
-                        ref={textareaRef}
-                        value={value}
-                        onChange={(e) => onChange(e.target.value)}
-                        placeholder="LaTeX eingeben, z.B. \frac{a}{b} + \sqrt{c}"
-                        spellCheck={false}
-                        className="w-full min-h-[80px] px-3 py-2 rounded-md border border-worksheet-border bg-worksheet-field text-sm font-mono text-worksheet-ink placeholder:text-worksheet-inkLight focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none resize-y transition-shadow print:hidden"
-                        rows={3}
-                    />
-                </div>
+                {isActive && (
+                    <div>
+                        <p className="text-[10px] font-medium text-worksheet-inkLight mb-1 no-print">LaTeX-Code</p>
+                        <textarea
+                            ref={textareaRef}
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            placeholder="LaTeX eingeben, z.B. \frac{a}{b} + \sqrt{c}"
+                            spellCheck={false}
+                            className="w-full min-h-[80px] px-3 py-2 rounded-md border border-worksheet-border bg-worksheet-field text-sm font-mono text-worksheet-ink placeholder:text-worksheet-inkLight focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none resize-y transition-shadow print:hidden"
+                            rows={3}
+                        />
+                    </div>
+                )}
 
                 {/* Live Preview */}
                 <div>
-                    <p className="text-[10px] font-medium text-worksheet-inkLight mb-1 no-print">Vorschau</p>
+                    {isActive && <p className="text-[10px] font-medium text-worksheet-inkLight mb-1 no-print">Vorschau</p>}
                     <div className="min-h-[80px] px-3 py-3 rounded-md border border-worksheet-border bg-worksheet-field flex items-center justify-center print:bg-transparent print:border-none print:p-0">
                         {value.trim() ? (
                             <span
@@ -166,7 +171,7 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange }) => {
                                 dangerouslySetInnerHTML={{ __html: renderedHtml }}
                             />
                         ) : (
-                            <span className="text-sm text-worksheet-inkLight italic no-print">
+                            <span className="text-sm text-worksheet-inkLight italic">
                                 Noch keine Formel eingegeben…
                             </span>
                         )}
