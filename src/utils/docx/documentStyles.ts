@@ -1,4 +1,13 @@
-import { Document, type Paragraph, type Table, convertMillimetersToTwip } from 'docx';
+import {
+    Document,
+    LineRuleType,
+    type Paragraph,
+    type Table,
+    convertMillimetersToTwip,
+} from 'docx';
+
+const DEFAULT_LINE_SPACING_TWIP = 360; // 1.5 Zeilen (240 * 1.5)
+const DEFAULT_PARAGRAPH_AFTER_TWIP = 120; // 6pt Absatzabstand
 
 export function createStyledDocument(
     fontFamily: string,
@@ -9,6 +18,13 @@ export function createStyledDocument(
         styles: {
             default: {
                 document: {
+                    paragraph: {
+                        spacing: {
+                            line: DEFAULT_LINE_SPACING_TWIP,
+                            lineRule: LineRuleType.AUTO,
+                            after: DEFAULT_PARAGRAPH_AFTER_TWIP,
+                        },
+                    },
                     run: {
                         font: fontFamily,
                         size: fontSizePt * 2,

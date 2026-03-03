@@ -17,7 +17,7 @@
     /* ── Page setup (physical margins – browser controls whitespace) ── */
     @page {
         size: A4 portrait;
-        margin: 20mm 15mm 20mm 15mm; /* Top/Bottom 20mm, Left/Right 15mm */
+        margin: 20mm; /* Synced with .editor-a4-page inset */
     }
 
     /* ── Force backgrounds & colors to print (lineatur grids, header) ── */
@@ -79,6 +79,8 @@
         padding: 0 !important;
         position: static !important;
         overflow: visible !important;
+        font-size: var(--worksheet-font-size-pt, 11pt) !important;
+        line-height: 1.45 !important;
     }
 
     /* ── Hide non-printable UI elements ── */
@@ -130,6 +132,45 @@
     /* Show the print-only checkbox instead */
     .mc-print-checkbox {
         display: inline-block !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .mc-option-card {
+        display: flex !important;
+        align-items: center !important;
+        gap: 2.5mm !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 0.5rem !important;
+        padding: 2.5mm 3mm !important;
+        background: #f8fafc !important;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .mc-option-print-text {
+        display: block !important;
+        flex: 1 1 auto !important;
+        color: #0f172a !important;
+        font-size: 11pt !important;
+        line-height: 1.35 !important;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .mc-option-input {
+        display: none !important;
+    }
+
+    .mc-print-checkbox {
+        width: 5mm !important;
+        height: 5mm !important;
+        border: 0.5mm solid #64748b !important;
+        border-radius: 1.2mm !important;
+        background: #ffffff !important;
     }
 
     /* Teacher mode: green checkmark for correct answers */
@@ -167,6 +208,20 @@
     .cloze-teacher-answer {
         color: #16a34a !important;
         font-weight: 600 !important;
+    }
+
+    /* ── Cloze gap spans: stable inline-block sizing in print ── */
+    .cloze-gap-print {
+        display: inline-block;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        word-break: break-all;
+        border-bottom: 2px solid #334155;
+        line-height: 1.8;
+        vertical-align: baseline;
+        color: transparent !important;
+        -webkit-text-fill-color: transparent !important;
+        text-shadow: none !important;
     }
 
     /* ── Hide form controls in print (inputs show as text) ── */

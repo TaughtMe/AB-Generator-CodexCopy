@@ -8,11 +8,15 @@ import React, { useRef, useState, useEffect, useCallback, type ReactElement } fr
 
 /**
  * Nutzbare Höhe einer A4-Seite in px (bei 96 DPI).
- * 297mm - 2×20mm padding = 257mm ≈ 971px
+ * 297mm - 2×20mm Innenabstand = 257mm ≈ 971px
  */
 const MM_TO_PX = 96 / 25.4; // ~3.7795
-const PAGE_CONTENT_HEIGHT_MM = 257;
+const A4_HEIGHT_MM = 297;
+const PAGE_VERTICAL_INSET_MM = 20;
+const PAGE_HORIZONTAL_INSET_MM = 20;
+const PAGE_CONTENT_HEIGHT_MM = A4_HEIGHT_MM - (PAGE_VERTICAL_INSET_MM * 2);
 const PAGE_CONTENT_HEIGHT_PX = PAGE_CONTENT_HEIGHT_MM * MM_TO_PX;
+const PAGE_BREAK_SIDE_OFFSET = `-${PAGE_HORIZONTAL_INSET_MM}mm`;
 
 function parsePx(value: string): number {
     const parsed = Number.parseFloat(value);
@@ -108,8 +112,8 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
                     <div
                         style={{
                             position: 'absolute',
-                            left: '-20mm',
-                            right: '-20mm',
+                            left: PAGE_BREAK_SIDE_OFFSET,
+                            right: PAGE_BREAK_SIDE_OFFSET,
                             top: '50%',
                             borderTop: '2px dashed #cbd5e1',
                         }}
@@ -146,8 +150,8 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
 
     return (
         <div className="a4-desk">
-            <div className="a4-page bg-worksheet-paper text-worksheet-ink shadow-lg" style={pageStyle} data-brand-color={brandColor}>
-                <div ref={containerRef} className="flow-root">
+            <div className="a4-page editor-a4-page bg-worksheet-paper text-worksheet-ink shadow-lg" style={pageStyle} data-brand-color={brandColor}>
+                <div ref={containerRef} className="worksheet-content flow-root">
                     {renderItems}
                 </div>
             </div>

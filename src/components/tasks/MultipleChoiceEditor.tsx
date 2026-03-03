@@ -73,9 +73,12 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                         Antwortmöglichkeiten
                     </label>
                 )}
-                <div className="space-y-2">
+                <div className="space-y-2 mc-options-list">
                     {task.options.map((option) => (
-                        <div key={option.id} className="flex items-center gap-2 group/option">
+                        <div
+                            key={option.id}
+                            className="mc-option-card flex items-center gap-2 group/option rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-1.5 transition-colors focus-within:ring-2 focus-within:ring-blue-500/35 focus-within:border-blue-500"
+                        >
                             {/* Correct toggle – mc-correct-marker controls print visibility */}
                             {isActive ? (
                                 <button
@@ -91,7 +94,7 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                                 </button>
                             ) : (
                                 <span
-                                    className="shrink-0 w-5 h-5 border-2 border-worksheet-border rounded-sm"
+                                    className="shrink-0 w-5 h-5 border-2 border-worksheet-border rounded-sm print:hidden"
                                     data-correct={option.isCorrect}
                                 />
                             )}
@@ -107,8 +110,11 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                                 type="text"
                                 value={option.text}
                                 onChange={(e) => updateOptionText(option.id, e.target.value)}
-                                className="flex-1 px-3 py-1.5 rounded-lg border border-worksheet-border bg-worksheet-field text-worksheet-ink text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow print:bg-transparent print:border-none"
+                                className="mc-option-input flex-1 min-w-0 bg-transparent text-worksheet-ink text-sm outline-none placeholder:text-worksheet-inkLight print:hidden"
                             />
+                            <span className="mc-option-print-text hidden flex-1 min-w-0 text-worksheet-ink text-sm whitespace-pre-wrap break-words print:block">
+                                {option.text || '\u00a0'}
+                            </span>
 
                             {/* Delete option */}
                             {isActive && (

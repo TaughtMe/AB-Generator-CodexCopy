@@ -109,8 +109,9 @@ export async function createHeaderTable(
                             type: 'png',
                         }),
                     ],
+                    spacing: { before: 0, after: 0 },
                 })
-                : new Paragraph({ children: [] });
+                : new Paragraph({ children: [], spacing: { before: 0, after: 0 } });
 
             const titleRuns: Paragraph[] = [];
             if (showHeaderTitle) {
@@ -141,6 +142,7 @@ export async function createHeaderTable(
                                 color: config.docxTheme.muted,
                             }),
                         ],
+                        spacing: { after: 0 },
                     }),
                 );
             }
@@ -172,7 +174,9 @@ export async function createHeaderTable(
                             new TableCell({
                                 width: { size: 82, type: WidthType.PERCENTAGE },
                                 verticalAlign: VerticalAlign.CENTER,
-                                children: titleRuns.length > 0 ? titleRuns : [new Paragraph({ children: [] })],
+                                children: titleRuns.length > 0
+                                    ? titleRuns
+                                    : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
                                 borders: {
                                     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
                                     bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },

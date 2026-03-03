@@ -1,4 +1,5 @@
 import { AlignmentType, Paragraph, TextRun } from 'docx';
+import { toDocxFontFamily } from './fontFamily';
 
 type DocxAlignment = (typeof AlignmentType)[keyof typeof AlignmentType];
 
@@ -273,7 +274,7 @@ function parseInlineRuns(html: string, style: DocxTextStyle): TextRun[] {
 
         // Per-Fragment-Farbe (aus span style) hat Vorrang vor der globalen Style-Farbe
         const resolvedColor = frag.style.color ?? style.color;
-        const resolvedFont = frag.style.fontFamily ?? style.fontFamily;
+        const resolvedFont = toDocxFontFamily(frag.style.fontFamily ?? style.fontFamily);
         const resolvedSizeHalfPt = frag.style.fontSizeHalfPt ?? style.fontSizePt * 2;
 
         runs.push(
@@ -362,10 +363,11 @@ function tokenizeInline(html: string): InlineFragment[] {
                 }
                 // Font-Family aus inline-style (z. B. Tiptap FontFamily-Extension)
                 if (props['font-family']) {
-                    newStyle.fontFamily = props['font-family']
+                    const inlineFontFamily = props['font-family']
                         .split(',')[0]
                         .replace(/["']/g, '')
                         .trim();
+                    newStyle.fontFamily = toDocxFontFamily(inlineFontFamily);
                 }
                 // Font-Size aus inline-style
                 if (props['font-size']) {

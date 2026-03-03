@@ -15,6 +15,10 @@
     --color-danger: #ef4444;
 }
 
+:root {
+    --worksheet-font-size-pt: 11pt;
+}
+
 /* ──── Global Resets ──── */
 body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -49,7 +53,8 @@ body {
     align-items: flex-start;
 }
 
-.a4-page {
+.a4-page,
+.editor-a4-page {
     width: 210mm;
     min-height: 297mm;
     padding: 20mm;
@@ -60,6 +65,12 @@ body {
     border-radius: 2px;
     position: relative;
     box-sizing: border-box;
+}
+
+/* Dedicated editor A4 class so page metrics can be synchronized with @page print rules. */
+.editor-a4-page {
+    font-size: var(--worksheet-font-size-pt);
+    line-height: 1.45;
 }
 
 /* ══ Worksheet Dark-Mode Isolation ══
@@ -199,6 +210,17 @@ body {
 }
 
 /* ──── Print/PDF Task Wrapper Cleanup ──── */
+
+/* ──── Cloze gap spans: prevent overflow on screen ──── */
+.cloze-gap-print {
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    line-height: 1.8;
+    vertical-align: baseline;
+}
+
 @media print {
     .a4-page .task-card,
     .a4-page [data-task-id],

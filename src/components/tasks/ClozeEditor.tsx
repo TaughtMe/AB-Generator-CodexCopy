@@ -34,7 +34,7 @@ function GapSpan({
 }) {
     if (!word) {
         return (
-            <span className="inline-block border-b-2 border-worksheet-inkLight min-w-[3rem] mx-0.5" />
+            <span className="inline-block border-b-2 border-worksheet-inkLight min-w-[3rem] max-w-full mx-0.5" />
         );
     }
 
@@ -58,7 +58,7 @@ function GapSpan({
     const widthEm = Math.max(1.5, word.length * 0.55 * gapMultiplier);
     return (
         <span
-            className="inline-block border-b-2 border-worksheet-inkLight mx-0.5"
+            className="inline-block border-b-2 border-worksheet-inkLight mx-0.5 max-w-full"
             style={{ width: `${widthEm}em` }}
         />
     );
@@ -93,7 +93,14 @@ function renderPrintOutput(
     const tokens = tokenizeClozeContent(text);
     return tokens.map((token, i) => {
         if (token.type === 'gap') {
-            return <span key={i}>{getClozeGapText(token.answer, gapStyle, gapMultiplier)}</span>;
+            return (
+                <span
+                    key={i}
+                    className="cloze-gap-print"
+                >
+                    {getClozeGapText(token.answer, gapStyle, gapMultiplier)}
+                </span>
+            );
         }
         return <span key={i}>{token.value}</span>;
     });
@@ -250,14 +257,14 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
                         Vorschau Schüler*in
                     </p>
                     {isActive && (
-                        <p className="no-print text-sm text-worksheet-ink leading-loose">
+                        <p className="no-print text-sm text-worksheet-ink leading-loose break-words" style={{ overflowWrap: 'anywhere' }}>
                             {previewElements}
                         </p>
                     )}
                     <p className={clsx(
-                        'text-sm text-worksheet-ink leading-loose whitespace-pre-wrap',
+                        'text-sm text-worksheet-ink leading-loose whitespace-pre-wrap break-words',
                         isActive ? 'hidden print:block' : 'block',
-                    )}>
+                    )} style={{ overflowWrap: 'anywhere' }}>
                         <span className="cloze-print-student">{printElements}</span>
                         <span className="cloze-print-teacher">{teacherPrintElements}</span>
                     </p>

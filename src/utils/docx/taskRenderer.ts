@@ -10,7 +10,9 @@ import {
     HeightRule,
     TableLayoutType,
     AlignmentType,
+    LineRuleType,
     ShadingType,
+    UnderlineType,
     convertMillimetersToTwip,
 } from 'docx';
 import type {
@@ -35,7 +37,6 @@ import { processImageForDocx } from './imagePipeline';
 import {
     DEFAULT_CLOZE_GAP_MULTIPLIER,
     DEFAULT_CLOZE_GAP_STYLE,
-    getClozeGapText,
     tokenizeClozeContent,
 } from '../clozeParser';
 import { htmlToDocxParagraphs } from './htmlToDocx';
@@ -287,7 +288,9 @@ function renderMultipleChoice(
     }
 
     const answerColDXA = config.a4InnerWidthDxa - config.checkboxColDxa;
-    const MC_CHECKBOX_SIZE_PT = 14;
+    const MC_CHECKBOX_SIZE_PT = Math.max(config.fontSizePt + 5, 16);
+    const MC_CHECKBOX_FONT = 'Arial';
+    const MC_CHECKBOX_LINE_TWIP = 260;
 
     const optionRows = task.options.map((option) => {
         const isCorrectTeacher = isTeacherVersion && option.isCorrect;
@@ -304,13 +307,19 @@ function renderMultipleChoice(
                             children: [
                                 new TextRun({
                                     text: checkChar,
-                                    font: config.fontFamily,
+                                    font: MC_CHECKBOX_FONT,
                                     size: MC_CHECKBOX_SIZE_PT * 2,
                                     color: textColor,
-                                    bold: isBold,
+                                    bold: true,
                                 }),
                             ],
                             alignment: AlignmentType.CENTER,
+                            spacing: {
+                                before: 0,
+                                after: 0,
+                                line: MC_CHECKBOX_LINE_TWIP,
+                                lineRule: LineRuleType.EXACT,
+                            },
                         }),
                     ],
                     width: { size: config.checkboxColDxa, type: WidthType.DXA },
@@ -329,6 +338,7 @@ function renderMultipleChoice(
                                     bold: isBold,
                                 }),
                             ],
+                            spacing: { before: 0, after: 0 },
                         }),
                     ],
                     width: { size: answerColDXA, type: WidthType.DXA },
@@ -351,6 +361,60 @@ function renderMultipleChoice(
     }
 
     return elements;
+}
+
+function normalizeGapMultiplier(gapMultiplier: number): number {
+    return Number.isFinite(gapMultiplier)
+        ? Math.max(1, gapMultiplier)
+        : DEFAULT_CLOZE_GAP_MULTIPLIER;
+}
+
+function createStudentGapBlankRun(blankUnits: number, config: TaskRendererConfig): TextRun {
+    return new TextRun({
+        text: '\u00A0'.repeat(Math.max(1, blankUnits)),
+        font: config.fontFamily,
+        size: config.fontSizePt * 2,
+        color: config.docxTheme.muted,
+        underline: { type: UnderlineType.SINGLE },
+    });
+}
+
+function createStudentGapRuns(
+    answer: string,
+    gapStyle: ClozeTask['gapStyle'],
+    gapMultiplier: number,
+    config: TaskRendererConfig,
+): TextRun[] {
+    const safeMultiplier = normalizeGapMultiplier(gapMultiplier);
+    const normalizedAnswer = (answer ?? '').trim();
+
+    if (gapStyle === 'per-letter') {
+        const letterCount = normalizedAnswer
+            .split('')
+            .filter((char) => char !== ' ').length || 1;
+        const unitsPerLetter = Math.max(1, Math.round(safeMultiplier));
+        const runs: TextRun[] = [];
+
+        for (let i = 0; i < letterCount; i++) {
+            runs.push(createStudentGapBlankRun(unitsPerLetter, config));
+            if (i < letterCount - 1) {
+                runs.push(
+                    new TextRun({
+                        text: ' ',
+                        font: config.fontFamily,
+                        size: config.fontSizePt * 2,
+                        color: config.docxTheme.muted,
+                    }),
+                );
+            }
+        }
+
+        return runs;
+    }
+
+    const baseLength = Math.max(1, normalizedAnswer.length);
+    const continuousUnits = Math.max(6, Math.round(baseLength * 2 * safeMultiplier));
+    return [createStudentGapBlankRun(continuousUnits, config)];
 }
 
 async function renderLineatur(task: LineaturTask, config: TaskRendererConfig): Promise<Paragraph[]> {
@@ -421,23 +485,16 @@ function renderCloze(task: ClozeTask, isTeacherVersion: boolean, config: TaskRen
             if (isTeacherVersion) {
                 runs.push(
                     new TextRun({
-                        text: word,
+                        text: word.trim() || '\u00A0',
                         font: config.fontFamily,
                         size: config.fontSizePt * 2,
                         color: config.docxTheme.correctAnswer,
                         bold: true,
-                        underline: { type: 'single' },
+                        underline: { type: UnderlineType.SINGLE },
                     }),
                 );
             } else {
-                runs.push(
-                    new TextRun({
-                        text: getClozeGapText(word, gapStyle, gapMultiplier),
-                        font: config.fontFamily,
-                        size: config.fontSizePt * 2,
-                        color: config.docxTheme.muted,
-                    }),
-                );
+                runs.push(...createStudentGapRuns(word, gapStyle, gapMultiplier, config));
             }
         } else if (part.value) {
             runs.push(
@@ -668,6 +725,7 @@ export function wrapTaskInGrid(
                                 }),
                             ]
                             : [],
+                        spacing: { before: 0, after: 0 },
                     }),
                 ],
                 width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
@@ -682,7 +740,7 @@ export function wrapTaskInGrid(
             new TableCell({
                 children: contentElements.length > 0
                     ? contentElements
-                    : [new Paragraph({ children: [] })],
+                    : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
                 width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
                 borders: config.noTableBorders,
             }),
@@ -786,7 +844,7 @@ function renderTableTask(
                                         ],
                                     }),
                                 ]
-                                : [new Paragraph({ children: [] })],
+                                : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
                             width: { size: colWidth, type: WidthType.DXA },
                             verticalAlign: VerticalAlign.TOP,
                             borders: {
@@ -879,7 +937,9 @@ function renderTableTask(
             }
 
             return new TableCell({
-                children: cellParagraphs.length > 0 ? cellParagraphs : [new Paragraph({ children: [] })],
+                children: cellParagraphs.length > 0
+                    ? cellParagraphs
+                    : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
                 width: { size: colWidth, type: WidthType.DXA },
                 verticalAlign: VerticalAlign.TOP,
                 shading: cellDocxStyle.shading,
@@ -1010,21 +1070,25 @@ export async function renderColumnsTask(
     // Word versteht Layout-Tabellen mit festen Spaltenbreiten zuverlässig; der Abstand
     // wird als leere Zelle ohne Rahmen und Inhalt abgebildet.
     const gapCell = new TableCell({
-        children: [new Paragraph({ children: [] })],
+        children: [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
         width: { size: COLUMN_GAP_DXA, type: WidthType.DXA },
         borders: cellBorders,
         verticalAlign: VerticalAlign.TOP,
     });
 
     const leftCell = new TableCell({
-        children: leftContent.length > 0 ? leftContent : [new Paragraph({ children: [] })],
+        children: leftContent.length > 0
+            ? leftContent
+            : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
         width: { size: leftWidth, type: WidthType.DXA },
         borders: cellBorders,
         verticalAlign: VerticalAlign.TOP,
     });
 
     const rightCell = new TableCell({
-        children: rightContent.length > 0 ? rightContent : [new Paragraph({ children: [] })],
+        children: rightContent.length > 0
+            ? rightContent
+            : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
         width: { size: rightWidth, type: WidthType.DXA },
         borders: cellBorders,
         verticalAlign: VerticalAlign.TOP,

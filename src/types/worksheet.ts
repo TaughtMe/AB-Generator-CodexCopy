@@ -13,6 +13,14 @@ export interface BaseTask {
     showNumber?: boolean;
     /** Per-Task Akzentfarbe – überschreibt die globale brandColor wenn gesetzt (hex). */
     accentColor?: string;
+    /**
+     * Anzahl der Schreibzeilen, die direkt NACH dieser Aufgabe gerendert werden.
+     * Ersetzt eigenständige Lineatur-Blöcke im KI-Generierungspfad.
+     * Wenn > 0, wird ein Lineatur-Block als abhängiges Element unter der Aufgabe angezeigt.
+     */
+    linesAfter?: number;
+    /** Linienstil für linesAfter. Defaults to 'lines-8mm'. */
+    linesAfterStyle?: LineStyle;
 }
 
 export interface MultipleChoiceOption {

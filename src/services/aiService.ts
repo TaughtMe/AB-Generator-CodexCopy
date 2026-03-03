@@ -524,23 +524,34 @@ Jedes Element muss einem dieser Typen entsprechen:
 {
   "type": "cloze",
   "title": "Aufgabe: ...",
-    "content": "Der [Hund] ist ein [Säugetier]."
+  "content": "Der [Hund] ist ein [Säugetier]."
 }
 
-3. Lineatur (Schreiblinien):
-{
-  "type": "lineatur",
-  "title": "Aufgabe: ...",
-  "lineStyle": "lines-8mm",
-  "gridColumns": 32
-}
-
-4. Mathematik-Formel:
+3. Mathematik-Formel:
 {
   "type": "math",
   "title": "Aufgabe: ...",
   "content": "a^2 + b^2 = c^2"
 }
+
+Optionales Attribut "linesAfter" – Schreibzeilen nach einer Aufgabe:
+Wenn eine Aufgabe Platz zum Schreiben benötigt, füge dem Aufgaben-Objekt das Feld "linesAfter" hinzu.
+Beispiel – Lückentext MIT angehängten Schreibzeilen:
+{
+  "type": "cloze",
+  "title": "Aufgabe: Vervollständige den Satz.",
+  "content": "Die [Sonne] scheint jeden [Tag].",
+  "linesAfter": 4,
+  "linesAfterStyle": "lines-8mm"
+}
+Erlaubte Werte für "linesAfterStyle": "lines-8mm" (Standard), "primary-4-lines" (Klasse 1-2), "grid-5mm", "grid-10mm".
+"linesAfter" ist die Zeilenanzahl (1-10). Nutze es NUR, wenn die Aufgabe explizit Schreibplatz erfordert.
+
+STRIKTE RESTRIKTION – KEINE isolierten Lineatur-Blöcke:
+- Generiere NIEMALS Objekte mit "type": "lineatur" als eigenständigen Block.
+- Schreibzeilen/Lineaturen dürfen AUSSCHLIESSLICH als Eigenschaft ("linesAfter") einer konkreten Aufgabe existieren.
+- Wenn du Schreibplatz für eine Aufgabe benötigst, füge "linesAfter" und optional "linesAfterStyle" zum Aufgaben-Objekt hinzu.
+- Leere Lineatur-Blöcke ohne zugehörige Aufgabe sind VERBOTEN und werden automatisch verworfen.
 
 Regeln:
 - Erstelle GENAU die Anzahl an Aufgaben, die der Benutzer angibt (Standard: 4-6 gemischte Aufgaben)
@@ -548,7 +559,7 @@ Regeln:
 - Formuliere klar und eindeutig auf Deutsch
 - Multiple-Choice: immer genau 4 Optionen, genau 1 richtig
 - Lückentext: markiere Lücken mit [Wort]
-- Bei Lineatur: nutze "lines-8mm" für ältere Schüler, "primary-4-lines" für Klasse 1-2
+- Schreibzeilen: nutze "linesAfter" mit "lines-8mm" für ältere Schüler, "primary-4-lines" für Klasse 1-2
 - Wenn das Fach Mathematik, Physik oder Chemie ist: Verwende den Typ "math" für Aufgaben mit Formeln. Schreibe den LaTeX-Code OHNE Dollarzeichen direkt in das "content"-Feld.
 `;
 
@@ -724,73 +735,145 @@ function normalizeClozePlaceholders(content: string): string {
     return content.replace(/\{\{(.*?)\}\}/g, '[$1]');
 }
 
+import type { LineStyle } from '../types/worksheet';
+
+/* ── Hilfs-Konstante: erlaubte linesAfterStyle-Werte ── */
+const VALID_LINE_STYLES: LineStyle[] = ['grid-5mm', 'grid-10mm', 'lines-8mm', 'primary-4-lines'];
+
+/**
+ * Extrahiert linesAfter / linesAfterStyle aus einem rohen KI-Item und gibt
+ * ein partielles Objekt zurück, das auf den Task gemergt werden kann.
+ */
+function extractLinesAfterFields(item: Record<string, unknown>): { linesAfter?: number; linesAfterStyle?: LineStyle } {
+    const result: { linesAfter?: number; linesAfterStyle?: LineStyle } = {};
+    if (typeof item.linesAfter === 'number' && item.linesAfter >= 1 && item.linesAfter <= 20) {
+        result.linesAfter = Math.round(item.linesAfter);
+    }
+    if (typeof item.linesAfterStyle === 'string' && VALID_LINE_STYLES.includes(item.linesAfterStyle as LineStyle)) {
+        result.linesAfterStyle = item.linesAfterStyle as LineStyle;
+    }
+    return result;
+}
+
+/**
+ * Marker-Interface für verwaiste Lineatur-Blöcke, die der Merge-Pass
+ * nachträglich in das linesAfter-Feld des vorhergehenden Tasks überführt.
+ */
+interface OrphanedLineatur {
+    __orphanedLineatur: true;
+    lineRows: number;
+    lineStyle: LineStyle;
+}
+
 /** Validiert und normalisiert Tasks aus der KI-Antwort */
 function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
-    return raw
+    type ParsedItem = Omit<Task, 'id'> | OrphanedLineatur | null;
+
+    // ── Pass 1: Parse jedes Item ──
+    const items = raw
         .filter((item): item is Record<string, unknown> =>
             typeof item === 'object' && item !== null && 'type' in item
-        )
-        .map((item) => {
-            const type = item.type as string;
+        );
 
-            switch (type) {
-                case 'multiple-choice':
-                    return {
-                        type: 'multiple-choice' as const,
-                        title: String(item.title || 'Multiple-Choice'),
-                        question: String(item.question || ''),
-                        options: Array.isArray(item.options)
-                            ? item.options.map((opt: Record<string, unknown>) => ({
-                                id: crypto.randomUUID(),
-                                text: String(opt.text || ''),
-                                isCorrect: Boolean(opt.isCorrect),
-                            }))
-                            : [],
-                    };
+    const parsed: ParsedItem[] = [];
+    for (const item of items) {
+        const type = item.type as string;
+        const linesFields = extractLinesAfterFields(item);
 
-                case 'cloze':
-                    return {
-                        type: 'cloze' as const,
-                        title: String(item.title || 'Lückentext'),
-                        content: normalizeClozePlaceholders(String(item.content || '')),
-                    };
+        switch (type) {
+            case 'multiple-choice':
+                parsed.push({
+                    type: 'multiple-choice' as const,
+                    title: String(item.title || 'Multiple-Choice'),
+                    question: String(item.question || ''),
+                    options: Array.isArray(item.options)
+                        ? item.options.map((opt: Record<string, unknown>) => ({
+                            id: crypto.randomUUID(),
+                            text: String(opt.text || ''),
+                            isCorrect: Boolean(opt.isCorrect),
+                        }))
+                        : [],
+                    ...linesFields,
+                } as Omit<Task, 'id'>);
+                break;
 
-                case 'lineatur':
-                    return {
-                        type: 'lineatur' as const,
-                        title: String(item.title || 'Lineatur'),
-                        lineStyle: (['grid-5mm', 'grid-10mm', 'lines-8mm', 'primary-4-lines'].includes(String(item.lineStyle))
-                            ? String(item.lineStyle)
-                            : 'lines-8mm') as Task extends { lineStyle: infer L } ? L : never,
-                        gridColumns: typeof item.gridColumns === 'number' ? item.gridColumns : 32,
-                    };
-
-                case 'math':
-                    return {
-                        type: 'math' as const,
-                        title: String(item.title || 'Mathematik'),
-                        content: String(item.content || ''),
-                    };
-
-                default:
-                    return null;
-            }
-        })
-        .map((item) => {
-            if (item && item.type === 'cloze' && 'content' in item) {
-                const content = (item as { content: string }).content;
+            case 'cloze': {
+                const content = normalizeClozePlaceholders(String(item.content || ''));
+                // Cloze → Math-Konvertierung (LaTeX-Erkennung)
                 const mathMatch = content.match(/^\$\$(.+)\$\$$/s);
                 if (mathMatch) {
-                    return {
+                    parsed.push({
                         type: 'math' as const,
-                        title: item.title,
+                        title: String(item.title || 'Lückentext'),
                         content: mathMatch[1].trim(),
-                    };
+                        ...linesFields,
+                    } as Omit<Task, 'id'>);
+                } else {
+                    parsed.push({
+                        type: 'cloze' as const,
+                        title: String(item.title || 'Lückentext'),
+                        content,
+                        ...linesFields,
+                    } as Omit<Task, 'id'>);
+                }
+                break;
+            }
+
+            case 'lineatur': {
+                // ── Verwaiste Lineatur: nicht als Task akzeptieren, sondern
+                //    als Merge-Kandidat für den nachfolgenden Pass markieren. ──
+                const lineRows = typeof item.lineRows === 'number' ? Math.max(1, Math.min(20, Math.round(item.lineRows))) : 4;
+                const lineStyle = (VALID_LINE_STYLES.includes(String(item.lineStyle) as LineStyle)
+                    ? String(item.lineStyle)
+                    : 'lines-8mm') as LineStyle;
+                parsed.push({
+                    __orphanedLineatur: true,
+                    lineRows,
+                    lineStyle,
+                } as OrphanedLineatur);
+                break;
+            }
+
+            case 'math':
+                parsed.push({
+                    type: 'math' as const,
+                    title: String(item.title || 'Mathematik'),
+                    content: String(item.content || ''),
+                    ...linesFields,
+                } as Omit<Task, 'id'>);
+                break;
+
+            default:
+                // Unbekannter Typ → überspringen
+                break;
+        }
+    }
+
+    // ── Pass 2: Verwaiste Lineaturen in vorhergehenden Task mergen ──
+    const result: Omit<Task, 'id'>[] = [];
+    for (const item of parsed) {
+        if (item === null) continue;
+
+        if ('__orphanedLineatur' in item) {
+            // Orphaned lineatur block → merge linesAfter into preceding task
+            const orphan = item as OrphanedLineatur;
+            if (result.length > 0) {
+                const prev = result[result.length - 1];
+                // Addiere Zeilen falls bereits linesAfter vorhanden (z. B. mehrere Lineaturen hintereinander)
+                const existingLines = (prev as { linesAfter?: number }).linesAfter ?? 0;
+                (prev as Record<string, unknown>).linesAfter = Math.min(20, existingLines + orphan.lineRows);
+                if (!(prev as { linesAfterStyle?: string }).linesAfterStyle) {
+                    (prev as Record<string, unknown>).linesAfterStyle = orphan.lineStyle;
                 }
             }
-            return item;
-        })
-        .filter((task): task is NonNullable<typeof task> => task !== null);
+            // Verwaiste Lineatur ohne vorhergehenden Task wird stillschweigend verworfen
+            continue;
+        }
+
+        result.push(item as Omit<Task, 'id'>);
+    }
+
+    return result;
 }
 
 /** Validiert eine einzelne modifizierte Task */

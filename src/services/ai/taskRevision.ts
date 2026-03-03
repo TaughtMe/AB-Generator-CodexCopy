@@ -30,7 +30,6 @@ export interface TaskRevisionResult {
 const REVISION_SUPPORTED_ADD_PAYLOAD_TYPES = new Set<Task['type']>([
     'multiple-choice',
     'cloze',
-    'lineatur',
     'math',
 ]);
 
@@ -55,6 +54,8 @@ WICHTIG:
 - Wenn keine sichere Änderung ableitbar ist, gib "operations": [] zurück.
 - Nutze für bestehende Aufgaben bevorzugt "taskNumber" (sichtbare Nummer im Arbeitsblatt).
 - Nutze "add_task" nur, wenn ausdrücklich neue Aufgaben gewünscht sind.
+- NIEMALS eigenständige Lineatur-Blöcke ("type": "lineatur") als add_task erzeugen.
+  Wenn eine Aufgabe Schreibzeilen benötigt, setze stattdessen "linesAfter" (Zeilenanzahl 1-10) und optional "linesAfterStyle" ("lines-8mm"|"primary-4-lines"|"grid-5mm"|"grid-10mm") als Feld im jeweiligen Aufgaben-Update/-Payload.
 
 Erwartetes Ausgabeformat:
 {
@@ -280,14 +281,9 @@ function normalizeRevisionAddTaskPayload(raw: Record<string, unknown>): Omit<Tas
     }
 
     if (type === 'lineatur') {
-        return {
-            type: 'lineatur',
-            title: String(raw.title || 'Lineatur'),
-            lineStyle: (['grid-5mm', 'grid-10mm', 'lines-8mm', 'primary-4-lines'].includes(String(raw.lineStyle))
-                ? String(raw.lineStyle)
-                : 'lines-8mm') as Extract<Task, { type: 'lineatur' }>['lineStyle'],
-            gridColumns: typeof raw.gridColumns === 'number' ? raw.gridColumns : 32,
-        } as Omit<Task, 'id'>;
+        // Standalone lineatur blocks are no longer supported via AI revision.
+        // Return null so they are silently dropped.
+        return null;
     }
 
     return {

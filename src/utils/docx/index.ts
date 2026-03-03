@@ -13,6 +13,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { createHeaderTable } from './headerGenerator';
 import { renderTaskContent, renderColumnsTask, wrapTaskInGrid } from './taskRenderer';
 import { createStyledDocument } from './documentStyles';
+import { toDocxFontFamily } from './fontFamily';
 
 /**
  * Orchestrator der modularisierten DOCX-Pipeline.
@@ -79,7 +80,7 @@ export async function exportToDocx(
     isTeacherVersion: boolean,
 ): Promise<void> {
     const { fontFamily: userFont, brandColor, applyColorToTasks } = useSettingsStore.getState();
-    const fontFamily = (userFont || 'Inter').split(',')[0].replace(/["']/g, '').trim();
+    const fontFamily = toDocxFontFamily(userFont);
 
     const warnings = validateForExport(tasksById, taskIds);
     if (warnings.length > 0) {
