@@ -4,6 +4,7 @@ import { useSourceStore } from '../../store/sourceStore';
 import { IconButton } from '../ui/IconButton';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { extractTextFromFile, extractTextFromUrl } from '../../utils/documentParser';
+import { Modal } from '../ui/Modal';
 
 interface SourcesManagerModalProps {
     isOpen: boolean;
@@ -158,13 +159,13 @@ export const SourcesManagerModal: React.FC<SourcesManagerModalProps> = ({ isOpen
         await handleAddUrl();
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-            <div className="relative w-full max-w-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            ariaLabel="Quellen verwalten"
+            className="w-full max-w-2xl bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+        >
                 <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-800">
                     <div>
                         <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Quellen verwalten</h2>
@@ -334,7 +335,6 @@ export const SourcesManagerModal: React.FC<SourcesManagerModalProps> = ({ isOpen
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 };

@@ -2,7 +2,8 @@ import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai'
 import type { Task, WorksheetSource } from '../types/worksheet';
 import { useSettingsStore, type AIProvider } from '../store/settingsStore';
 import { useSourceStore } from '../store/sourceStore';
-import { PROVIDER_LABELS } from './ai/modelCatalog';
+import { PROVIDER_LABELS, PROVIDER_MODEL_OPTIONS, type ProviderModelOption } from './ai/modelCatalog';
+import { filterModelOptions } from './ai/modelFilter';
 import type { ChatMessage } from '../types/ai';
 import {
     AI_JSON_TRUNCATED_USER_MESSAGE,
@@ -19,7 +20,7 @@ export type { AIClassContext, TaskRevisionResult };
 
 /* ══════════════════════════════════════════════════
    aiService.ts – Zentrale KI-Fassade
-   Einheitlicher Einstieg für Gemini, OpenAI, Local.
+   Einheitlicher Einstieg für Gemini, OpenAI, OpenRouter, Local.
    ══════════════════════════════════════════════════ */
 
 interface ProviderAdapter {
@@ -27,6 +28,7 @@ interface ProviderAdapter {
     modifyTaskText: (task: Task, instruction: string) => Promise<string>;
     chatAssistantText: (messages: ChatMessage[]) => Promise<string>;
     generateTasksFromCompiledPromptText: (compiledPrompt: string) => Promise<string>;
+    listModels: () => Promise<ProviderModelOption[]>;
 }
 
 function getActiveProviderState() {
@@ -154,7 +156,7 @@ export async function testConnection(provider: AIProvider): Promise<{ ok: boolea
             provider,
             userPrompt: 'Antworte nur mit OK.',
             systemPrompt: withInjectedSourceContext('Antworte nur mit OK.'),
-            modelOverride: provider === 'openai' ? getPreferredChatModel('openai') : getPreferredChatModel('local'),
+            modelOverride: getPreferredChatModel(provider),
         });
         return { ok: true };
     } catch (error) {
@@ -172,6 +174,9 @@ function getMissingConfigurationMessage(provider: AIProvider): string {
     }
     if (provider === 'openai') {
         return 'Kein OpenAI API-Key gesetzt. Bitte zuerst in den Einstellungen hinterlegen.';
+    }
+    if (provider === 'openrouter') {
+        return 'Kein OpenRouter API-Key gesetzt. Bitte zuerst in den Einstellungen hinterlegen.';
     }
     return 'Kein Gemini API-Key gesetzt. Bitte zuerst in den Einstellungen hinterlegen.';
 }
@@ -201,7 +206,7 @@ function getGeminiModel(modelOverride?: string): GenerativeModel {
     return genAI.getGenerativeModel({ model: modelOverride ?? config.model });
 }
 
-function getCandidateBaseUrls(baseUrl: string, provider: 'openai' | 'local'): string[] {
+function getCandidateBaseUrls(baseUrl: string, provider: 'openai' | 'openrouter' | 'local'): string[] {
     const normalized = baseUrl.replace(/\/$/, '');
     const candidates = [normalized];
 
@@ -223,15 +228,381 @@ function getCandidateBaseUrls(baseUrl: string, provider: 'openai' | 'local'): st
     return Array.from(new Set(candidates));
 }
 
+interface OpenAICompatibleModelsResponse {
+    data?: Array<{ id?: string }>;
+}
+
+interface GeminiModelEntry {
+    name?: string;
+    displayName?: string;
+    description?: string;
+    supportedGenerationMethods?: string[];
+}
+
+interface GeminiModelsResponse {
+    models?: GeminiModelEntry[];
+}
+
+const EXPLICIT_GEMINI_MODEL_IDS = new Set(
+    PROVIDER_MODEL_OPTIONS.gemini.map((option) => option.value.toLowerCase()),
+);
+
+function normalizeOpenAICompatibleBaseUrl(provider: 'openai' | 'openrouter', baseUrl: string | undefined): string {
+    const trimmed = (baseUrl ?? '').trim().replace(/\/$/, '');
+    if (!trimmed) {
+        return provider === 'openrouter'
+            ? 'https://openrouter.ai/api/v1'
+            : 'https://api.openai.com/v1';
+    }
+    if (/\/v1$/i.test(trimmed)) return trimmed;
+    return `${trimmed}/v1`;
+}
+
+function normalizeLocalBaseUrl(baseUrl: string | undefined): string {
+    const trimmed = (baseUrl ?? '').trim().replace(/\/$/, '');
+    if (!trimmed) return '';
+    if (/\/v1$/i.test(trimmed)) return trimmed;
+    return `${trimmed}/v1`;
+}
+
+function normalizeGeminiModelName(rawName: string): string {
+    return rawName.replace(/^models\//, '');
+}
+
+function isLikelyOpenAIChatModel(id: string): boolean {
+    const normalized = id.toLowerCase();
+    return (
+        normalized.startsWith('gpt-') ||
+        normalized.includes('o3') ||
+        normalized.includes('o4') ||
+        normalized.includes('reasoning')
+    );
+}
+
+function isGeminiTextModel(entry: GeminiModelEntry): boolean {
+    const rawName = entry.name ?? '';
+    const modelName = normalizeGeminiModelName(rawName).toLowerCase();
+    const methods = entry.supportedGenerationMethods ?? [];
+
+    const supportsGenerateContent = methods.some((method) => method.toLowerCase() === 'generatecontent');
+    if (!supportsGenerateContent) return false;
+
+    const match = modelName.match(/^gemini-(\d+(?:\.\d+)?)-(flash(?:-lite)?|pro)(?:-[a-z0-9-]+)?$/);
+    if (!match) return false;
+    if (!EXPLICIT_GEMINI_MODEL_IDS.has(modelName)) return false;
+
+    const version = Number.parseFloat(match[1]);
+    return Number.isFinite(version) && version >= 2.5;
+}
+
+function mapGeminiModelToOption(entry: GeminiModelEntry): ProviderModelOption | null {
+    const rawName = (entry.name ?? '').trim();
+    if (!rawName) return null;
+
+    const value = normalizeGeminiModelName(rawName);
+    return {
+        value,
+        label: entry.displayName?.trim() || value,
+        desc: entry.description?.trim() || 'Automatisch via API erkannt',
+    };
+}
+
+function getGeminiModelSortMeta(modelValue: string): { version: number; tier: number } {
+    const normalized = modelValue.toLowerCase();
+    const match = normalized.match(/^gemini-(\d+(?:\.\d+)?)-(flash(?:-lite)?|pro)(?:-[a-z0-9-]+)?$/);
+    if (!match) return { version: -1, tier: 99 };
+
+    const version = Number.parseFloat(match[1]);
+    const family = match[2];
+    const tier = family === 'pro' ? 0 : family === 'flash' ? 1 : 2;
+
+    return { version: Number.isFinite(version) ? version : -1, tier };
+}
+
+function mapModelIdsToOptions(ids: string[]): ProviderModelOption[] {
+    return filterModelOptions(
+        ids.map((id) => ({
+            value: id,
+            label: id,
+            desc: 'Vom lokalen Server erkannt',
+        })),
+    );
+}
+
+async function listGeminiModelOptions(): Promise<ProviderModelOption[]> {
+    const { providers } = useSettingsStore.getState();
+    const apiKey = providers.gemini.apiKey?.trim() ?? '';
+
+    if (!apiKey) {
+        throw new Error('Kein API-Key gesetzt.');
+    }
+
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const payload = (await response.json()) as GeminiModelsResponse;
+        const options = (payload.models ?? [])
+            .filter(isGeminiTextModel)
+            .map(mapGeminiModelToOption)
+            .filter((option): option is ProviderModelOption => Boolean(option));
+
+        const deduped = Array.from(new Map(options.map((option) => [option.value, option])).values())
+            .sort((a, b) => {
+                const metaA = getGeminiModelSortMeta(a.value);
+                const metaB = getGeminiModelSortMeta(b.value);
+
+                if (metaA.version !== metaB.version) {
+                    return metaB.version - metaA.version;
+                }
+
+                if (metaA.tier !== metaB.tier) {
+                    return metaA.tier - metaB.tier;
+                }
+
+                return a.value.localeCompare(b.value);
+            });
+
+        const filtered = filterModelOptions(deduped);
+        if (filtered.length === 0) {
+            throw new Error('Keine passenden Gemini-Modelle gefunden.');
+        }
+
+        return filtered;
+    } catch (error) {
+        if (error instanceof Error && (
+            error.message === 'Kein API-Key gesetzt.' ||
+            error.message === 'Keine passenden Gemini-Modelle gefunden.'
+        )) {
+            throw error;
+        }
+
+        throw new Error('Gemini-Modelle konnten nicht automatisch geladen werden.');
+    }
+}
+
+async function listOpenAIModelOptions(): Promise<ProviderModelOption[]> {
+    const { providers } = useSettingsStore.getState();
+    const config = providers.openai;
+    const apiKey = config.apiKey?.trim() ?? '';
+
+    if (!apiKey) {
+        throw new Error('Kein API-Key gesetzt.');
+    }
+
+    try {
+        const baseUrl = normalizeOpenAICompatibleBaseUrl('openai', config.baseUrl);
+        const candidateBaseUrls = getCandidateBaseUrls(baseUrl, 'openai');
+        let payload: OpenAICompatibleModelsResponse | null = null;
+        let responseOk = false;
+
+        for (const candidateBaseUrl of candidateBaseUrls) {
+            try {
+                const response = await fetch(`${candidateBaseUrl}/models`, {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+
+                if (!response.ok) continue;
+
+                payload = (await response.json()) as OpenAICompatibleModelsResponse;
+                responseOk = true;
+                break;
+            } catch {
+                continue;
+            }
+        }
+
+        if (!responseOk || !payload) {
+            throw new Error('openai-models-unreachable');
+        }
+
+        const ids = (payload.data ?? [])
+            .map((entry) => entry.id?.trim() ?? '')
+            .filter(Boolean)
+            .filter(isLikelyOpenAIChatModel);
+
+        if (ids.length === 0) {
+            throw new Error('Keine passenden Chat-Modelle gefunden.');
+        }
+
+        const uniqueSorted = Array.from(new Set(ids)).sort((a, b) => a.localeCompare(b));
+        const options = filterModelOptions(
+            uniqueSorted.map((id) => ({
+                value: id,
+                label: id,
+                desc: 'Automatisch via API erkannt',
+            })),
+        );
+
+        if (options.length === 0) {
+            throw new Error('Keine passenden Chat-Modelle gefunden.');
+        }
+
+        return options;
+    } catch (error) {
+        if (error instanceof Error && (
+            error.message === 'Kein API-Key gesetzt.' ||
+            error.message === 'Keine passenden Chat-Modelle gefunden.'
+        )) {
+            throw error;
+        }
+
+        throw new Error('Modelle konnten nicht automatisch geladen werden.');
+    }
+}
+
+async function listOpenRouterModelOptions(): Promise<ProviderModelOption[]> {
+    const { providers } = useSettingsStore.getState();
+    const config = providers.openrouter;
+    const apiKey = config.apiKey?.trim() ?? '';
+
+    if (!apiKey) {
+        throw new Error('Kein API-Key gesetzt.');
+    }
+
+    try {
+        const baseUrl = normalizeOpenAICompatibleBaseUrl('openrouter', config.baseUrl);
+        const candidateBaseUrls = getCandidateBaseUrls(baseUrl, 'openrouter');
+        let payload: OpenAICompatibleModelsResponse | null = null;
+        let responseOk = false;
+
+        for (const candidateBaseUrl of candidateBaseUrls) {
+            try {
+                const response = await fetch(`${candidateBaseUrl}/models`, {
+                    headers: {
+                        Authorization: `Bearer ${apiKey}`,
+                        'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'https://localhost',
+                        'X-Title': 'AB-Generator',
+                    },
+                });
+
+                if (!response.ok) continue;
+
+                payload = (await response.json()) as OpenAICompatibleModelsResponse;
+                responseOk = true;
+                break;
+            } catch {
+                continue;
+            }
+        }
+
+        if (!responseOk || !payload) {
+            throw new Error('openrouter-models-unreachable');
+        }
+
+        const ids = (payload.data ?? [])
+            .map((entry) => entry.id?.trim() ?? '')
+            .filter(Boolean);
+
+        if (ids.length === 0) {
+            throw new Error('Keine passenden Chat-Modelle gefunden.');
+        }
+
+        const uniqueSorted = Array.from(new Set(ids)).sort((a, b) => a.localeCompare(b));
+        const options = filterModelOptions(
+            uniqueSorted.map((id) => ({
+                value: id,
+                label: id,
+                desc: 'Automatisch via API erkannt',
+            })),
+        );
+
+        if (options.length === 0) {
+            throw new Error('Keine passenden Chat-Modelle gefunden.');
+        }
+
+        return options;
+    } catch (error) {
+        if (error instanceof Error && (
+            error.message === 'Kein API-Key gesetzt.' ||
+            error.message === 'Keine passenden Chat-Modelle gefunden.'
+        )) {
+            throw error;
+        }
+
+        throw new Error('Modelle konnten nicht automatisch geladen werden.');
+    }
+}
+
+async function listLocalModelOptions(): Promise<ProviderModelOption[]> {
+    const { providers } = useSettingsStore.getState();
+    const config = providers.local;
+    const baseUrl = normalizeLocalBaseUrl(config.baseUrl);
+
+    if (!baseUrl) {
+        throw new Error('Keine Base-URL gesetzt.');
+    }
+
+    try {
+        const candidateBaseUrls = getCandidateBaseUrls(baseUrl, 'local');
+        let payload: OpenAICompatibleModelsResponse | null = null;
+        let connected = false;
+
+        for (const candidateBaseUrl of candidateBaseUrls) {
+            try {
+                const response = await fetch(`${candidateBaseUrl}/models`, {
+                    headers: config.apiKey?.trim()
+                        ? { Authorization: `Bearer ${config.apiKey}` }
+                        : undefined,
+                });
+
+                if (!response.ok) continue;
+
+                payload = (await response.json()) as OpenAICompatibleModelsResponse;
+                connected = true;
+                break;
+            } catch {
+                continue;
+            }
+        }
+
+        if (!connected || !payload) {
+            throw new Error('local-models-unreachable');
+        }
+
+        const ids = (payload.data ?? [])
+            .map((entry) => entry.id?.trim() ?? '')
+            .filter(Boolean);
+
+        if (ids.length === 0) {
+            throw new Error('Keine Modelle gefunden.');
+        }
+
+        const uniqueSorted = Array.from(new Set(ids)).sort((a, b) => a.localeCompare(b));
+        return mapModelIdsToOptions(uniqueSorted);
+    } catch (error) {
+        if (error instanceof Error && (
+            error.message === 'Keine Base-URL gesetzt.' ||
+            error.message === 'Keine Modelle gefunden.'
+        )) {
+            throw error;
+        }
+
+        throw new Error('Lokalen Server nicht erreicht. Tipp: im Dev-Container statt 127.0.0.1 ggf. host.docker.internal nutzen.');
+    }
+}
+
 async function requestOpenAICompatible(params: {
-    provider: 'openai' | 'local';
+    provider: 'openai' | 'openrouter' | 'local';
     userPrompt: string;
     systemPrompt: string;
     screenshotBase64?: string;
     modelOverride?: string;
+    signal?: AbortSignal;
 }): Promise<string> {
     const config = requireProviderConfig(params.provider);
-    const baseUrl = (config.baseUrl || (params.provider === 'openai' ? 'https://api.openai.com/v1' : '')).replace(/\/$/, '');
+    const baseUrl = (
+        config.baseUrl
+        || (params.provider === 'openai'
+            ? 'https://api.openai.com/v1'
+            : params.provider === 'openrouter'
+                ? 'https://openrouter.ai/api/v1'
+                : '')
+    ).replace(/\/$/, '');
 
     const content: Array<Record<string, unknown>> = [{ type: 'text', text: params.userPrompt }];
 
@@ -248,6 +619,10 @@ async function requestOpenAICompatible(params: {
 
     if (config.apiKey?.trim()) {
         headers.Authorization = `Bearer ${config.apiKey}`;
+    }
+    if (params.provider === 'openrouter') {
+        headers['HTTP-Referer'] = typeof window !== 'undefined' ? window.location.origin : 'https://localhost';
+        headers['X-Title'] = 'AB-Generator';
     }
 
     const candidateBaseUrls = getCandidateBaseUrls(baseUrl, params.provider);
@@ -266,6 +641,7 @@ async function requestOpenAICompatible(params: {
                         { role: 'user', content },
                     ],
                 }),
+                signal: params.signal,
             });
 
             const candidatePayload = await candidateResponse.json().catch(() => null);
@@ -401,6 +777,10 @@ const geminiAdapter: ProviderAdapter = {
             throw normalizeProviderError('gemini', error);
         }
     },
+
+    listModels() {
+        return listGeminiModelOptions();
+    },
 };
 
 const openaiAdapter: ProviderAdapter = {
@@ -441,6 +821,55 @@ const openaiAdapter: ProviderAdapter = {
             userPrompt: compiledPrompt,
             systemPrompt: withInjectedSourceContext(BASE_SYSTEM_PROMPT),
         });
+    },
+
+    listModels() {
+        return listOpenAIModelOptions();
+    },
+};
+
+const openRouterAdapter: ProviderAdapter = {
+    generateTasksText(options) {
+        return requestOpenAICompatible({
+            provider: 'openrouter',
+            userPrompt: buildGenerateUserPrompt(options),
+            systemPrompt: withInjectedSourceContext(buildSystemPrompt({
+                subjectName: options.subjectName,
+                curriculumText: options.curriculumText,
+                className: options.className,
+                classCharacteristic: options.classCharacteristic,
+            })),
+            screenshotBase64: options.screenshotBase64,
+        });
+    },
+
+    modifyTaskText(task, instruction) {
+        return requestOpenAICompatible({
+            provider: 'openrouter',
+            userPrompt: buildModifyUserPrompt(task, instruction),
+            systemPrompt: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
+        });
+    },
+
+    chatAssistantText(messages) {
+        return requestOpenAICompatible({
+            provider: 'openrouter',
+            userPrompt: buildChatUserPrompt(messages),
+            systemPrompt: withInjectedSourceContext(CHAT_ASSISTANT_SYSTEM_PROMPT),
+            modelOverride: getPreferredChatModel('openrouter'),
+        });
+    },
+
+    generateTasksFromCompiledPromptText(compiledPrompt) {
+        return requestOpenAICompatible({
+            provider: 'openrouter',
+            userPrompt: compiledPrompt,
+            systemPrompt: withInjectedSourceContext(BASE_SYSTEM_PROMPT),
+        });
+    },
+
+    listModels() {
+        return listOpenRouterModelOptions();
     },
 };
 
@@ -483,17 +912,26 @@ const localAdapter: ProviderAdapter = {
             systemPrompt: withInjectedSourceContext(BASE_SYSTEM_PROMPT),
         });
     },
+
+    listModels() {
+        return listLocalModelOptions();
+    },
 };
 
 const ADAPTERS: Record<AIProvider, ProviderAdapter> = {
     gemini: geminiAdapter,
     openai: openaiAdapter,
+    openrouter: openRouterAdapter,
     local: localAdapter,
 };
 
 function getAdapter(): ProviderAdapter {
     const { provider } = getActiveProviderState();
     return ADAPTERS[provider];
+}
+
+export async function listProviderModels(provider: AIProvider): Promise<ProviderModelOption[]> {
+    return ADAPTERS[provider].listModels();
 }
 
 /** ── System Prompt für Task-Generierung ── */
@@ -654,18 +1092,28 @@ Anweisung: ${instruction}
 Antworte NUR mit dem modifizierten JSON-Objekt.`;
 }
 
+/** Maximum number of recent messages to send for the conversational path */
+const MAX_CHAT_CONTEXT_MESSAGES = 12;
+/** Maximum characters per single message in the chat transcript */
+const MAX_CHAT_MESSAGE_CHARS = 2000;
+
 function buildChatUserPrompt(messages: ChatMessage[]): string {
-    const transcript = messages
+    // Limit to recent messages to avoid context overload
+    const recent = messages.slice(-MAX_CHAT_CONTEXT_MESSAGES);
+    const transcript = recent
         .map((message) => {
             const label = message.role === 'user' ? 'Lehrkraft' : 'Assistent';
-            return `${label}: ${message.content}`;
+            const content = message.content.length > MAX_CHAT_MESSAGE_CHARS
+                ? message.content.slice(0, MAX_CHAT_MESSAGE_CHARS) + ' [… gekürzt]'
+                : message.content;
+            return `${label}: ${content}`;
         })
         .join('\n\n');
 
     return `Aktueller Chatverlauf:\n${transcript}\n\nAntworte als nächster Assistenten-Beitrag auf die letzte Lehrkraft-Nachricht.`;
 }
 
-async function generateTaskRevisionText(userPrompt: string): Promise<string> {
+async function generateTaskRevisionText(userPrompt: string, signal?: AbortSignal): Promise<string> {
     const { provider } = getActiveProviderState();
 
     if (provider === 'gemini') {
@@ -675,8 +1123,10 @@ async function generateTaskRevisionText(userPrompt: string): Promise<string> {
                 contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
                 systemInstruction: withInjectedSourceContext(TASK_REVISION_SYSTEM_PROMPT),
             });
+            signal?.throwIfAborted();
             return result.response.text();
         } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') throw error;
             throw normalizeProviderError('gemini', error);
         }
     }
@@ -686,6 +1136,7 @@ async function generateTaskRevisionText(userPrompt: string): Promise<string> {
         userPrompt,
         systemPrompt: withInjectedSourceContext(TASK_REVISION_SYSTEM_PROMPT),
         modelOverride: getPreferredChatModel(provider),
+        signal,
     });
 }
 
@@ -943,6 +1394,7 @@ export async function generateTaskRevisionResult(
     taskIds: string[],
     sources: WorksheetSource[],
     aiClassContext?: AIClassContext,
+    signal?: AbortSignal,
 ): Promise<TaskRevisionResult> {
     const cleanedMessages = messages.filter((message) => message.content.trim().length > 0);
     if (cleanedMessages.length === 0) {
@@ -957,7 +1409,9 @@ export async function generateTaskRevisionResult(
         aiClassContext,
     });
 
-    const responseText = await generateTaskRevisionText(userPrompt);
+    signal?.throwIfAborted();
+    const responseText = await generateTaskRevisionText(userPrompt, signal);
+    signal?.throwIfAborted();
     const jsonStr = extractJSON(responseText);
 
     let parsed: unknown;
@@ -982,6 +1436,7 @@ export async function generateTaskRevisionResult(
 export async function generateChatAssistantReply(
     messages: ChatMessage[],
     aiClassContext?: AIClassContext,
+    signal?: AbortSignal,
 ): Promise<string> {
     void aiClassContext;
     const cleaned = messages.filter((message) => message.content.trim().length > 0);
@@ -989,7 +1444,9 @@ export async function generateChatAssistantReply(
         return 'Gerne. Womit soll ich dir für dein Arbeitsblatt helfen (Thema, Klasse, Aufgabentypen)?';
     }
 
+    signal?.throwIfAborted();
     const responseText = await getAdapter().chatAssistantText(cleaned);
+    signal?.throwIfAborted();
     return responseText.trim();
 }
 

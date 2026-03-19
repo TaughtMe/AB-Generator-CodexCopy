@@ -12,6 +12,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import type { ChatMessage } from '../../types/ai';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { Modal } from '../ui/Modal';
 
 interface PreCreationChatModalProps {
     isOpen: boolean;
@@ -102,9 +103,16 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
 
             resetWorksheet();
             addTasksFromAI(generatedTasks);
-            setChatMessages(fullSnapshot);
+
+            // Start editor sidebar with a fresh greeting instead of the full
+            // planning conversation. The old messages can confuse the task-
+            // revision system into modifying tasks based on planning context.
+            const freshGreeting = [
+                { role: 'assistant' as const, content: 'Arbeitsblatt wurde aus deiner KI-Planung erstellt. Schreib mir, wenn du Aufgaben anpassen möchtest.' },
+            ];
+            setChatMessages(freshGreeting);
             setChatError(null);
-            setChatStatusNotice('Chatverlauf aus der KI-Planung übernommen.');
+            setChatStatusNotice('Arbeitsblatt aus KI-Planung generiert.');
             setAiSidebarDraft('');
             await saveCurrentWorksheet();
 
@@ -166,11 +174,14 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
         setError(null);
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-sm">
-            <div className="flex h-[min(86vh,760px)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <Modal
+            isOpen={isOpen}
+            onClose={handleClose}
+            ariaLabel="Mit KI planen"
+            overlayClassName="bg-slate-900/55 backdrop-blur-sm"
+            className="flex h-[min(86vh,760px)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        >
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
                     <div>
                         <h2 className="text-base font-bold text-slate-800">Mit KI planen</h2>
@@ -269,7 +280,6 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
                         </button>
                     </form>
                 </div>
-            </div>
-        </div>
+</Modal>
     );
 };

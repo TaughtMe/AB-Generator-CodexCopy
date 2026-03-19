@@ -19,7 +19,7 @@ interface HeaderFields {
     showClass: boolean;
 }
 
-export type AIProvider = 'gemini' | 'openai' | 'local';
+export type AIProvider = 'gemini' | 'openai' | 'openrouter' | 'local';
 export type AIConnectionStatus = 'unknown' | 'testing' | 'ready' | 'error';
 
 export interface ProviderConfig {
@@ -32,6 +32,7 @@ export interface ProviderConfig {
 interface AIProviderSettings {
     gemini: ProviderConfig;
     openai: ProviderConfig;
+    openrouter: ProviderConfig;
     local: ProviderConfig;
 }
 
@@ -105,6 +106,7 @@ function getDefaultAiConnectionStatusByProvider(): Record<AIProvider, AIConnecti
     return {
         gemini: 'unknown',
         openai: 'unknown',
+        openrouter: 'unknown',
         local: 'unknown',
     };
 }
@@ -113,6 +115,7 @@ function getDefaultAiConnectionErrorByProvider(): Record<AIProvider, string | nu
     return {
         gemini: null,
         openai: null,
+        openrouter: null,
         local: null,
     };
 }
@@ -151,18 +154,19 @@ function migrateLegacyApiKey(): string {
 }
 
 const LEGACY_GEMINI_MODEL_MAP = {
-    flash: 'gemini-2.5-flash',
+    flash: 'gemini-3.1-flash-lite-preview',
     pro: 'gemini-3.0-pro',
 } as const;
 
-const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
 const DEFAULT_OPENAI_MODEL = 'gpt-5.2-mini';
+const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-4.1-mini';
 const DEFAULT_LOCAL_MODEL = 'qwen2.5-7b-instruct';
 
 const EXPLICIT_GEMINI_MODEL_IDS = new Set([
     'gemini-2.5-flash',
-    'gemini-3.0-flash',
     'gemini-3.1-flash',
+    'gemini-3.1-flash-lite-preview',
     'gemini-2.5-pro',
     'gemini-3.0-pro',
     'gemini-3.1-pro',
@@ -171,6 +175,7 @@ const EXPLICIT_GEMINI_MODEL_IDS = new Set([
 const DEFAULT_PROVIDER_MODELS: Record<AIProvider, string> = {
     gemini: DEFAULT_GEMINI_MODEL,
     openai: DEFAULT_OPENAI_MODEL,
+    openrouter: DEFAULT_OPENROUTER_MODEL,
     local: DEFAULT_LOCAL_MODEL,
 };
 
@@ -210,33 +215,64 @@ function sanitizeChatPreference(
 }
 
 function sanitizeModelState<T extends SettingsStore>(state: T): T {
-    const geminiModel = sanitizeProviderModel('gemini', state.providers?.gemini?.model);
-    const openaiModel = sanitizeProviderModel('openai', state.providers?.openai?.model);
-    const localModel = sanitizeProviderModel('local', state.providers?.local?.model);
+    const geminiConfig = state.providers?.gemini ?? {
+        apiKey: '',
+        model: DEFAULT_GEMINI_MODEL,
+        selectedModelIds: [],
+    };
+    const openaiConfig = state.providers?.openai ?? {
+        apiKey: '',
+        model: DEFAULT_OPENAI_MODEL,
+        baseUrl: 'https://api.openai.com/v1',
+        selectedModelIds: [],
+    };
+    const openrouterConfig = state.providers?.openrouter ?? {
+        apiKey: '',
+        model: DEFAULT_OPENROUTER_MODEL,
+        baseUrl: 'https://openrouter.ai/api/v1',
+        selectedModelIds: [],
+    };
+    const localConfig = state.providers?.local ?? {
+        apiKey: '',
+        model: DEFAULT_LOCAL_MODEL,
+        baseUrl: 'http://localhost:1234/v1',
+        selectedModelIds: [],
+    };
+
+    const geminiModel = sanitizeProviderModel('gemini', geminiConfig.model);
+    const openaiModel = sanitizeProviderModel('openai', openaiConfig.model);
+    const openrouterModel = sanitizeProviderModel('openrouter', openrouterConfig.model);
+    const localModel = sanitizeProviderModel('local', localConfig.model);
 
     return {
         ...state,
         providers: {
             ...state.providers,
             gemini: {
-                ...state.providers.gemini,
+                ...geminiConfig,
                 model: geminiModel,
-                selectedModelIds: sanitizeSelectedModelIds('gemini', state.providers.gemini.selectedModelIds),
+                selectedModelIds: sanitizeSelectedModelIds('gemini', geminiConfig.selectedModelIds),
             },
             openai: {
-                ...state.providers.openai,
+                ...openaiConfig,
                 model: openaiModel,
-                selectedModelIds: sanitizeSelectedModelIds('openai', state.providers.openai.selectedModelIds),
+                selectedModelIds: sanitizeSelectedModelIds('openai', openaiConfig.selectedModelIds),
+            },
+            openrouter: {
+                ...openrouterConfig,
+                model: openrouterModel,
+                selectedModelIds: sanitizeSelectedModelIds('openrouter', openrouterConfig.selectedModelIds),
             },
             local: {
-                ...state.providers.local,
+                ...localConfig,
                 model: localModel,
-                selectedModelIds: sanitizeSelectedModelIds('local', state.providers.local.selectedModelIds),
+                selectedModelIds: sanitizeSelectedModelIds('local', localConfig.selectedModelIds),
             },
         },
         chatModelPreferences: {
             gemini: sanitizeChatPreference('gemini', state.chatModelPreferences?.gemini, geminiModel),
             openai: sanitizeChatPreference('openai', state.chatModelPreferences?.openai, openaiModel),
+            openrouter: sanitizeChatPreference('openrouter', state.chatModelPreferences?.openrouter, openrouterModel),
             local: sanitizeChatPreference('local', state.chatModelPreferences?.local, localModel),
         },
     };
@@ -259,6 +295,12 @@ export const useSettingsStore = create<SettingsStore>()(
                     baseUrl: 'https://api.openai.com/v1',
                     selectedModelIds: [],
                 },
+                openrouter: {
+                    apiKey: '',
+                    model: DEFAULT_OPENROUTER_MODEL,
+                    baseUrl: 'https://openrouter.ai/api/v1',
+                    selectedModelIds: [],
+                },
                 local: {
                     apiKey: '',
                     model: DEFAULT_LOCAL_MODEL,
@@ -269,6 +311,7 @@ export const useSettingsStore = create<SettingsStore>()(
             chatModelPreferences: {
                 gemini: 'auto',
                 openai: 'auto',
+                openrouter: 'auto',
                 local: 'auto',
             },
             themeMode: 'light' as ThemeMode,
@@ -511,6 +554,7 @@ export const useSettingsStore = create<SettingsStore>()(
                         chatModelPreferences: {
                             gemini: stateV5.chatModelPreferences?.gemini ?? 'auto',
                             openai: stateV5.chatModelPreferences?.openai ?? 'auto',
+                            openrouter: stateV5.chatModelPreferences?.openrouter ?? 'auto',
                             local: stateV5.chatModelPreferences?.local ?? 'auto',
                         },
                     } as SettingsStore);
@@ -523,6 +567,7 @@ export const useSettingsStore = create<SettingsStore>()(
                         chatModelPreferences: {
                             gemini: stateV4.chatModelPreferences?.gemini ?? 'auto',
                             openai: stateV4.chatModelPreferences?.openai ?? 'auto',
+                            openrouter: stateV4.chatModelPreferences?.openrouter ?? 'auto',
                             local: stateV4.chatModelPreferences?.local ?? 'auto',
                         },
                         showHeaderTitle: stateV4.showHeaderTitle ?? true,
@@ -539,6 +584,7 @@ export const useSettingsStore = create<SettingsStore>()(
                         chatModelPreferences: {
                             gemini: stateV3.chatModelPreferences?.gemini ?? 'auto',
                             openai: stateV3.chatModelPreferences?.openai ?? 'auto',
+                            openrouter: stateV3.chatModelPreferences?.openrouter ?? 'auto',
                             local: stateV3.chatModelPreferences?.local ?? 'auto',
                         },
                         providers: {
@@ -550,6 +596,10 @@ export const useSettingsStore = create<SettingsStore>()(
                             openai: {
                                 ...stateV3.providers.openai,
                                 selectedModelIds: stateV3.providers.openai.selectedModelIds ?? [],
+                            },
+                            openrouter: {
+                                ...stateV3.providers.openrouter,
+                                selectedModelIds: stateV3.providers.openrouter?.selectedModelIds ?? [],
                             },
                             local: {
                                 ...stateV3.providers.local,
@@ -573,6 +623,7 @@ export const useSettingsStore = create<SettingsStore>()(
                         chatModelPreferences: {
                             gemini: stateV2.chatModelPreferences?.gemini ?? 'auto',
                             openai: stateV2.chatModelPreferences?.openai ?? 'auto',
+                            openrouter: stateV2.chatModelPreferences?.openrouter ?? 'auto',
                             local: stateV2.chatModelPreferences?.local ?? 'auto',
                         },
                         providers: {
@@ -586,6 +637,12 @@ export const useSettingsStore = create<SettingsStore>()(
                                 ...stateV2.providers.openai,
                                 model: openaiModel,
                                 selectedModelIds: stateV2.providers.openai.selectedModelIds ?? [],
+                            },
+                            openrouter: {
+                                ...stateV2.providers.openrouter,
+                                model: stateV2.providers.openrouter?.model ?? DEFAULT_OPENROUTER_MODEL,
+                                baseUrl: stateV2.providers.openrouter?.baseUrl ?? 'https://openrouter.ai/api/v1',
+                                selectedModelIds: stateV2.providers.openrouter?.selectedModelIds ?? [],
                             },
                             local: {
                                 ...stateV2.providers.local,
@@ -612,6 +669,7 @@ export const useSettingsStore = create<SettingsStore>()(
                     chatModelPreferences: {
                         gemini: 'auto',
                         openai: 'auto',
+                        openrouter: 'auto',
                         local: 'auto',
                     },
                     providers: {
@@ -624,6 +682,12 @@ export const useSettingsStore = create<SettingsStore>()(
                             apiKey: '',
                             model: DEFAULT_OPENAI_MODEL,
                             baseUrl: 'https://api.openai.com/v1',
+                            selectedModelIds: [],
+                        },
+                        openrouter: {
+                            apiKey: '',
+                            model: DEFAULT_OPENROUTER_MODEL,
+                            baseUrl: 'https://openrouter.ai/api/v1',
                             selectedModelIds: [],
                         },
                         local: {

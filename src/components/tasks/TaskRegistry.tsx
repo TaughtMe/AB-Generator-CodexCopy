@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { Task, TaskType } from '../../types/worksheet';
 import { MultipleChoiceEditor } from './MultipleChoiceEditor';
 import { LineaturEditor } from './LineaturEditor';
 import { ClozeEditor } from './ClozeEditor';
 import { ImagePlaceholderEditor } from './ImagePlaceholderEditor';
-import { MathTaskEditor } from './MathTaskEditor';
 import { ColumnsEditor } from './ColumnsEditor';
 import { InstructionTaskEditor } from './InstructionTaskEditor';
+import { InformationTaskEditor } from './InformationTaskEditor';
 import { HeadingEditor } from './HeadingEditor';
 import { TableEditor } from './TableEditor';
 import { UnknownTaskFallback } from './UnknownTaskFallback';
+
+// MathTaskEditor (+ katex + dompurify) wird erst bei Bedarf geladen.
+const LazyMathTaskEditor = React.lazy(() =>
+    import('./MathTaskEditor').then((m) => ({ default: m.MathTaskEditor })),
+);
 
 /**
  * Task Component Registry
@@ -50,7 +55,7 @@ const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
         editor: ImagePlaceholderEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'math': {
-        editor: MathTaskEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
+        editor: LazyMathTaskEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'page-break': {
         editor: (() => null) as React.ComponentType<{ task: Task; isActive?: boolean }>, // Rendered separately – never shown in TaskCard
@@ -67,6 +72,9 @@ const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
     'table': {
         editor: TableEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
+    'information': {
+        editor: InformationTaskEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
+    },
 };
 
 /**
@@ -79,5 +87,9 @@ export const TaskEditorRenderer: React.FC<{ task: Task; isActive?: boolean }> = 
         return <UnknownTaskFallback type={task.type} />;
     }
     const Component = entry.editor;
-    return <Component task={task} isActive={isActive} />;
+    return (
+        <Suspense fallback={<div className="h-24 rounded-md bg-slate-100 dark:bg-slate-800 animate-pulse" />}>
+            <Component task={task} isActive={isActive} />
+        </Suspense>
+    );
 };

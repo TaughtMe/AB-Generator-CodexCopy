@@ -34,6 +34,7 @@ import { mmToPx, A4_INNER_WIDTH_MM } from '../mmToEmu';
 import { getImage } from '../../store/dexieStore';
 import { getRowHeightMM } from '../lineaturStyles';
 import { processImageForDocx } from './imagePipeline';
+import DOMPurify from 'dompurify';
 import {
     DEFAULT_CLOZE_GAP_MULTIPLIER,
     DEFAULT_CLOZE_GAP_STYLE,
@@ -905,7 +906,7 @@ function renderTableTask(
         const rowCells = Array.from({ length: colCount }, (_, colIndex) => {
             const cell = cells[colIndex];
             const isHeaderCell = cell?.tagName.toLowerCase() === 'th';
-            const cellHtml = cell?.innerHTML?.trim() ?? '';
+            const cellHtml = DOMPurify.sanitize(cell?.innerHTML?.trim() ?? '');
             const cellAlignment = parseCellAlignment(cell);
             const cellParagraphs = cellHtml
                 ? htmlToDocxParagraphs(cellHtml, {

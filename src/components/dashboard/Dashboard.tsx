@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ActionHub } from './ActionHub';
 import { FilterBar } from './FilterBar';
@@ -32,6 +32,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
         setFilter,
         openTemplateGallery,
     } = useWorkspaceStore();
+
+    const GREETINGS = [
+        'Hallo! 👋',
+        'Willkommen zurück!',
+        'Bereit für den Unterricht?',
+        'Schön, dass du wieder da bist!',
+    ];
+    const greeting = useMemo(
+        () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+    );
 
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -101,8 +113,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
 
     return (
         <div className="max-w-6xl mx-auto px-6 py-8 md:py-10">
-            <div className="mb-5 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-bold text-slate-800 dark:text-white">Dashboard</h2>
+            <div className="mb-5">
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white">{greeting}</h2>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Was möchtest du heute erstellen?</p>
             </div>
 
             {/* ── Aktions-Hub (oben) ── */}

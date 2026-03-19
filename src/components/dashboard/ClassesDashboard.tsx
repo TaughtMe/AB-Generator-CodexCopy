@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Users, Plus, X, Pencil, Save, Trash2 } from 'lucide-react';
+import { BookOpen, Users, Plus, X, Pencil, Save, Trash2, ExternalLink } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { ClassProfile } from '../../types/profiles';
@@ -32,6 +32,7 @@ function toFormState(profile: ClassProfile): ClassFormState {
 export const ClassesDashboard: React.FC = () => {
     const subjects = useProfileStore((s) => s.subjects);
     const addSubject = useProfileStore((s) => s.addSubject);
+    const updateSubject = useProfileStore((s) => s.updateSubject);
     const removeSubject = useProfileStore((s) => s.removeSubject);
 
     const classProfiles = useWorkspaceStore((s) => s.classProfiles);
@@ -49,6 +50,7 @@ export const ClassesDashboard: React.FC = () => {
 
     const [newSubjectName, setNewSubjectName] = useState('');
     const [newSubjectCurriculum, setNewSubjectCurriculum] = useState('');
+    const [newSubjectCurriculumUrl, setNewSubjectCurriculumUrl] = useState('');
     const [showSubjectForm, setShowSubjectForm] = useState(false);
 
     useEffect(() => {
@@ -122,8 +124,19 @@ export const ClassesDashboard: React.FC = () => {
         if (!trimmedName) return;
 
         addSubject(trimmedName, newSubjectCurriculum.trim());
+        // Set curriculumUrl on the newly added subject
+        const trimmedUrl = newSubjectCurriculumUrl.trim();
+        if (trimmedUrl) {
+            // Find the subject just added (last in list after addSubject)
+            const updatedSubjects = useProfileStore.getState().subjects;
+            const newSubject = updatedSubjects[updatedSubjects.length - 1];
+            if (newSubject) {
+                updateSubject(newSubject.id, { curriculumUrl: trimmedUrl });
+            }
+        }
         setNewSubjectName('');
         setNewSubjectCurriculum('');
+        setNewSubjectCurriculumUrl('');
         setShowSubjectForm(false);
     }
 
@@ -168,6 +181,17 @@ export const ClassesDashboard: React.FC = () => {
                                         className="group/chip inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg"
                                     >
                                         {subject.name}
+                                        {subject.curriculumUrl && (
+                                            <a
+                                                href={subject.curriculumUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                                                title="Lehrplan öffnen"
+                                            >
+                                                <ExternalLink className={ICON_SIZES[11]} />
+                                            </a>
+                                        )}
                                         <IconButton
                                             onClick={() => removeSubject(subject.id)}
                                             size="sm"
@@ -197,6 +221,13 @@ export const ClassesDashboard: React.FC = () => {
                                     placeholder="Lehrplan-Kontext (optional)"
                                     rows={3}
                                     className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 resize-none"
+                                />
+                                <input
+                                    type="url"
+                                    value={newSubjectCurriculumUrl}
+                                    onChange={(e) => setNewSubjectCurriculumUrl(e.target.value)}
+                                    placeholder="Lehrplan-URL (optional, z.B. https://...)"
+                                    className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
                                 />
                                 <button
                                     onClick={handleAddSubject}

@@ -38,14 +38,22 @@ export const TaskAIChat: React.FC<TaskAIChatProps> = ({ task, onClose }) => {
     const [error, setError] = useState<string | null>(null);
     const [preview, setPreview] = useState<Omit<Task, 'id'> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         inputRef.current?.focus();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!instruction.trim() || isLoading) return;
+
+        abortControllerRef.current?.abort();
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
 
         setIsLoading(true);
         setError(null);
@@ -53,11 +61,15 @@ export const TaskAIChat: React.FC<TaskAIChatProps> = ({ task, onClose }) => {
 
         try {
             const modified = await modifyTask(task, instruction.trim());
+            if (controller.signal.aborted) return;
             setPreview(modified);
         } catch (err) {
+            if (controller.signal.aborted) return;
             setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
         } finally {
-            setIsLoading(false);
+            if (!controller.signal.aborted) {
+                setIsLoading(false);
+            }
         }
     };
 

@@ -5,12 +5,12 @@ import { Plus, Trash2, Check } from 'lucide-react';
 import { RichTextEditor } from '../editor/RichTextEditor';
 import { ICON_SIZES } from '../ui/iconSizes';
 
-interface MultipleChoiceEditorProps {
+interface SingleChoiceEditorProps {
     task: MultipleChoiceTask;
     isActive?: boolean;
 }
 
-export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task, isActive = true }) => {
+export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, isActive = true }) => {
     const updateTask = useWorksheetStore((s) => s.updateTask);
 
     const updateQuestion = (html: string) => {
@@ -24,10 +24,11 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
         updateTask(task.id, { options: newOptions });
     };
 
-    const toggleCorrect = (optionId: string) => {
-        const newOptions = task.options.map((opt) =>
-            opt.id === optionId ? { ...opt, isCorrect: !opt.isCorrect } : opt
-        );
+    const setCorrect = (optionId: string) => {
+        const newOptions = task.options.map((opt) => ({
+            ...opt,
+            isCorrect: opt.id === optionId,
+        }));
         updateTask(task.id, { options: newOptions });
     };
 
@@ -50,7 +51,6 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
 
     return (
         <div className="space-y-4">
-            {/* Question */}
             <div>
                 {isActive && (
                     <label className="block text-xs font-medium text-worksheet-inkLight mb-1.5 uppercase tracking-wider no-print">
@@ -66,46 +66,42 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                 />
             </div>
 
-            {/* Options */}
             <div>
                 {isActive && (
                     <label className="block text-xs font-medium text-worksheet-inkLight mb-2 uppercase tracking-wider no-print">
                         Antwortmöglichkeiten
                     </label>
                 )}
-                <div className="space-y-2 mc-options-list">
+                <div className="space-y-2 sc-options-list">
                     {task.options.map((option) => (
                         <div
                             key={option.id}
-                            className="mc-option-card flex items-start gap-2 group/option rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-1.5 h-auto transition-colors focus-within:ring-2 focus-within:ring-blue-500/35 focus-within:border-blue-500"
+                            className="sc-option-card flex items-start gap-2 group/option rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-1.5 h-auto transition-colors focus-within:ring-2 focus-within:ring-blue-500/35 focus-within:border-blue-500"
                         >
-                            {/* Correct toggle – mc-correct-marker controls print visibility */}
                             {isActive ? (
                                 <button
-                                    onClick={() => toggleCorrect(option.id)}
-                                    className={`mc-correct-marker shrink-0 w-7 h-7 mt-1.5 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${option.isCorrect
+                                    onClick={() => setCorrect(option.id)}
+                                    className={`sc-correct-marker shrink-0 w-7 h-7 mt-1.5 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${option.isCorrect
                                         ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200'
                                         : 'border-worksheet-border text-transparent hover:border-emerald-400'
                                         }`}
-                                    title={option.isCorrect ? 'Als falsch markieren' : 'Als richtig markieren'}
+                                    title={option.isCorrect ? 'Als richtig markiert' : 'Als richtig markieren'}
                                     data-correct={option.isCorrect}
                                 >
                                     <Check className={ICON_SIZES[14]} strokeWidth={3} />
                                 </button>
                             ) : (
                                 <span
-                                    className="shrink-0 w-5 h-5 mt-1 border-2 border-worksheet-border rounded-sm print:hidden"
+                                    className="shrink-0 w-5 h-5 mt-1 border-2 border-worksheet-border rounded-full print:hidden"
                                     data-correct={option.isCorrect}
                                 />
                             )}
 
-                            {/* Print-only checkbox indicator */}
                             <span
-                                className="mc-print-checkbox hidden shrink-0 w-5 h-5 mt-1 border-2 border-worksheet-border rounded-sm"
+                                className="sc-print-radio hidden shrink-0 w-5 h-5 mt-1 border-2 border-worksheet-border rounded-full"
                                 data-correct={option.isCorrect}
                             />
 
-                            {/* Rich-Text option editor */}
                             <div className="flex-1 min-w-0 break-words">
                                 <RichTextEditor
                                     value={option.text}
@@ -118,7 +114,6 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                                 />
                             </div>
 
-                            {/* Delete option */}
                             {isActive && (
                                 <button
                                     onClick={() => removeOption(option.id)}
@@ -134,7 +129,6 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                 </div>
             </div>
 
-            {/* Add option */}
             {isActive && (
                 <button
                     onClick={addOption}

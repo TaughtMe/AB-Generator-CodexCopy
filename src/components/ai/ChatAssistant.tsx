@@ -36,6 +36,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
     const resetWorksheet = useWorksheetStore((s) => s.resetWorksheet);
     const sourceCount = useSourceStore((s) => s.sources.length);
     const activeSourceCount = useSourceStore((s) => s.sources.filter((source) => source.isActive).length);
+    const abortChat = useWorkspaceStore((s) => s.abortChat);
 
     const [input, setInput] = useState('');
     const [showSourcesManager, setShowSourcesManager] = useState(false);
@@ -46,7 +47,8 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
 
     useEffect(() => {
         seedGreetingIfEmpty();
-    }, [seedGreetingIfEmpty]);
+        return () => { abortChat(); };
+    }, [seedGreetingIfEmpty, abortChat]);
 
     useEffect(() => {
         queueMicrotask(() => {

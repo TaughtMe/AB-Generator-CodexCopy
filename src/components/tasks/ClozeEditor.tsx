@@ -1,15 +1,110 @@
 import React, { useMemo } from 'react';
-import type { ClozeTask, ClozeGapStyle } from '../../types/worksheet';
+import type { ClozeTask, ClozeGapStyle, ClozeWordBankMode } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { Info } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { RichTextEditor } from '../editor/RichTextEditor';
 import {
     DEFAULT_CLOZE_GAP_MULTIPLIER,
     DEFAULT_CLOZE_GAP_STYLE,
     getClozeGapText,
     tokenizeClozeContent,
 } from '../../utils/clozeParser';
+
+/** Strip HTML tags to get plain text for gap detection */
+function stripHtml(html: string): string {
+    return html.replace(/<[^>]*>/g, '');
+}
+
+const WORD_BANK_MODE_OPTIONS: { value: ClozeWordBankMode; label: string }[] = [
+    { value: 'hidden', label: 'Lösungen verbergen' },
+    { value: 'mixed', label: 'Als Wortspeicher gemischt' },
+    { value: 'upside-down', label: 'Gemischt & Kopfstehend' },
+];
+
+function extractGapWordsFromHtml(html: string): string[] {
+    const words: string[] = [];
+    const pattern = /\[([^\]]*)\]/g;
+
+    let match: RegExpExecArray | null = pattern.exec(html);
+    while (match) {
+        const word = stripHtml(match[1]).replace(/&nbsp;/g, ' ').trim();
+        if (word) {
+            words.push(word);
+        }
+        match = pattern.exec(html);
+    }
+
+    return words;
+}
+
+function parseDistractors(raw: string): string[] {
+    return raw
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+}
+
+function shuffleWords(words: string[]): string[] {
+    const shuffled = [...words];
+
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    return shuffled;
+}
+
+/**
+ * Replaces [Word] patterns inside an HTML string with gap underline markup.
+ * Only touches text content, Tiptap-produced tags stay untouched.
+ */
+function htmlToClozePreviewHtml(
+    html: string,
+    gapStyle: ClozeGapStyle,
+    gapMultiplier: number,
+): string {
+    return html.replace(/\[([^\]]*)\]/g, (_, word: string) => {
+        if (gapStyle === 'per-letter') {
+            const chars = word.split('').filter((c: string) => c !== ' ');
+            const charWidth = Math.max(0.35, 0.25 * gapMultiplier);
+            return (
+                `<span style="display:inline-flex;align-items:flex-end;gap:${charWidth * 0.5}em;margin:0 0.125rem">` +
+                chars
+                    .map(
+                        () =>
+                            `<span style="display:inline-block;border-bottom:2px solid currentColor;width:${charWidth}em"></span>`,
+                    )
+                    .join('') +
+                '</span>'
+            );
+        }
+        const widthEm = Math.max(1.5, word.length * 0.55 * gapMultiplier);
+        return `<span style="display:inline-block;border-bottom:2px solid currentColor;width:${widthEm}em;max-width:100%;margin:0 0.125rem"></span>`;
+    });
+}
+
+/** Replace [Word] with underscores for print (plain text gaps) */
+function htmlToClopePrintHtml(
+    html: string,
+    gapStyle: ClozeGapStyle,
+    gapMultiplier: number,
+): string {
+    return html.replace(/\[([^\]]*)\]/g, (_, word: string) => {
+        const gapText = getClozeGapText(word, gapStyle, gapMultiplier);
+        return `<span class="cloze-gap-print">${gapText}</span>`;
+    });
+}
+
+/** Replace [Word] with the answer for teacher print */
+function htmlToTeacherPrintHtml(html: string): string {
+    return html.replace(
+        /\[([^\]]*)\]/g,
+        (_, word: string) => `<span class="cloze-teacher-answer">${word}</span>`,
+    );
+}
 
 /* ══════════════════════════════════════════════════
    ClozeEditor – Lückentext-Editor
@@ -21,104 +116,7 @@ interface ClozeEditorProps {
     isActive?: boolean;
 }
 
-/* ── Preview-Renderer ────────────────────────────────────────────────── */
-
-function GapSpan({
-    word,
-    gapStyle,
-    gapMultiplier,
-}: {
-    word: string;
-    gapStyle: ClozeGapStyle;
-    gapMultiplier: number;
-}) {
-    if (!word) {
-        return (
-            <span className="inline-block border-b-2 border-worksheet-inkLight min-w-[3rem] max-w-full mx-0.5" />
-        );
-    }
-
-    if (gapStyle === 'per-letter') {
-        const chars = word.split('').filter((c) => c !== ' ');
-        const charWidth = Math.max(0.35, 0.25 * gapMultiplier);
-        return (
-            <span className="inline-flex items-end mx-0.5" style={{ gap: `${charWidth * 0.5}em` }}>
-                {chars.map((_, idx) => (
-                    <span
-                        key={idx}
-                        className="inline-block border-b-2 border-worksheet-inkLight"
-                        style={{ width: `${charWidth}em` }}
-                    />
-                ))}
-            </span>
-        );
-    }
-
-    // continuous: eine durchgehende Linie, Breite ∝ Wortlänge × Multiplikator
-    const widthEm = Math.max(1.5, word.length * 0.55 * gapMultiplier);
-    return (
-        <span
-            className="inline-block border-b-2 border-worksheet-inkLight mx-0.5 max-w-full"
-            style={{ width: `${widthEm}em` }}
-        />
-    );
-}
-
-function renderPreview(
-    text: string,
-    gapStyle: ClozeGapStyle,
-    gapMultiplier: number,
-): React.ReactElement[] {
-    const tokens = tokenizeClozeContent(text);
-    return tokens.map((token, i) => {
-        if (token.type === 'gap') {
-            return (
-                <GapSpan
-                    key={i}
-                    word={token.answer}
-                    gapStyle={gapStyle}
-                    gapMultiplier={gapMultiplier}
-                />
-            );
-        }
-        return <span key={i}>{token.value}</span>;
-    });
-}
-
-function renderPrintOutput(
-    text: string,
-    gapStyle: ClozeGapStyle,
-    gapMultiplier: number,
-): React.ReactElement[] {
-    const tokens = tokenizeClozeContent(text);
-    return tokens.map((token, i) => {
-        if (token.type === 'gap') {
-            return (
-                <span
-                    key={i}
-                    className="cloze-gap-print"
-                >
-                    {getClozeGapText(token.answer, gapStyle, gapMultiplier)}
-                </span>
-            );
-        }
-        return <span key={i}>{token.value}</span>;
-    });
-}
-
-function renderTeacherPrintOutput(text: string): React.ReactElement[] {
-    const tokens = tokenizeClozeContent(text);
-    return tokens.map((token, i) => {
-        if (token.type === 'gap') {
-            return (
-                <span key={i} className="cloze-teacher-answer">
-                    {token.answer}
-                </span>
-            );
-        }
-        return <span key={i}>{token.value}</span>;
-    });
-}
+/* ── Preview-Renderers removed – now using HTML-based rendering (see htmlToClozePreviewHtml etc.) ── */
 
 /* ── GapStyle Toggle ─────────────────────────────────────────────────── */
 
@@ -162,9 +160,11 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
 
     const gapStyle: ClozeGapStyle = task.gapStyle ?? DEFAULT_CLOZE_GAP_STYLE;
     const gapMultiplier: number = task.gapMultiplier ?? DEFAULT_CLOZE_GAP_MULTIPLIER;
+    const wordBankMode: ClozeWordBankMode = task.wordBankMode ?? 'hidden';
+    const distractors = task.distractors ?? '';
 
-    const handleContent = (e: React.ChangeEvent<HTMLTextAreaElement>) =>
-        updateTask(task.id, { content: e.target.value });
+    const handleContent = (html: string) =>
+        updateTask(task.id, { content: html });
 
     const handleGapStyle = (v: ClozeGapStyle) =>
         updateTask(task.id, { gapStyle: v });
@@ -172,25 +172,43 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
     const handleMultiplier = (e: React.ChangeEvent<HTMLInputElement>) =>
         updateTask(task.id, { gapMultiplier: parseFloat(e.target.value) });
 
-    const previewElements = useMemo(
-        () => renderPreview(task.content ?? '', gapStyle, gapMultiplier),
+    const handleWordBankMode = (e: React.ChangeEvent<HTMLSelectElement>) =>
+        updateTask(task.id, { wordBankMode: e.target.value as ClozeWordBankMode });
+
+    const handleDistractors = (e: React.ChangeEvent<HTMLInputElement>) =>
+        updateTask(task.id, { distractors: e.target.value });
+
+    const plainText = useMemo(() => stripHtml(task.content ?? ''), [task.content]);
+
+    const previewHtml = useMemo(
+        () => htmlToClozePreviewHtml(task.content ?? '', gapStyle, gapMultiplier),
         [task.content, gapStyle, gapMultiplier],
     );
 
-    const printElements = useMemo(
-        () => renderPrintOutput(task.content ?? '', gapStyle, gapMultiplier),
+    const printStudentHtml = useMemo(
+        () => htmlToClopePrintHtml(task.content ?? '', gapStyle, gapMultiplier),
         [task.content, gapStyle, gapMultiplier],
     );
 
-    const teacherPrintElements = useMemo(
-        () => renderTeacherPrintOutput(task.content ?? ''),
+    const printTeacherHtml = useMemo(
+        () => htmlToTeacherPrintHtml(task.content ?? ''),
         [task.content],
     );
 
     const gapCount = useMemo(
-        () => tokenizeClozeContent(task.content ?? '').filter((t) => t.type === 'gap').length,
-        [task.content],
+        () => tokenizeClozeContent(plainText).filter((t) => t.type === 'gap').length,
+        [plainText],
     );
+
+    const wordBankWords = useMemo(() => {
+        if (wordBankMode === 'hidden') {
+            return [];
+        }
+
+        const realGapWords = extractGapWordsFromHtml(task.content ?? '');
+        const extraWords = parseDistractors(distractors);
+        return shuffleWords([...realGapWords, ...extraWords]);
+    }, [task.content, distractors, wordBankMode]);
 
     return (
         <div className="space-y-3">
@@ -202,19 +220,19 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
                         <strong>Tipp:</strong> Setze Wörter in eckige Klammern (z.&nbsp;B.{' '}
                         <code className="bg-blue-100 rounded px-1">[Haus]</code>
                         ), um sie auf dem Arbeitsblatt als Lücke darzustellen.
+                        Die Toolbar erlaubt Formatierung (Fett, Kursiv, Farbe, Ausrichtung).
                     </p>
                 </div>
             )}
 
-            {/* ── Eingabefeld ── */}
+            {/* ── Rich-Text Eingabefeld ── */}
             {isActive && (
-                <textarea
+                <RichTextEditor
                     value={task.content ?? ''}
                     onChange={handleContent}
                     placeholder="Text eingeben … z.B.: Die [Sonne] scheint jeden [Tag]."
-                    spellCheck
-                    rows={5}
-                    className="no-print w-full px-3 py-2 rounded-md border border-worksheet-border bg-worksheet-field text-sm text-worksheet-ink placeholder:text-worksheet-inkLight focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none resize-y transition-shadow print:bg-transparent print:border-none"
+                    minRows={5}
+                    className="no-print"
                 />
             )}
 
@@ -250,24 +268,72 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
                 </div>
             )}
 
+            {isActive && (
+                <div className="no-print flex flex-wrap items-center gap-4 bg-worksheet-field border border-worksheet-border rounded-md px-3 py-2 print:bg-transparent print:border-none">
+                    <label className="flex items-center gap-2 min-w-[220px]">
+                        <span className="text-[11px] font-medium text-worksheet-inkLight whitespace-nowrap">
+                            Anzeige Lösung
+                        </span>
+                        <select
+                            value={wordBankMode}
+                            onChange={handleWordBankMode}
+                            className="min-w-[190px] px-2 py-1 rounded-md border border-worksheet-border bg-white text-xs text-worksheet-ink focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer"
+                        >
+                            {WORD_BANK_MODE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="flex items-center gap-2 flex-1 min-w-[280px]">
+                        <span className="text-[11px] font-medium text-worksheet-inkLight whitespace-nowrap">
+                            Zusätzliche falsche Wörter (Distraktoren, kommagetrennt)
+                        </span>
+                        <input
+                            type="text"
+                            value={distractors}
+                            onChange={handleDistractors}
+                            placeholder="z.B. Wolke, Regen, Wind"
+                            className="flex-1 min-w-[140px] px-2 py-1 rounded-md border border-worksheet-border bg-white text-xs text-worksheet-ink placeholder:text-worksheet-inkLight focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        />
+                    </label>
+                </div>
+            )}
+
             {/* ── Live-Vorschau ── */}
-            {(task.content ?? '').trim() && (
+            {plainText.trim() && (
                 <div className="rounded-md border border-dashed border-worksheet-border bg-worksheet-field px-3 py-2 print:bg-transparent print:border-none">
                     <p className="no-print text-[10px] font-semibold uppercase tracking-wide text-worksheet-inkLight mb-1.5">
                         Vorschau Schüler*in
                     </p>
                     {isActive && (
-                        <p className="no-print text-sm text-worksheet-ink leading-loose break-words" style={{ overflowWrap: 'anywhere' }}>
-                            {previewElements}
-                        </p>
+                        <div
+                            className="no-print text-sm text-worksheet-ink leading-loose break-words prose prose-sm max-w-none"
+                            style={{ overflowWrap: 'anywhere' }}
+                            dangerouslySetInnerHTML={{ __html: previewHtml }}
+                        />
                     )}
-                    <p className={clsx(
+                    <div className={clsx(
                         'text-sm text-worksheet-ink leading-loose whitespace-pre-wrap break-words',
                         isActive ? 'hidden print:block' : 'block',
                     )} style={{ overflowWrap: 'anywhere' }}>
-                        <span className="cloze-print-student">{printElements}</span>
-                        <span className="cloze-print-teacher">{teacherPrintElements}</span>
-                    </p>
+                        <span className="cloze-print-student" dangerouslySetInnerHTML={{ __html: printStudentHtml }} />
+                        <span className="cloze-print-teacher" dangerouslySetInnerHTML={{ __html: printTeacherHtml }} />
+                    </div>
+                    {wordBankMode !== 'hidden' && wordBankWords.length > 0 && (
+                        <div className="text-center">
+                            <div
+                                className={clsx(
+                                    'italic text-center mt-6',
+                                    wordBankMode === 'upside-down' && 'rotate-180 inline-block',
+                                )}
+                            >
+                                {wordBankWords.join(' • ')}
+                            </div>
+                        </div>
+                    )}
                     {isActive && gapCount > 0 && (
                         <p className="no-print mt-1.5 text-[10px] text-worksheet-inkLight">
                             {gapCount} {gapCount === 1 ? 'Lücke' : 'Lücken'} erkannt &middot;{' '}

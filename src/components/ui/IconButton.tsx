@@ -4,9 +4,9 @@ import { clsx } from 'clsx';
 type IconButtonSize = 'sm' | 'md' | 'lg';
 
 const SIZE_CLASSES: Record<IconButtonSize, string> = {
-    sm: 'p-1 rounded',
-    md: 'p-1.5 rounded-md',
-    lg: 'p-2 rounded-lg',
+    sm: 'p-1 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0',
+    md: 'p-1.5 rounded-md min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0',
+    lg: 'p-2 rounded-lg min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0',
 };
 
 interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

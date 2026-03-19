@@ -3,12 +3,13 @@ import { CheckCircle2, Cpu, Database, Loader2, MessageSquare, Moon, RefreshCw, S
 import { useSettingsStore, type AIProvider } from '../../store/settingsStore';
 import { PROVIDER_LABELS, PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
 import { testConnection } from '../../services/aiService';
-import { useOpenAIModels } from '../../hooks/useOpenAIModels';
+import { useProviderModels } from '../../hooks/useProviderModels';
 import { exportLocalBackup, importLocalBackup } from '../../utils/dataManagement';
 import { clearAllIndexedDbData } from '../../store/dexieStore';
 import { IconButton } from '../ui/IconButton';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { FontUpload } from './FontUpload';
+import { Modal } from '../ui/Modal';
 
 type SettingsTab = 'display' | 'fonts' | 'ai' | 'chat' | 'data' | 'legal';
 
@@ -26,7 +27,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: React.ElementType }> =
     { id: 'legal', label: 'Rechtliches & Kontakt', icon: Settings },
 ];
 
-const PROVIDERS: AIProvider[] = ['gemini', 'openai', 'local'];
+const PROVIDERS: AIProvider[] = ['gemini', 'openai', 'openrouter', 'local'];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('display');
@@ -42,8 +43,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const chatModelPreferences = useSettingsStore((state) => state.chatModelPreferences);
     const aiConnectionStatusByProvider = useSettingsStore((state) => state.aiConnectionStatusByProvider);
     const aiConnectionErrorByProvider = useSettingsStore((state) => state.aiConnectionErrorByProvider);
-    const availableLocalModels = useSettingsStore((state) => state.availableLocalModels);
-    const isFetchingModels = useSettingsStore((state) => state.isFetchingModels);
     const submitOnEnter = useSettingsStore((state) => state.submitOnEnter);
 
     const setAIProvider = useSettingsStore((state) => state.setAIProvider);
@@ -51,25 +50,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const setProviderBaseUrl = useSettingsStore((state) => state.setProviderBaseUrl);
     const setProviderModel = useSettingsStore((state) => state.setProviderModel);
     const setAiConnectionStatus = useSettingsStore((state) => state.setAiConnectionStatus);
-    const refreshLocalModels = useSettingsStore((state) => state.refreshLocalModels);
     const setThemeMode = useSettingsStore((state) => state.setThemeMode);
     const setChatModelPreference = useSettingsStore((state) => state.setChatModelPreference);
     const setSubmitOnEnter = useSettingsStore((state) => state.setSubmitOnEnter);
     const restartOnboarding = useSettingsStore((state) => state.restartOnboarding);
 
     const activeConfig = providers[aiProvider];
-    const { models: detectedOpenAIModels } = useOpenAIModels(activeConfig.baseUrl ?? '', activeConfig.apiKey ?? '', isOpen && aiProvider === 'openai');
-    const localModelOptions = useMemo(
-        () => availableLocalModels.map((id) => ({ value: id, label: id, desc: 'Vom lokalen Server erkannt' })),
-        [availableLocalModels],
+    const {
+        models: detectedProviderModels,
+        isLoading: isLoadingProviderModels,
+        reload: reloadProviderModels,
+    } = useProviderModels(aiProvider, isOpen);
+    const mergedGeminiModels = useMemo(
+        () => {
+            if (aiProvider !== 'gemini') {
+                return PROVIDER_MODEL_OPTIONS.gemini;
+            }
+
+            return Array.from(
+                new Map([...detectedProviderModels, ...PROVIDER_MODEL_OPTIONS.gemini].map((option) => [option.value, option])).values(),
+            );
+        },
+        [aiProvider, detectedProviderModels],
     );
 
     const modelOptions = useMemo(() => {
-        if (aiProvider === 'local' && localModelOptions.length > 0) return localModelOptions;
-        if (aiProvider === 'gemini') return PROVIDER_MODEL_OPTIONS.gemini;
-        if (aiProvider === 'openai' && detectedOpenAIModels.length > 0) return detectedOpenAIModels;
+        if (aiProvider === 'gemini' && mergedGeminiModels.length > 0) {
+            return mergedGeminiModels;
+        }
+        if (detectedProviderModels.length > 0) {
+            return Array.from(new Map(detectedProviderModels.map((option) => [option.value, option])).values());
+        }
         return PROVIDER_MODEL_OPTIONS[aiProvider];
-    }, [aiProvider, localModelOptions, detectedOpenAIModels]);
+    }, [aiProvider, detectedProviderModels, mergedGeminiModels]);
 
     const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
     const effectiveChatModel = chatPreference === 'auto' ? activeConfig.model : chatPreference;
@@ -77,17 +90,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const aiConnectionError = aiConnectionErrorByProvider[aiProvider] ?? null;
 
     useEffect(() => {
-        if (!isOpen || aiProvider !== 'local') return;
-        if (availableLocalModels.length > 0) return;
-        void refreshLocalModels();
-    }, [isOpen, aiProvider, availableLocalModels.length, refreshLocalModels]);
-
-    useEffect(() => {
         if (!isOpen || activeTab !== 'ai') return;
 
         const hasModel = Boolean(activeConfig.model?.trim());
         const hasKey = aiProvider === 'local' ? true : Boolean(activeConfig.apiKey?.trim());
-        const hasBaseUrl = (aiProvider === 'openai' || aiProvider === 'local')
+        const hasBaseUrl = (aiProvider === 'openai' || aiProvider === 'openrouter' || aiProvider === 'local')
             ? Boolean(activeConfig.baseUrl?.trim())
             : true;
 
@@ -188,10 +195,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-            <div className="relative w-full max-w-5xl h-[82vh] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            ariaLabel="Globale Einstellungen"
+            className="w-full max-w-5xl h-[82vh] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+        >
                 <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 dark:border-slate-800">
                     <div>
                         <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Globale Einstellungen</h2>
@@ -294,7 +303,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Aktiver Anbieter</label>
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                         {PROVIDERS.map((provider) => (
                                             <button
                                                 key={provider}
@@ -345,14 +354,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     </div>
                                 </div>
 
-                                {(aiProvider === 'openai' || aiProvider === 'local') && (
+                                {(aiProvider === 'openai' || aiProvider === 'openrouter' || aiProvider === 'local') && (
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Base URL</label>
                                         <input
                                             type="text"
                                             value={activeConfig.baseUrl ?? ''}
                                             onChange={(e) => setProviderBaseUrl(aiProvider, e.target.value)}
-                                            placeholder={aiProvider === 'openai' ? 'https://api.openai.com/v1' : 'http://localhost:1234/v1'}
+                                            placeholder={
+                                                aiProvider === 'openai'
+                                                    ? 'https://api.openai.com/v1'
+                                                    : aiProvider === 'openrouter'
+                                                        ? 'https://openrouter.ai/api/v1'
+                                                        : 'http://localhost:1234/v1'
+                                            }
                                             className="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-200"
                                         />
                                     </div>
@@ -373,13 +388,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         {aiProvider === 'local' && (
                                             <button
                                                 type="button"
-                                                onClick={() => void refreshLocalModels()}
-                                                disabled={isFetchingModels}
+                                                onClick={() => void reloadProviderModels()}
+                                                disabled={isLoadingProviderModels}
                                                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
                                                 title="Lokale Modelle aktualisieren"
                                                 aria-label="Lokale Modelle aktualisieren"
                                             >
-                                                <RefreshCw className={`${ICON_SIZES[16]} ${isFetchingModels ? 'animate-spin' : ''}`} />
+                                                <RefreshCw className={`${ICON_SIZES[16]} ${isLoadingProviderModels ? 'animate-spin' : ''}`} />
                                             </button>
                                         )}
                                     </div>
@@ -409,13 +424,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         {aiProvider === 'local' && (
                                             <button
                                                 type="button"
-                                                onClick={() => void refreshLocalModels()}
-                                                disabled={isFetchingModels}
+                                                onClick={() => void reloadProviderModels()}
+                                                disabled={isLoadingProviderModels}
                                                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
                                                 title="Lokale Modelle aktualisieren"
                                                 aria-label="Lokale Modelle aktualisieren"
                                             >
-                                                <RefreshCw className={`${ICON_SIZES[16]} ${isFetchingModels ? 'animate-spin' : ''}`} />
+                                                <RefreshCw className={`${ICON_SIZES[16]} ${isLoadingProviderModels ? 'animate-spin' : ''}`} />
                                             </button>
                                         )}
                                     </div>
@@ -541,7 +556,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         )}
                     </section>
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 };

@@ -1,5 +1,5 @@
-import React, { useRef, useState, useMemo, useCallback } from 'react';
-import katex from 'katex';
+import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import {
     Divide, Radical, Superscript, Subscript, X, ChevronDown,
     Sigma,
@@ -57,6 +57,13 @@ const GREEK_LETTERS = [
 export const MathInput: React.FC<MathInputProps> = ({ value, onChange, isActive = true }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [showGreek, setShowGreek] = useState(false);
+    const [katexModule, setKatexModule] = useState<typeof import('katex') | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        import('katex').then((mod) => { if (!cancelled) setKatexModule(mod); });
+        return () => { cancelled = true; };
+    }, []);
 
     /* ── Insert snippet at cursor position ── */
     const insertSnippet = useCallback((latex: string, cursorOffset?: number) => {
@@ -81,17 +88,18 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange, isActive 
 
     /* ── KaTeX Rendering ── */
     const renderedHtml = useMemo(() => {
-        if (!value.trim()) return '';
+        if (!value.trim() || !katexModule) return '';
         try {
-            return katex.renderToString(value, {
+            const raw = katexModule.default.renderToString(value, {
                 throwOnError: false,
                 displayMode: true,
                 output: 'html',
             });
+            return DOMPurify.sanitize(raw);
         } catch {
-            return '<span style="color:#ef4444">Ungültiger LaTeX-Code</span>';
+            return DOMPurify.sanitize('<span class="text-red-500">Ungültiger LaTeX-Code</span>');
         }
-    }, [value]);
+    }, [value, katexModule]);
 
     return (
         <div className="space-y-2">
@@ -165,7 +173,9 @@ export const MathInput: React.FC<MathInputProps> = ({ value, onChange, isActive 
                 <div>
                     {isActive && <p className="text-[10px] font-medium text-worksheet-inkLight mb-1 no-print">Vorschau</p>}
                     <div className="min-h-[80px] px-3 py-3 rounded-md border border-worksheet-border bg-worksheet-field flex items-center justify-center print:bg-transparent print:border-none print:p-0">
-                        {value.trim() ? (
+                        {!katexModule ? (
+                            <div className="h-6 w-32 rounded bg-slate-200 animate-pulse" />
+                        ) : value.trim() ? (
                             <span
                                 className="math-preview text-lg"
                                 dangerouslySetInnerHTML={{ __html: renderedHtml }}

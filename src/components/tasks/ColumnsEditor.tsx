@@ -21,6 +21,7 @@ const SLOT_TASK_OPTIONS: { type: TaskType; label: string }[] = [
     { type: 'cloze', label: 'Lückentext' },
     { type: 'image-placeholder', label: 'Bild-Platzhalter' },
     { type: 'math', label: 'Mathematik' },
+    { type: 'information', label: 'Information' },
 ];
 
 const LAYOUT_OPTIONS: { value: ColumnsLayout; label: string }[] = [

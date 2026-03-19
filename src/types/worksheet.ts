@@ -1,4 +1,4 @@
-export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction' | 'heading' | 'table';
+export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction' | 'heading' | 'table' | 'information';
 import type { ChatMessage } from './ai';
 
 export type ColumnsLayout = '50-50' | '60-40' | '40-60';
@@ -44,6 +44,7 @@ export interface LineaturTask extends BaseTask {
 }
 
 export type ClozeGapStyle = 'continuous' | 'per-letter';
+export type ClozeWordBankMode = 'hidden' | 'mixed' | 'upside-down';
 export type ImageAlignment = 'left' | 'center' | 'right';
 
 export interface ClozeTask extends BaseTask {
@@ -51,6 +52,8 @@ export interface ClozeTask extends BaseTask {
     content: string;        // Text with gap placeholders, e.g. "Die [Sonne] scheint jeden [Tag]."
     gapStyle?: ClozeGapStyle; // Default: 'continuous'
     gapMultiplier?: number;   // Default: 1.5 – scales gap width relative to word length
+    wordBankMode?: ClozeWordBankMode; // Default: 'hidden'
+    distractors?: string; // Kommagetrennte falsche Wörter
 }
 
 export interface ImagePlaceholderTask extends BaseTask {
@@ -97,7 +100,13 @@ export interface TableTask extends BaseTask {
     cols: number;
 }
 
-export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask | TableTask;
+/** Reiner Informationsblock ohne Punktevergabe / Antwortfelder */
+export interface InformationTask extends BaseTask {
+    type: 'information';
+    text: string;
+}
+
+export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask | TableTask | InformationTask;
 
 export interface WorksheetTaskState {
     tasksById: Record<string, Task>;

@@ -31,6 +31,7 @@ import {
     Scissors,
     Image as ImageIcon,
     Table,
+    BookOpen,
     X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -57,6 +58,7 @@ const TASK_ICON: Record<TaskType, React.ElementType> = {
     'page-break': Scissors,
     'image-placeholder': ImageIcon,
     'table': Table,
+    'information': BookOpen,
 };
 
 /** Lesbare Kurzbezeichnungen */
@@ -71,6 +73,7 @@ const TASK_LABEL: Record<TaskType, string> = {
     'page-break': 'Seitenumbruch',
     'image-placeholder': 'Bild',
     'table': 'Tabelle',
+    'information': 'Information',
 };
 
 // ── Einzelner Eintrag (sortierbar) ────────────────────────────────────

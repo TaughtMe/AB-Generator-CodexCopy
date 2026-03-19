@@ -48,6 +48,12 @@ const ALL_TASK_TYPES = new Set<Task['type']>([
 export const TASK_REVISION_SYSTEM_PROMPT = `Du bist ein präziser Editor für Arbeitsblatt-Aufgaben.
 Deine Aufgabe ist es, aus einer Lehreranweisung konkrete Änderungsoperationen für bestehende Aufgaben abzuleiten.
 
+SEHR WICHTIG – Wann KEINE Änderungen vornehmen:
+- Wenn die letzte Lehrkraft-Nachricht ein Gespräch/Planung/Diskussion ist (z.B. Infos liefert, Rückfragen stellt, Kontext beschreibt), gib "operations": [] zurück.
+- Wenn die Lehrkraft Hintergrund-Informationen, Rohtexte oder Materialien einfügt OHNE eine explizite Änderungsanweisung, gib "operations": [] zurück.
+- Nur bei einer KLAREN, EXPLIZITEN Anweisung wie "ändere Aufgabe 2", "füge eine Aufgabe hinzu", "ersetze den Text" etc. sollst du Operationen erzeugen.
+- Im Zweifel: "operations": [] (lieber keine Änderung als eine falsche).
+
 WICHTIG:
 - Antworte NUR mit einem validen JSON-Objekt (kein Markdown, keine Erklärungen).
 - Erfinde keine Aufgabenreferenzen.
@@ -166,6 +172,11 @@ function summarizeTaskForRevision(entry: VisibleTaskEntry): Record<string, unkno
     return base;
 }
 
+/** Maximum number of recent messages to include in the revision prompt */
+const MAX_REVISION_CONTEXT_MESSAGES = 8;
+/** Maximum characters per single message in the revision transcript */
+const MAX_REVISION_MESSAGE_CHARS = 1500;
+
 export function buildTaskRevisionUserPrompt(params: {
     messages: ChatMessage[];
     tasksById: Record<string, Task>;
@@ -175,9 +186,19 @@ export function buildTaskRevisionUserPrompt(params: {
 }): string {
     const entries = getVisibleTaskEntries(params.tasksById, params.taskIds);
     const taskSnapshot = entries.map(summarizeTaskForRevision);
-    const transcript = params.messages
+
+    // Only include recent messages to prevent context overload
+    const recentMessages = params.messages.slice(-MAX_REVISION_CONTEXT_MESSAGES);
+    const transcript = recentMessages
         .filter((message) => message.content.trim())
-        .map((message) => `${message.role === 'user' ? 'Lehrkraft' : 'Assistent'}: ${message.content.trim()}`)
+        .map((message) => {
+            const label = message.role === 'user' ? 'Lehrkraft' : 'Assistent';
+            const content = message.content.trim();
+            const capped = content.length > MAX_REVISION_MESSAGE_CHARS
+                ? content.slice(0, MAX_REVISION_MESSAGE_CHARS) + ' [… gekürzt]'
+                : content;
+            return `${label}: ${capped}`;
+        })
         .join('\n\n');
 
     const classContextLines: string[] = [];
@@ -191,18 +212,21 @@ export function buildTaskRevisionUserPrompt(params: {
     const sourceLines = params.sources.slice(0, 8).map((source) => `- ${source.title || source.url} (${source.url})`);
 
     return `Leite aus dem folgenden Kontext nur konkrete Aufgabenänderungen ab.
+ACHTUNG: Nur bei einer EXPLIZITEN Änderungsanweisung der Lehrkraft Operationen erzeugen!
+Bei Gespräch, Planung, Rückfragen oder Kontext-Ergänzungen: "operations": [] zurückgeben.
 
 ${classContextLines.length > 0 ? `KLASSENKONTEXT:\n${classContextLines.join('\n')}\n\n` : ''}${sourceLines.length > 0 ? `QUELLEN:\n${sourceLines.join('\n')}\n\n` : ''}AKTUELLER AUFGABENSTAND (JSON):
 ${JSON.stringify(taskSnapshot, null, 2)}
 
-CHATVERLAUF / ANWEISUNG:
+CHATVERLAUF (letzte Nachrichten):
 ${transcript}
 
 Hinweise:
 - Beziehe dich bei "Aufgabe 1/2/3" auf "taskNumber".
 - Für "add_task" verwende nach Möglichkeit ein vollständiges "payload" mit type/title/content etc.
 - Für "update_task" ändere nur die Felder, die angepasst werden sollen.
-- Wenn die Anweisung eher Gespräch ist (keine konkrete Änderung), gib "operations": [] zurück.`;
+- Wenn die Anweisung eher Gespräch ist (keine konkrete Änderung), gib "operations": [] zurück.
+- Im Zweifel IMMER "operations": [] zurückgeben.`;
 }
 
 export function looksLikeTruncatedJson(text: string): boolean {

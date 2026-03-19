@@ -100,3 +100,5 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
         />
     );
 }
+
+export default OnboardingTour;

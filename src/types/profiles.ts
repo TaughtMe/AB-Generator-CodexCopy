@@ -7,6 +7,8 @@ export interface Subject {
     name: string;
     /** Lehrplan-Text / Kompetenzerwartungen */
     curriculumText: string;
+    /** Optionaler Link zum Lehrplan (URL) */
+    curriculumUrl?: string;
 }
 
 export interface ClassProfile {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { ICON_SIZES } from '../ui/iconSizes';
@@ -6,7 +6,8 @@ import { AppFooter } from './AppFooter';
 import { LegalModals, type LegalModalType } from './LegalModals';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
+
+const OnboardingTour = React.lazy(() => import('../onboarding/OnboardingTour'));
 
 /* ══════════════════════════════════════════════════
    AppShell.tsx – Das Basis-Layout ("Lehrer-Schreibtisch")
@@ -49,13 +50,15 @@ export const AppShell: React.FC<AppShellProps> = ({
 
     return (
         <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
-            <OnboardingTour
-                run={isOnboardingRunning}
-                onComplete={() => {
-                    setIsOnboardingRunning(false);
-                    completeOnboarding();
-                }}
-            />
+            <Suspense fallback={null}>
+                <OnboardingTour
+                    run={isOnboardingRunning}
+                    onComplete={() => {
+                        setIsOnboardingRunning(false);
+                        completeOnboarding();
+                    }}
+                />
+            </Suspense>
 
             {/* ── Mobile Overlay Backdrop ── */}
             {sidebarOpen && (

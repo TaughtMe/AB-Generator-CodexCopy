@@ -41,6 +41,7 @@ import {
     generateTaskRevisionResult,
     type AIClassContext,
 } from '../services/aiService';
+import type { Editor } from '@tiptap/react';
 import type { Task, WorksheetSource, WorksheetVariant } from '../types/worksheet';
 import type { ClassProfile } from '../types/profiles';
 import { normalizeDesignSnapshot, type DesignSnapshot } from '../types/designTemplate';
@@ -136,6 +137,40 @@ function buildAIClassContextFromProfile(profile?: ClassProfile): AIClassContext 
 
 function isUnexpectedRevisionProgrammingError(error: unknown): boolean {
     return error instanceof ReferenceError;
+}
+
+/**
+ * Heuristic: decide whether we should try task-revision or fall back to
+ * a pure conversational reply.  Task-revision is expensive and can
+ * misinterpret planning / discussion messages as commands to update tasks.
+ *
+ * Returns `true` only when there are tasks to revise AND the latest user
+ * message looks intentional (not long pasted context, not a greeting,
+ * not an early planning exchange).
+ */
+const TASK_ACTION_KEYWORDS = /\b(änder|aktualisier|ersetze?|lösch|entfern|füg|hinzu|verschieb|umschreib|korrigier|ergänz|tausch|formulier|überarbeit|kürz|verlänger|vereinfach|anpass|Aufgabe\s*\d)/i;
+const CONVERSATIONAL_START_PATTERNS = /^(hi|hallo|hey|guten\s+(morgen|tag|abend))\b/i;
+
+function shouldAttemptTaskRevision(
+    latestUserMessage: string,
+    allMessages: ChatMessage[],
+    taskCount: number,
+): boolean {
+    // No tasks in the worksheet → nothing to revise & don't accidentally add
+    if (taskCount === 0) return false;
+
+    // Very first user message → normally context-setting, not a revision request
+    const userMessageCount = allMessages.filter((m) => m.role === 'user').length;
+    if (userMessageCount <= 1) return false;
+
+    // If greeting / introduction, skip revision
+    if (CONVERSATIONAL_START_PATTERNS.test(latestUserMessage.trim())) return false;
+
+    // Very long pasted content (>1200 chars) without explicit action keywords
+    // is likely additional context, not a change request
+    if (latestUserMessage.length > 1200 && !TASK_ACTION_KEYWORDS.test(latestUserMessage)) return false;
+
+    return true;
 }
 
 const ABGEN_WORKSHEET_SCHEMA_V1 = 1;
@@ -650,6 +685,8 @@ interface WorkspaceState {
     isTemplateGalleryOpen: boolean;
     editingTemplateId: string | null;
     autoSaveStatus: WorkspaceAutoSaveStatus;
+    /** Aktuell fokussierter Tiptap-Editor (für Ribbon-Toolbar) */
+    activeEditor: Editor | null;
 }
 
 export type WorkspaceView = 'dashboard' | 'ai-chat' | 'editor';
@@ -728,6 +765,8 @@ interface WorkspaceActions {
     seedGreetingIfEmpty: () => void;
     startNewChat: () => void;
     sendChatMessage: (text: string) => Promise<void>;
+    /** Bricht alle laufenden KI-Chat-Requests ab */
+    abortChat: () => void;
     createDifferentiatedVariantFromPrompt: (instruction: string, label?: string) => Promise<boolean>;
     setWorksheetSources: (sources: WorksheetSource[]) => Promise<void>;
     upsertWorksheetSource: (source: WorksheetSource) => Promise<void>;
@@ -746,13 +785,16 @@ interface WorkspaceActions {
     closeTemplateGallery: () => void;
     startTemplateEdit: (templateId: string) => void;
     clearTemplateEdit: () => void;
+    setActiveEditor: (editor: Editor | null) => void;
 }
 
 type WorkspaceStore = WorkspaceState & WorkspaceActions;
 
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     let latestPersistOperationId = 0;
+    let latestChatRequestId = 0;
     let hasInitialTrashCleanupRun = false;
+    let chatAbortController: AbortController | null = null;
 
     const persistWorksheetRecordWithStatus = async (
         params: Parameters<typeof saveWorksheet>,
@@ -840,6 +882,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     isTemplateGalleryOpen: false,
     editingTemplateId: null,
     autoSaveStatus: 'idle',
+    activeEditor: null,
 
     loadClassProfiles: async () => {
         set({ isClassProfilesLoading: true, classProfilesError: null });
@@ -930,11 +973,19 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
     loadRecent: async (filter) => {
         const activeFilter = filter ?? get().filter;
+        const oldRecent = get().recentWorksheets;
+        for (const item of oldRecent) {
+            if (item.thumbnailUrl) URL.revokeObjectURL(item.thumbnailUrl);
+        }
         const recent = await listRecentWorksheets(50, activeFilter);
         set({ recentWorksheets: recent });
     },
 
     loadTrash: async () => {
+        const oldTrashed = get().trashedWorksheets;
+        for (const item of oldTrashed) {
+            if (item.thumbnailUrl) URL.revokeObjectURL(item.thumbnailUrl);
+        }
         const trashed = await listTrashedWorksheets();
         set({ trashedWorksheets: trashed });
     },
@@ -1174,17 +1225,17 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         const messages = [...get().chatMessages, message];
         useWorksheetStore.getState().setChatHistory(messages);
         set({ chatMessages: messages });
-        void (async () => {
-            await persistCurrentWorksheetWithStatus();
-        })();
+        persistCurrentWorksheetWithStatus().catch((err) =>
+            console.error('[workspaceStore] addChatMessage persist failed:', err),
+        );
     },
 
     setChatMessages: (messages) => {
         useWorksheetStore.getState().setChatHistory(messages);
         set({ chatMessages: messages });
-        void (async () => {
-            await persistCurrentWorksheetWithStatus();
-        })();
+        persistCurrentWorksheetWithStatus().catch((err) =>
+            console.error('[workspaceStore] setChatMessages persist failed:', err),
+        );
     },
 
     setAiSidebarDraft: (draft) => {
@@ -1194,9 +1245,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     clearChat: () => {
         useWorksheetStore.getState().setChatHistory([]);
         set({ chatMessages: [] });
-        void (async () => {
-            await persistCurrentWorksheetWithStatus();
-        })();
+        persistCurrentWorksheetWithStatus().catch((err) =>
+            console.error('[workspaceStore] clearChat persist failed:', err),
+        );
     },
 
     setIsChatGenerating: (isGenerating) => {
@@ -1220,9 +1271,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             if (state.chatMessages.length > 0) return state;
             const seeded = [{ role: 'assistant', content: CHAT_GREETING } as ChatMessage];
             useWorksheetStore.getState().setChatHistory(seeded);
-            void (async () => {
-                await persistCurrentWorksheetWithStatus();
-            })();
+            persistCurrentWorksheetWithStatus().catch((err) =>
+                console.error('[workspaceStore] seedGreetingIfEmpty persist failed:', err),
+            );
             return {
                 chatMessages: seeded,
                 aiSidebarDraft: '',
@@ -1233,6 +1284,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     },
 
     startNewChat: () => {
+        chatAbortController?.abort();
+        chatAbortController = null;
         const seeded = [{ role: 'assistant', content: CHAT_GREETING } as ChatMessage];
         useWorksheetStore.getState().setChatHistory(seeded);
         set({
@@ -1242,9 +1295,16 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             chatStatusNotice: null,
             isChatLoading: false,
         });
-        void (async () => {
-            await persistCurrentWorksheetWithStatus();
-        })();
+        persistCurrentWorksheetWithStatus().catch((err) =>
+            console.error('[workspaceStore] startNewChat persist failed:', err),
+        );
+    },
+
+    abortChat: () => {
+        chatAbortController?.abort();
+        chatAbortController = null;
+        latestChatRequestId++;
+        set({ isChatLoading: false, isChatGenerating: false });
     },
 
     sendChatMessage: async (text) => {
@@ -1253,6 +1313,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
         const state = get();
         if (state.isChatLoading || state.isChatGenerating) return;
+
+        chatAbortController?.abort();
+        chatAbortController = new AbortController();
+        const signal = chatAbortController.signal;
+        const requestId = ++latestChatRequestId;
 
         const userMessage: ChatMessage = { role: 'user', content: trimmed };
         const nextMessages = [...state.chatMessages, userMessage];
@@ -1267,9 +1332,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             chatStatusNotice: null,
         });
 
-        void persistCurrentWorksheetWithStatus({ chatHistory: nextMessages });
+        await persistCurrentWorksheetWithStatus({ chatHistory: nextMessages });
 
         try {
+            if (requestId !== latestChatRequestId) return;
+
             const latestWorksheet = useWorksheetStore.getState();
             let aiClassContext: AIClassContext | undefined;
             if (latestWorksheet.classId) {
@@ -1286,12 +1353,21 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 aiClassContext = buildAIClassContextFromProfile(classProfile);
             }
 
+            if (requestId !== latestChatRequestId) return;
+
             let assistantMessageContent = '';
             let revisionApplied = false;
             let updatedCount = 0;
             let addedCount = 0;
             const updatedTaskIds: string[] = [];
 
+            const tryRevision = shouldAttemptTaskRevision(
+                trimmed,
+                nextMessages,
+                latestWorksheet.taskIds.length,
+            );
+
+            if (tryRevision) {
             try {
                 const revision = await generateTaskRevisionResult(
                     nextMessages,
@@ -1299,6 +1375,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                     latestWorksheet.taskIds,
                     latestWorksheet.sources,
                     aiClassContext,
+                    signal,
                 );
 
                 for (const operation of revision.operations) {
@@ -1345,9 +1422,12 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 }
                 revisionApplied = false;
             }
+            } // end tryRevision
+
+            if (requestId !== latestChatRequestId) return;
 
             if (!revisionApplied) {
-                const reply = await generateChatAssistantReply(nextMessages, aiClassContext);
+                const reply = await generateChatAssistantReply(nextMessages, aiClassContext, signal);
                 assistantMessageContent =
                     reply || 'Ich habe dazu gerade keine gute Antwort. Kannst du es bitte anders formulieren?';
             }
@@ -1368,11 +1448,16 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
             await persistCurrentWorksheetWithStatus();
         } catch (err) {
+            if (err instanceof DOMException && err.name === 'AbortError') return;
             set({
                 isChatLoading: false,
                 chatError: err instanceof Error ? err.message : 'Unbekannter Fehler bei der KI-Antwort.',
                 chatStatusNotice: null,
             });
+        } finally {
+            if (chatAbortController?.signal === signal) {
+                chatAbortController = null;
+            }
         }
     },
 
@@ -1382,6 +1467,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
         const state = get();
         if (state.isChatLoading || state.isChatGenerating) return false;
+
+        chatAbortController?.abort();
+        chatAbortController = new AbortController();
+        const signal = chatAbortController.signal;
 
         set({
             isChatLoading: true,
@@ -1418,6 +1507,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 wsStore.taskIds,
                 wsStore.sources,
                 aiClassContext,
+                signal,
             );
 
             if (revision.operations.length === 0) {
@@ -1469,12 +1559,17 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             });
             return true;
         } catch (err) {
+            if (err instanceof DOMException && err.name === 'AbortError') return false;
             set({
                 isChatLoading: false,
                 chatError: err instanceof Error ? err.message : 'Fehler bei der KI-Differenzierung.',
                 chatStatusNotice: null,
             });
             return false;
+        } finally {
+            if (chatAbortController?.signal === signal) {
+                chatAbortController = null;
+            }
         }
     },
 
@@ -1646,6 +1741,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
     clearTemplateEdit: () => {
         set({ editingTemplateId: null });
+    },
+
+    setActiveEditor: (editor) => {
+        set({ activeEditor: editor });
     },
     };
 

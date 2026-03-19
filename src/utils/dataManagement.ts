@@ -145,6 +145,26 @@ function serializeClassProfiles(records: ClassProfileRecord[]): BackupClassProfi
     }));
 }
 
+/**
+ * Entfernt API-Keys aus dem geklonten Settings-Objekt,
+ * damit keine sensitiven Daten im Backup landen.
+ */
+function stripSensitiveKeys(settings: PersistedSettingsState): PersistedSettingsState {
+    const cloned = JSON.parse(JSON.stringify(settings)) as PersistedSettingsState;
+
+    if (isObject(cloned.state) && isObject((cloned.state as Record<string, unknown>).providers)) {
+        const providers = (cloned.state as Record<string, unknown>).providers as Record<string, unknown>;
+        for (const key of Object.keys(providers)) {
+            const provider = providers[key];
+            if (isObject(provider) && 'apiKey' in provider) {
+                (provider as Record<string, unknown>).apiKey = '';
+            }
+        }
+    }
+
+    return cloned;
+}
+
 function buildBackupPayload(
     settings: PersistedSettingsState,
     worksheets: BackupWorksheet[],
@@ -157,7 +177,7 @@ function buildBackupPayload(
         exportedAt: new Date().toISOString(),
         imagePolicy: 'excluded',
         data: {
-            settings,
+            settings: stripSensitiveKeys(settings),
             worksheets,
             designTemplates: templates,
             classProfiles,

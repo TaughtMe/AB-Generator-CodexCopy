@@ -6,7 +6,7 @@
  * and return the result as a Blob.
  */
 
-import katex from 'katex';
+import DOMPurify from 'dompurify';
 import { toPng } from 'html-to-image';
 
 /**
@@ -32,13 +32,14 @@ export async function convertMathToImage(latex: string): Promise<Blob> {
     container.style.lineHeight = '1.4';
     container.style.fontFamily = '"KaTeX_Main", serif';
 
-    // 2. Render KaTeX HTML into it
+    // 2. Render KaTeX HTML – sanitized against XSS
+    const katex = (await import('katex')).default;
     const html = katex.renderToString(latex, {
         throwOnError: false,
         displayMode: true,
         output: 'html',
     });
-    container.innerHTML = html;
+    container.innerHTML = DOMPurify.sanitize(html);
     document.body.appendChild(container);
 
     try {

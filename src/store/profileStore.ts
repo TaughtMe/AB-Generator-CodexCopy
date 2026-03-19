@@ -18,6 +18,7 @@ interface ProfileState {
 
 interface ProfileActions {
     addSubject: (name: string, curriculumText?: string) => void;
+    updateSubject: (id: string, updates: Partial<Omit<Subject, 'id'>>) => void;
     removeSubject: (id: string) => void;
     addClassProfile: (name: string, characteristic?: string) => void;
     removeClassProfile: (id: string) => void;
@@ -38,6 +39,13 @@ export const useProfileStore = create<ProfileStore>()(
             addSubject: (name, curriculumText = '') =>
                 set((s) => ({
                     subjects: [...s.subjects, { id: crypto.randomUUID(), name, curriculumText }],
+                })),
+
+            updateSubject: (id, updates) =>
+                set((s) => ({
+                    subjects: s.subjects.map((sub) =>
+                        sub.id === id ? { ...sub, ...updates } : sub,
+                    ),
                 })),
 
             removeSubject: (id) =>

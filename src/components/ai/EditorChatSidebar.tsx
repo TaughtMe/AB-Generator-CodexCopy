@@ -5,8 +5,7 @@ import {
     isActiveProviderConfigured,
 } from '../../services/aiService';
 import { PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
-import { useGeminiModels } from '../../hooks/useGeminiModels';
-import { useOpenAIModels } from '../../hooks/useOpenAIModels';
+import { useProviderModels } from '../../hooks/useProviderModels';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -54,13 +53,9 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
     const variants = useWorksheetStore((s) => s.variants);
     const activeVariantId = useWorksheetStore((s) => s.activeVariantId);
     const aiProvider = useSettingsStore((s) => s.aiProvider);
-    const providers = useSettingsStore((s) => s.providers);
     const chatModelPreferences = useSettingsStore((s) => s.chatModelPreferences);
     const aiConnectionStatusByProvider = useSettingsStore((s) => s.aiConnectionStatusByProvider);
-    const availableLocalModels = useSettingsStore((s) => s.availableLocalModels);
-    const isFetchingModels = useSettingsStore((s) => s.isFetchingModels);
     const setChatModelPreference = useSettingsStore((s) => s.setChatModelPreference);
-    const refreshLocalModels = useSettingsStore((s) => s.refreshLocalModels);
 
     const [isVariantPanelOpen, setIsVariantPanelOpen] = useState(false);
     const [variantPreset, setVariantPreset] = useState<VariantDifferentiationPreset>('simplify');
@@ -76,38 +71,38 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
         () => variants.find((variant) => variant.id === activeVariantId)?.label ?? 'Standard',
         [variants, activeVariantId],
     );
-    const activeConfig = providers[aiProvider];
     const aiConnectionStatus = aiConnectionStatusByProvider[aiProvider] ?? 'unknown';
-    const { models: detectedGeminiModels } = useGeminiModels(activeConfig.apiKey ?? '', aiProvider === 'gemini');
-    const { models: detectedOpenAIModels } = useOpenAIModels(
-        activeConfig.baseUrl ?? '',
-        activeConfig.apiKey ?? '',
-        aiProvider === 'openai',
-    );
-    const localModelOptions = useMemo(
-        () => availableLocalModels.map((id) => ({ value: id, label: id, desc: 'Vom lokalen Server erkannt' })),
-        [availableLocalModels],
-    );
+    const {
+        models: detectedProviderModels,
+        isLoading: isLoadingProviderModels,
+        reload: reloadProviderModels,
+    } = useProviderModels(aiProvider, true);
     const mergedGeminiModels = useMemo(
-        () =>
-            Array.from(
-                new Map([...detectedGeminiModels, ...PROVIDER_MODEL_OPTIONS.gemini].map((option) => [option.value, option])).values(),
-            ),
-        [detectedGeminiModels],
+        () => {
+            if (aiProvider !== 'gemini') {
+                return PROVIDER_MODEL_OPTIONS.gemini;
+            }
+
+            return Array.from(
+                new Map([...detectedProviderModels, ...PROVIDER_MODEL_OPTIONS.gemini].map((option) => [option.value, option])).values(),
+            );
+        },
+        [aiProvider, detectedProviderModels],
     );
     const chatModelOptions = useMemo(() => {
-        if (aiProvider === 'local' && localModelOptions.length > 0) return localModelOptions;
-        if (aiProvider === 'gemini' && mergedGeminiModels.length > 0) return mergedGeminiModels;
-        if (aiProvider === 'openai' && detectedOpenAIModels.length > 0) return detectedOpenAIModels;
-        return PROVIDER_MODEL_OPTIONS[aiProvider];
-    }, [aiProvider, localModelOptions, mergedGeminiModels, detectedOpenAIModels]);
-    const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
+        if (aiProvider === 'gemini' && mergedGeminiModels.length > 0) {
+            return mergedGeminiModels;
+        }
 
-    useEffect(() => {
-        if (aiProvider !== 'local') return;
-        if (availableLocalModels.length > 0) return;
-        void refreshLocalModels();
-    }, [aiProvider, availableLocalModels.length, refreshLocalModels]);
+        if (detectedProviderModels.length > 0) {
+            return Array.from(
+                new Map(detectedProviderModels.map((option) => [option.value, option])).values(),
+            );
+        }
+
+        return PROVIDER_MODEL_OPTIONS[aiProvider];
+    }, [aiProvider, detectedProviderModels, mergedGeminiModels]);
+    const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
 
     useEffect(() => {
         if (!isVariantPanelOpen) return;
@@ -128,6 +123,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
 
     useEffect(() => {
         seedGreetingIfEmpty();
+        return () => { useWorkspaceStore.getState().abortChat(); };
     }, [seedGreetingIfEmpty]);
 
     useEffect(() => {
@@ -254,13 +250,13 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                     {aiProvider === 'local' && (
                         <button
                             type="button"
-                            onClick={() => void refreshLocalModels()}
-                            disabled={isFetchingModels || isChatLoading || isChatGenerating}
+                            onClick={() => void reloadProviderModels()}
+                            disabled={isLoadingProviderModels || isChatLoading || isChatGenerating}
                             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-500 transition-colors hover:bg-white hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                             title="Lokale Modelle aktualisieren"
                             aria-label="Lokale Modelle aktualisieren"
                         >
-                            <RefreshCw className={`${ICON_SIZES[14]} ${isFetchingModels ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`${ICON_SIZES[14]} ${isLoadingProviderModels ? 'animate-spin' : ''}`} />
                         </button>
                     )}
                 </div>

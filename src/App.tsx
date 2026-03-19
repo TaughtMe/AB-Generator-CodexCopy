@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
-import { exportToDocx } from './utils/docx';
 
 import { useWorksheetStore } from './store/worksheetStore';
 import { useWorkspaceStore } from './store/workspaceStore';
@@ -16,6 +15,7 @@ import { DesignEditor } from './components/dashboard/DesignEditor';
 import { TemplateGallery } from './components/dashboard/TemplateGallery';
 import { TopBar } from './components/editor/TopBar';
 import type { ExportVariant } from './components/editor/ExportMenu';
+import { RibbonToolbar } from './components/layout/RibbonToolbar';
 import { VariantTabs } from './components/editor/VariantTabs';
 import { FloatingToolbar } from './components/editor/FloatingToolbar';
 import { WorksheetCanvas } from './components/editor/WorksheetCanvas';
@@ -151,13 +151,14 @@ function App() {
 
   const handleDocxExport = async (variants: ExportVariant[]) => {
     if (taskIds.length === 0) return;
+    const { exportToDocx } = await import('./utils/docx');
     for (const variant of variants) {
       await exportToDocx(title, tasksById, taskIds, variant === 'teacher');
     }
   };
 
   const handleAbgenExport = async () => {
-    if (taskIds.length === 0) return;
+    if (taskIds.length === 0 || isAbgenExporting) return;
     setIsAbgenExporting(true);
     try {
       await saveCurrentWorksheet();
@@ -170,7 +171,7 @@ function App() {
   };
 
   const handleAbgenShare = async () => {
-    if (taskIds.length === 0) return;
+    if (taskIds.length === 0 || isAbgenSharing) return;
     setIsAbgenSharing(true);
     try {
       await saveCurrentWorksheet();
@@ -188,14 +189,20 @@ function App() {
   };
 
   const handleBackToDashboard = async () => {
-    // Screenshot ZUERST erfassen – DOM (.a4-page) ist noch gemountet
-    if (taskIds.length > 0) {
-      const thumbnail = await captureWorksheetThumbnail();
-      // Jetzt speichern mit dem fertigen Thumbnail
-      await saveCurrentWorksheet(thumbnail ?? undefined);
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      // Screenshot ZUERST erfassen – DOM (.a4-page) ist noch gemountet
+      if (taskIds.length > 0) {
+        const thumbnail = await captureWorksheetThumbnail();
+        // Jetzt speichern mit dem fertigen Thumbnail
+        await saveCurrentWorksheet(thumbnail ?? undefined);
+      }
+      // Erst NACH dem vollständigen Speichern wechseln wir den View
+      setCurrentView('dashboard');
+    } finally {
+      setIsSaving(false);
     }
-    // Erst NACH dem vollständigen Speichern wechseln wir den View
-    setCurrentView('dashboard');
   };
 
   const handleToggleNumber = (id: string) => {
@@ -268,27 +275,13 @@ function App() {
   /* ── Editor View ── */
   return (
     <div className="min-h-screen pb-32 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      <TopBar
-        title={title}
-        onTitleChange={setTitle}
-        classId={classId}
-        classOptions={classProfiles.map((entry) => ({ id: entry.id, name: entry.name }))}
-        onClassChange={setClassId}
+      <RibbonToolbar
         onBackToDashboard={handleBackToDashboard}
         onSave={handleSave}
         isSaving={isSaving}
         hasTasks={taskIds.length > 0}
-        onExportAbgen={handleAbgenExport}
-        onExportPdf={handlePdfExport}
-        onExportDocx={handleDocxExport}
-        onShareAbgen={handleAbgenShare}
-        canShareAbgen={canShareWorksheetFiles()}
-        isAbgenExporting={isAbgenExporting}
-        isAbgenSharing={isAbgenSharing}
-        isDarkMode={themeMode === 'dark'}
-        onToggleThemeMode={toggleThemeMode}
-        isOutlineOpen={isOutlineOpen}
-        onToggleOutline={toggleOutline}
+        onExportPdf={() => handlePdfExport(['student'])}
+        onExportDocx={() => handleDocxExport(['student'])}
         onOpenSources={() => setShowSourcesManager(true)}
       />
 

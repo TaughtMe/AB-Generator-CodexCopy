@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import {
     Moon,
     Sun,
@@ -10,9 +11,15 @@ import {
     Loader2,
     AlertCircle,
     Share2,
+    ExternalLink,
+    Undo2,
+    Redo2,
+    ChevronDown,
+    Plus,
 } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
+import { useProfileStore } from '../../store/profileStore';
 import { IconButton } from '../ui/IconButton';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { ExportMenu, type ExportVariant } from './ExportMenu';
@@ -72,6 +79,85 @@ export function TopBar({
         : (isSaving ? 'saving' : worksheetSaveStatus);
     const isAnySaveInProgress = isSaving || effectiveSaveStatus === 'saving';
 
+    // Undo / Redo
+    const undo = useWorksheetStore((s) => s.undo);
+    const redo = useWorksheetStore((s) => s.redo);
+    const canUndo = useWorksheetStore((s) => s._undoStack.length > 0);
+    const canRedo = useWorksheetStore((s) => s._redoStack.length > 0);
+
+    // Resolve curriculum URL for current class's subject
+    const subjects = useProfileStore((s) => s.subjects);
+    const addSubject = useProfileStore((s) => s.addSubject);
+    const classProfiles = useWorkspaceStore((s) => s.classProfiles);
+    const createClassProfile = useWorkspaceStore((s) => s.createClassProfile);
+    const activeClassProfile = classId ? classProfiles.find((c) => c.id === classId) : undefined;
+    const activeSubject = activeClassProfile?.subjectId
+        ? subjects.find((s) => s.id === activeClassProfile.subjectId)
+        : undefined;
+    const curriculumUrl = activeSubject?.curriculumUrl;
+
+    // Save-As popover state
+    const [showSaveAs, setShowSaveAs] = useState(false);
+    const [saveAsClassId, setSaveAsClassId] = useState<string>(classId ?? '');
+    const [saveAsSubjectId, setSaveAsSubjectId] = useState<string>(activeClassProfile?.subjectId ?? '');
+    const [newClassName, setNewClassName] = useState('');
+    const [newSubjectName, setNewSubjectName] = useState('');
+    const [showNewClass, setShowNewClass] = useState(false);
+    const [showNewSubject, setShowNewSubject] = useState(false);
+    const saveAsRef = useRef<HTMLDivElement>(null);
+
+    // Close save-as on outside click
+    useEffect(() => {
+        if (!showSaveAs) return;
+        const handler = (e: MouseEvent) => {
+            if (saveAsRef.current && !saveAsRef.current.contains(e.target as Node)) {
+                setShowSaveAs(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showSaveAs]);
+
+    const handleSaveAs = async () => {
+        // Create new class/subject if needed
+        let finalClassId = saveAsClassId;
+
+        if (showNewSubject && newSubjectName.trim()) {
+            addSubject(newSubjectName.trim());
+            const updatedSubjects = useProfileStore.getState().subjects;
+            const newSub = updatedSubjects[updatedSubjects.length - 1];
+            if (newSub) {
+                setSaveAsSubjectId(newSub.id);
+            }
+            setNewSubjectName('');
+            setShowNewSubject(false);
+        }
+
+        if (showNewClass && newClassName.trim()) {
+            const effectiveSubjectId = useProfileStore.getState().subjects.find((s) => s.id === saveAsSubjectId)?.id
+                ?? (useProfileStore.getState().subjects[useProfileStore.getState().subjects.length - 1]?.id);
+            await createClassProfile({
+                name: newClassName.trim(),
+                subjectId: effectiveSubjectId,
+                curriculumContext: '',
+                studentProfile: '',
+            });
+            const updatedProfiles = useWorkspaceStore.getState().classProfiles;
+            const newProf = updatedProfiles[updatedProfiles.length - 1];
+            if (newProf) {
+                finalClassId = newProf.id;
+            }
+            setNewClassName('');
+            setShowNewClass(false);
+        }
+
+        if (finalClassId) {
+            onClassChange(finalClassId);
+        }
+        setShowSaveAs(false);
+        await onSave();
+    };
+
     return (
         <header className="no-print sticky top-0 z-30 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border-b-0 shadow-none">
             <div className="max-w-[260mm] mx-auto px-5 py-2.5 flex items-center gap-2">
@@ -113,22 +199,38 @@ export function TopBar({
 
                     <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60" />
 
-                    <label className="sr-only" htmlFor="topbar-class-select">Klasse zuweisen</label>
-                    <select
-                        id="topbar-class-select"
-                        value={classId ?? ''}
-                        onChange={(event) => onClassChange(event.target.value || undefined)}
-                        className="max-w-36 sm:max-w-44 text-[12px] font-medium text-slate-700 dark:text-slate-200 bg-slate-100/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 cursor-pointer"
-                        title="Klassenprofil dem Arbeitsblatt zuweisen"
+                    {/* Undo / Redo */}
+                    <button
+                        onClick={undo}
+                        disabled={!canUndo}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Rückgängig (Ctrl+Z)"
                     >
-                        <option value="">Keine Klasse</option>
-                        {hasMissingClassSelection && (
-                            <option value={classId}>Gelöschtes Profil</option>
-                        )}
-                        {classOptions.map((entry) => (
-                            <option key={entry.id} value={entry.id}>{entry.name}</option>
-                        ))}
-                    </select>
+                        <Undo2 className={ICON_SIZES[15]} />
+                    </button>
+                    <button
+                        onClick={redo}
+                        disabled={!canRedo}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Wiederholen (Ctrl+Y)"
+                    >
+                        <Redo2 className={ICON_SIZES[15]} />
+                    </button>
+
+                    {curriculumUrl && (
+                        <>
+                            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60" />
+                            <a
+                                href={curriculumUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"
+                                title={`Lehrplan: ${activeSubject?.name ?? ''}`}
+                            >
+                                <ExternalLink className={ICON_SIZES[14]} />
+                            </a>
+                        </>
+                    )}
                 </div>
 
                 {/* Right: Actions */}
@@ -182,12 +284,112 @@ export function TopBar({
                     <button
                         onClick={onSave}
                         disabled={!hasTasks || isAnySaveInProgress}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-l-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
                         title="Arbeitsblatt speichern"
                     >
                         <Save className={ICON_SIZES[14]} />
                         <span>{isAnySaveInProgress ? '...' : 'Speichern'}</span>
                     </button>
+
+                    {/* Save-As Dropdown */}
+                    <div className="relative" ref={saveAsRef}>
+                        <button
+                            onClick={() => setShowSaveAs((v) => !v)}
+                            disabled={!hasTasks || isAnySaveInProgress}
+                            className="flex items-center px-1 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-r-lg border-l border-slate-200 dark:border-slate-700 transition-all text-xs cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
+                            title="Speichern unter…"
+                        >
+                            <ChevronDown className={ICON_SIZES[12]} />
+                        </button>
+
+                        {showSaveAs && (
+                            <div className="absolute right-0 top-full mt-1 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-4 space-y-3">
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Speichern unter</p>
+
+                                {/* Class selector */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Klasse</label>
+                                    {!showNewClass ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <select
+                                                value={saveAsClassId}
+                                                onChange={(e) => setSaveAsClassId(e.target.value)}
+                                                className="flex-1 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                            >
+                                                <option value="">Keine Klasse</option>
+                                                {hasMissingClassSelection && classId && (
+                                                    <option value={classId}>Gelöschtes Profil</option>
+                                                )}
+                                                {classOptions.map((entry) => (
+                                                    <option key={entry.id} value={entry.id}>{entry.name}</option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                onClick={() => setShowNewClass(true)}
+                                                className="shrink-0 p-1.5 rounded-md text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+                                                title="Neue Klasse anlegen"
+                                            >
+                                                <Plus className={ICON_SIZES[14]} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value={newClassName}
+                                            onChange={(e) => setNewClassName(e.target.value)}
+                                            placeholder="Neue Klasse (z.B. 4a)"
+                                            className="w-full text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 placeholder:text-slate-400"
+                                            autoFocus
+                                        />
+                                    )}
+                                </div>
+
+                                {/* Subject selector */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Fach</label>
+                                    {!showNewSubject ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <select
+                                                value={saveAsSubjectId}
+                                                onChange={(e) => setSaveAsSubjectId(e.target.value)}
+                                                className="flex-1 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                            >
+                                                <option value="">Kein Fach</option>
+                                                {subjects.map((sub) => (
+                                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                onClick={() => setShowNewSubject(true)}
+                                                className="shrink-0 p-1.5 rounded-md text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
+                                                title="Neues Fach anlegen"
+                                            >
+                                                <Plus className={ICON_SIZES[14]} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value={newSubjectName}
+                                            onChange={(e) => setNewSubjectName(e.target.value)}
+                                            placeholder="Neues Fach (z.B. Mathematik)"
+                                            className="w-full text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 placeholder:text-slate-400"
+                                            autoFocus
+                                        />
+                                    )}
+                                </div>
+
+                                <button
+                                    onClick={() => void handleSaveAs()}
+                                    disabled={isAnySaveInProgress}
+                                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <Save className={ICON_SIZES[14]} />
+                                    Speichern unter
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     <ExportMenu
                         hasTasks={hasTasks}

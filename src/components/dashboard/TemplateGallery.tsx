@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, LayoutTemplate, Trash2, Pencil } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { DesignTemplate } from '../../types/designTemplate';
+import { Modal } from '../ui/Modal';
 
 interface TemplateGalleryProps {
     isOpen: boolean;
@@ -87,16 +88,16 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
         })();
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
-
-            <div className="relative w-full max-w-4xl max-h-[85vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            ariaLabel="Vorlagen-Galerie"
+            className="w-full max-w-4xl max-h-[85vh] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        >
                 <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 shrink-0" />
 
-                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-white/[0.06] shrink-0">
                     <div>
                         <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
                             Vorlagen-Galerie
@@ -107,7 +108,7 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-lg transition-colors cursor-pointer"
                     >
                         <X size={18} className="text-slate-400" />
                     </button>
@@ -127,7 +128,7 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
                     )}
 
                     {!errorMessage && designTemplates.length === 0 && (
-                        <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-700/40 rounded-2xl bg-white/50 dark:bg-slate-800/20">
+                        <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-white/[0.06] rounded-2xl bg-white/50 dark:bg-white/[0.02]">
                             <LayoutTemplate size={34} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
                             <p className="text-sm text-slate-500 dark:text-slate-400">Noch keine Vorlagen gespeichert.</p>
                         </div>
@@ -143,7 +144,7 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
                                 return (
                                     <article
                                         key={template.id}
-                                        className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/50 rounded-xl overflow-hidden shadow-sm"
+                                        className="bg-white dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.06] rounded-xl overflow-hidden shadow-sm"
                                     >
                                         <div className="h-1" style={{ backgroundColor: template.design.brandColor }} />
 
@@ -181,7 +182,6 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
+            </Modal>
     );
 };

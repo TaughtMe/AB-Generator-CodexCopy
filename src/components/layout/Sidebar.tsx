@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, LayoutDashboard, FolderOpen, Users, Settings, HelpCircle, ChevronDown, Trash2 } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Users, Settings, HelpCircle, ChevronDown, Trash2 } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { DashboardView } from './AppShell';
@@ -20,7 +20,6 @@ interface SidebarProps {
 /** Navigation items */
 const NAV_ITEMS: { id: DashboardView | 'settings'; label: string; icon: React.ElementType; action?: 'settings' }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'dashboard', label: 'Meine Materialien', icon: FolderOpen },
     { id: 'profiles', label: 'Klassen & Fächer', icon: Users },
     { id: 'trash', label: 'Papierkorb', icon: Trash2 },
     { id: 'settings', label: 'Einstellungen', icon: Settings, action: 'settings' },

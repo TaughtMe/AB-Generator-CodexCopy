@@ -8,6 +8,7 @@ import { validateTemplateName } from '../../types/designTemplate';
 import { CURATED_FONTS, loadGoogleFont, preloadCuratedFonts } from '../../utils/googleFonts';
 import { IconButton } from '../ui/IconButton';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { Modal } from '../ui/Modal';
 
 /* ══════════════════════════════════════════════════
    DesignEditor – Arbeitsblatt-Design konfigurieren
@@ -194,20 +195,18 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
         setStatusMessage({ type: 'success', text: 'Vorlage gelöscht.' });
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-
-            {/* Modal – wide split-panel */}
-            <div className="relative w-full max-w-5xl max-h-[90vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            ariaLabel="Design-Editor"
+            className="w-full max-w-5xl max-h-[90vh] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        >
                 {/* Gradient bar */}
                 <div className="h-1 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 shrink-0" />
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-white/[0.06] shrink-0">
                     <div className="flex items-center gap-2">
                         <div className="p-1.5 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-lg">
                             <Palette className={`${ICON_SIZES[16]} text-white`} />
@@ -239,7 +238,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                 <div className="flex flex-1 overflow-hidden">
 
                     {/* ─── Left: Controls ─── */}
-                    <div className="w-80 shrink-0 border-r border-slate-100 dark:border-slate-800 overflow-y-auto custom-scrollbar p-5 space-y-5">
+                    <div className="w-80 shrink-0 border-r border-slate-100 dark:border-white/[0.06] overflow-y-auto custom-scrollbar p-5 space-y-5">
 
                         {/* Logo */}
                         <div>
@@ -252,7 +251,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                 <select
                                     value={activeTemplateId}
                                     onChange={(e) => setActiveTemplateId(e.target.value)}
-                                    className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300"
+                                    className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300"
                                 >
                                     <option value="">Vorlage auswählen...</option>
                                     {designTemplates.map((template) => (
@@ -272,7 +271,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                     <button
                                         onClick={handleApplyTemplate}
                                         disabled={!activeTemplateId || isTemplateLoading}
-                                        className="px-2.5 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                        className="px-2.5 py-2 text-xs rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.07] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                                     >
                                         {isTemplateLoading ? 'Lädt...' : 'Anwenden'}
                                     </button>
@@ -296,7 +295,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-100 dark:border-slate-800" />
+                        <div className="border-t border-slate-100 dark:border-white/[0.06]" />
 
                         {/* Logo */}
                         <div>
@@ -311,7 +310,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                     <img
                                         src={logoPreview}
                                         alt="Logo"
-                                        className="h-14 w-auto rounded-lg border border-slate-200 dark:border-slate-700 object-contain bg-white p-1"
+                                        className="h-14 w-auto rounded-lg border border-slate-200 dark:border-white/[0.08] object-contain bg-white p-1"
                                     />
                                     <IconButton
                                         onClick={removeLogo}
@@ -341,7 +340,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                                 maxLength={3}
                                                 onChange={(e) => setLogoText(e.target.value.slice(0, 3))}
                                                 placeholder="z.B. GS"
-                                                className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 font-mono tracking-wider"
+                                                className="w-full px-2 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 font-mono tracking-wider"
                                             />
                                         </div>
                                     </div>
@@ -368,7 +367,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                             />
                         </div>
 
-                        <div className="border-t border-slate-100 dark:border-slate-800" />
+                        <div className="border-t border-slate-100 dark:border-white/[0.06]" />
 
                         {/* Header Title */}
                         <div>
@@ -380,11 +379,11 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                 value={schoolName}
                                 onChange={(e) => setSchoolName(e.target.value)}
                                 placeholder="z.B. Grundschule am Park"
-                                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
+                                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
                             />
                         </div>
 
-                        <div className="border-t border-slate-100 dark:border-slate-800" />
+                        <div className="border-t border-slate-100 dark:border-white/[0.06]" />
 
                         {/* Header / Title / Task Color Toggles */}
                         <div>
@@ -432,7 +431,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-100 dark:border-slate-800" />
+                        <div className="border-t border-slate-100 dark:border-white/[0.06]" />
 
                         {/* Header Fields */}
                         <div>
@@ -465,7 +464,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-100 dark:border-slate-800" />
+                        <div className="border-t border-slate-100 dark:border-white/[0.06]" />
 
                         {/* Font Family */}
                         <div>
@@ -482,7 +481,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                     value={fontSearch}
                                     onChange={(e) => setFontSearch(e.target.value)}
                                     placeholder="Font suchen..."
-                                    className="w-full pl-7 pr-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
+                                    className="w-full pl-7 pr-2.5 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
                                 />
                             </div>
 
@@ -508,7 +507,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                                         }}
                                                         className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer border ${fontFamily === value
                                                                 ? 'bg-violet-50 dark:bg-violet-900/30 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 font-medium'
-                                                                : 'bg-white dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                                : 'bg-white dark:bg-white/[0.04] border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.07]'
                                                             }`}
                                                         style={{ fontFamily: value }}
                                                     >
@@ -522,7 +521,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-100 dark:border-slate-800" />
+                        <div className="border-t border-slate-100 dark:border-white/[0.06]" />
 
                         {/* Brand Color */}
                         <div>
@@ -678,7 +677,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 shrink-0">
+                <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-white/[0.03] shrink-0">
                     <p className={`text-[10px] ${statusMessage?.type === 'error' ? 'text-red-500' : 'text-slate-400'}`}>
                         {statusMessage?.text ?? 'Design wird erst beim Klick auf „Als Vorlage speichern“ als Vorlage gesichert.'}
                     </p>
@@ -697,12 +696,11 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                         </button>
                     </div>
                 </div>
-            </div>
 
             {isSaveDialogOpen && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/40" onClick={() => setIsSaveDialogOpen(false)} />
-                    <div className="relative w-full max-w-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
+                    <div className="relative w-full max-w-sm rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#141c30] p-4 shadow-2xl">
                         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">
                             {editingTemplate ? 'Vorlage aktualisieren' : 'Als Vorlage speichern'}
                         </h3>
@@ -719,7 +717,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                                 setIsNameConflict(false);
                             }}
                             maxLength={50}
-                            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300"
+                            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-slate-700 dark:text-slate-300"
                             placeholder="z.B. Deutsch Klasse 4"
                             autoFocus
                         />
@@ -731,7 +729,7 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                         <div className="mt-4 flex items-center justify-end gap-2">
                             <button
                                 onClick={() => setIsSaveDialogOpen(false)}
-                                className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                                className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.06] cursor-pointer"
                             >
                                 Abbrechen
                             </button>
@@ -757,6 +755,6 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
                     </div>
                 </div>
             )}
-        </div>
+        </Modal>
     );
 };

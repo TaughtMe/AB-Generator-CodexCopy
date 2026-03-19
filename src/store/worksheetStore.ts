@@ -12,6 +12,7 @@ import type {
     LineaturTask,
     MultipleChoiceOption,
     ClozeGapStyle,
+    ClozeWordBankMode,
     ImageAlignment,
 } from '../types/worksheet';
 import type { ChatMessage } from '../types/ai';
@@ -36,6 +37,10 @@ interface WorksheetStore extends Worksheet {
     saveStatus: WorksheetSaveStatus;
     showHeader: boolean;
     activeTaskId: string | null;
+    /** @internal Undo-Stack (Task-Snapshots) */
+    _undoStack: WorksheetTaskState[];
+    /** @internal Redo-Stack (Task-Snapshots) */
+    _redoStack: WorksheetTaskState[];
     // Actions
     addTask: (type: TaskType) => void;
     /** Fügt einen neuen Task an einer bestimmten Position ein */
@@ -64,6 +69,10 @@ interface WorksheetStore extends Worksheet {
     assignToColumn: (columnsId: string, slotIndex: 0 | 1, taskId: string | null) => void;
     /** Remove a child from its column and place it back in the root list */
     detachFromColumn: (columnsId: string, slotIndex: 0 | 1) => void;
+    /** Undo letzte Task-Mutation */
+    undo: () => void;
+    /** Redo letzte rückgängig gemachte Task-Mutation */
+    redo: () => void;
     /** Lädt ein gespeichertes Arbeitsblatt (aus Dexie) */
     loadFromRecord: (
         id: string,
@@ -85,6 +94,7 @@ const DEFAULT_LINE_STYLE: LineStyle = 'grid-5mm';
 const VALID_LINE_STYLES: LineStyle[] = ['grid-5mm', 'grid-10mm', 'lines-8mm', 'primary-4-lines'];
 const VALID_COLUMNS_LAYOUTS: ColumnsLayout[] = ['50-50', '60-40', '40-60'];
 const VALID_CLOZE_GAP_STYLES: ClozeGapStyle[] = ['continuous', 'per-letter'];
+const VALID_CLOZE_WORD_BANK_MODES: ClozeWordBankMode[] = ['hidden', 'mixed', 'upside-down'];
 const VALID_IMAGE_ALIGNMENTS: ImageAlignment[] = ['left', 'center', 'right'];
 
 /**
@@ -113,7 +123,14 @@ function createNewTask(type: TaskType): Task {
                 lineRows: 4,
             };
         case 'cloze':
-            return { ...base, type: 'cloze', title: 'Lückentext', content: '' };
+            return {
+                ...base,
+                type: 'cloze',
+                title: 'Lückentext',
+                content: '',
+                wordBankMode: 'hidden',
+                distractors: '',
+            };
         case 'image-placeholder':
             return { ...base, type: 'image-placeholder', caption: '', imageAlign: 'left', widthMm: 80, heightMm: 60 };
         case 'math':
@@ -143,6 +160,14 @@ function createNewTask(type: TaskType): Task {
                 content: '',
                 rows: 3,
                 cols: 3,
+            };
+        case 'information':
+            return {
+                ...base,
+                type: 'information',
+                title: 'Information',
+                text: '',
+                showNumber: false,
             };
         default:
             throw new Error(`Unsupported task type: ${type}`);
@@ -246,12 +271,22 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                     ? task.gapMultiplier
                     : fallback.gapMultiplier;
 
+            const wordBankMode = VALID_CLOZE_WORD_BANK_MODES.includes(task.wordBankMode as ClozeWordBankMode)
+                ? (task.wordBankMode as ClozeWordBankMode)
+                : (fallback.wordBankMode ?? 'hidden');
+
+            const distractors = typeof task.distractors === 'string'
+                ? task.distractors
+                : (fallback.distractors ?? '');
+
             return {
                 ...task,
                 title: typeof task.title === 'string' ? task.title : fallback.title,
                 content: typeof task.content === 'string' ? task.content : fallback.content,
                 gapStyle,
                 gapMultiplier,
+                wordBankMode,
+                distractors,
             };
         }
 
@@ -384,6 +419,18 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
             };
         }
 
+        case 'information': {
+            const fallback: TaskByType<'information'> = fallbackTask.type === 'information'
+                ? fallbackTask
+                : createDefaultTaskOfType('information');
+
+            return {
+                ...task,
+                title: typeof task.title === 'string' ? task.title : fallback.title,
+                text: typeof task.text === 'string' ? task.text : fallback.text,
+            };
+        }
+
         default:
             return task;
     }
@@ -451,6 +498,20 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
                         ? lineTask.gridColumns
                         : getGridColumns(normalizedLineStyle),
             } as Task;
+            continue;
+        }
+
+        if (task.type === 'cloze') {
+            const clozeTask = task as TaskByType<'cloze'>;
+            const normalizedWordBankMode = VALID_CLOZE_WORD_BANK_MODES.includes(clozeTask.wordBankMode as ClozeWordBankMode)
+                ? (clozeTask.wordBankMode as ClozeWordBankMode)
+                : 'hidden';
+
+            normalized[id] = {
+                ...task,
+                wordBankMode: normalizedWordBankMode,
+                distractors: typeof clozeTask.distractors === 'string' ? clozeTask.distractors : '',
+            };
             continue;
         }
 
@@ -570,6 +631,21 @@ function syncActiveVariantTaskState(
     };
 }
 
+const MAX_UNDO_STACK = 50;
+
+/** Push current task state to undo stack (call before mutations) */
+function pushUndoSnapshot(state: WorksheetStore): { _undoStack: WorksheetTaskState[]; _redoStack: WorksheetTaskState[] } {
+    const activeVariant = state.variants[getActiveVariantIndex(state)];
+    if (!activeVariant) return { _undoStack: state._undoStack, _redoStack: [] };
+    const snapshot: WorksheetTaskState = {
+        tasksById: activeVariant.tasksById,
+        taskIds: activeVariant.taskIds,
+    };
+    const stack = [...state._undoStack, snapshot];
+    if (stack.length > MAX_UNDO_STACK) stack.shift();
+    return { _undoStack: stack, _redoStack: [] };
+}
+
 function syncActiveVariantTaskStateUnsaved(
     state: WorksheetStore,
     nextTaskState: WorksheetTaskState,
@@ -597,6 +673,8 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
     classId: undefined,
     showHeader: false,
     activeTaskId: null,
+    _undoStack: [],
+    _redoStack: [],
 
     /**
      * Erstellt einen Root-Task und hängt ihn an das Ende von `taskIds`.
@@ -609,7 +687,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
             taskIds: [...activeVariant.taskIds, newTask.id],
         };
-        return syncActiveVariantTaskStateUnsaved(state, nextTaskState);
+        return { ...syncActiveVariantTaskStateUnsaved(state, nextTaskState), ...pushUndoSnapshot(state) };
     }),
 
     /**
@@ -623,10 +701,13 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         const newTaskIds = [...activeVariant.taskIds];
         const clampedIndex = Math.max(0, Math.min(index, newTaskIds.length));
         newTaskIds.splice(clampedIndex, 0, newTask.id);
-        return syncActiveVariantTaskStateUnsaved(state, {
-            tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
-            taskIds: newTaskIds,
-        });
+        return {
+            ...syncActiveVariantTaskStateUnsaved(state, {
+                tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
+                taskIds: newTaskIds,
+            }),
+            ...pushUndoSnapshot(state),
+        };
     }),
 
     /**
@@ -719,6 +800,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
     removeTask: (id) => set((state) => {
         const activeVariant = state.variants[getActiveVariantIndex(state)];
         if (!activeVariant) return state;
+        const undoData = pushUndoSnapshot(state);
         const { [id]: removed, ...remainingTasks } = activeVariant.tasksById;
         const removedTaskIds = new Set<string>([id]);
 
@@ -761,12 +843,16 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         return {
             ...nextState,
             activeTaskId: nextActiveTaskId,
+            ...undoData,
         };
     }),
 
-    reorderTasks: (taskIds) => set((state) => syncActiveVariantTaskStateUnsaved(state, {
-        tasksById: state.tasksById,
-        taskIds,
+    reorderTasks: (taskIds) => set((state) => ({
+        ...syncActiveVariantTaskStateUnsaved(state, {
+            tasksById: state.tasksById,
+            taskIds,
+        }),
+        ...pushUndoSnapshot(state),
     })),
 
     moveTask: (taskId, sourceContainerId, targetContainerId, newIndex) => set((state) => {
@@ -891,6 +977,8 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             classId: typeof classId === 'string' && classId.trim() ? classId : undefined,
             saveStatus: 'saved',
             activeTaskId: null,
+            _undoStack: [],
+            _redoStack: [],
         };
     }),
 
@@ -908,6 +996,40 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             classId: undefined,
             saveStatus: 'unsaved',
             activeTaskId: null,
+            _undoStack: [],
+            _redoStack: [],
+        };
+    }),
+
+    undo: () => set((state) => {
+        if (state._undoStack.length === 0) return state;
+        const stack = [...state._undoStack];
+        const prev = stack.pop()!;
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        const currentSnapshot: WorksheetTaskState = activeVariant
+            ? { tasksById: activeVariant.tasksById, taskIds: activeVariant.taskIds }
+            : { tasksById: state.tasksById, taskIds: state.taskIds };
+        return {
+            ...syncActiveVariantTaskState(state, prev),
+            _undoStack: stack,
+            _redoStack: [...state._redoStack, currentSnapshot],
+            saveStatus: 'unsaved',
+        };
+    }),
+
+    redo: () => set((state) => {
+        if (state._redoStack.length === 0) return state;
+        const stack = [...state._redoStack];
+        const next = stack.pop()!;
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        const currentSnapshot: WorksheetTaskState = activeVariant
+            ? { tasksById: activeVariant.tasksById, taskIds: activeVariant.taskIds }
+            : { tasksById: state.tasksById, taskIds: state.taskIds };
+        return {
+            ...syncActiveVariantTaskState(state, next),
+            _undoStack: [...state._undoStack, currentSnapshot],
+            _redoStack: stack,
+            saveStatus: 'unsaved',
         };
     }),
 
@@ -924,6 +1046,7 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         if (!activeVariant) return state;
         const original = activeVariant.tasksById[id];
         if (!original) return state;
+        const undoData = pushUndoSnapshot(state);
 
         const newId = crypto.randomUUID();
         let cloned: Task;
@@ -964,10 +1087,13 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             const insertIndex = activeVariant.taskIds.indexOf(id) + 1;
             const newTaskIds = [...activeVariant.taskIds];
             newTaskIds.splice(insertIndex, 0, newId);
-            return syncActiveVariantTaskStateUnsaved(state, {
-                tasksById: { ...activeVariant.tasksById, [newId]: cloned, ...extraTasks },
-                taskIds: newTaskIds,
-            });
+            return {
+                ...syncActiveVariantTaskStateUnsaved(state, {
+                    tasksById: { ...activeVariant.tasksById, [newId]: cloned, ...extraTasks },
+                    taskIds: newTaskIds,
+                }),
+                ...undoData,
+            };
         } else {
             cloned = {
                 ...original,
@@ -980,10 +1106,13 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
         const newTaskIds = [...activeVariant.taskIds];
         newTaskIds.splice(insertIndex, 0, newId);
 
-        return syncActiveVariantTaskStateUnsaved(state, {
-            tasksById: { ...activeVariant.tasksById, [newId]: cloned },
-            taskIds: newTaskIds,
-        });
+        return {
+            ...syncActiveVariantTaskStateUnsaved(state, {
+                tasksById: { ...activeVariant.tasksById, [newId]: cloned },
+                taskIds: newTaskIds,
+            }),
+            ...undoData,
+        };
     }),
 
     setActiveVariant: (variantId) => set((state) => {
