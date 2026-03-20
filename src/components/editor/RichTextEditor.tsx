@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Color from '@tiptap/extension-color';
@@ -10,7 +10,6 @@ import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import { CellSelection, deleteColumn, deleteRow } from '@tiptap/pm/tables';
 import { clsx } from 'clsx';
-import { useFontStore } from '../../store/fontStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { StyledTableCell, StyledTableHeader } from './tiptapTableStyling';
 import { FontSize } from './tiptapFontSize';
@@ -74,13 +73,12 @@ function RichTextEditorInner({
     placeholder = 'Text eingeben…',
     minRows = 3,
     className,
-    hideToolbar = false,
     variant = 'default',
     onEditorReady,
 }: RichTextEditorProps) {
     const setActiveEditor = useWorkspaceStore((s) => s.setActiveEditor);
     const isMinimal = variant === 'minimal';
-    const [isFocused, setIsFocused] = useState(false);
+    const [, setIsFocused] = useState(false);
     const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const editor = useEditor({
@@ -117,7 +115,7 @@ function RichTextEditorInner({
         editorProps: {
             attributes: {
                 class: 'rich-text-content outline-none',
-                style: isMinimal ? undefined : `min-height: ${minRows * 1.6}em`,
+                ...(!isMinimal ? { style: `min-height: ${minRows * 1.6}em` } : {}),
             },
             handleKeyDown: (view, event) => {
                 if (event.key !== 'Backspace' && event.key !== 'Delete') {

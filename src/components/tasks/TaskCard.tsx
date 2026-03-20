@@ -27,6 +27,7 @@ const TASK_TYPE_LABELS: Record<Task['type'], string> = {
     'columns': 'Zweispaltig',
     'page-break': 'Seitenumbruch',
     'image-placeholder': 'Bild-Platzhalter',
+    'information': 'Information',
 };
 
 interface TaskCardProps {

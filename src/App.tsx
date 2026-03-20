@@ -13,7 +13,6 @@ import { Dashboard } from './components/dashboard/Dashboard';
 import { TrashView } from './components/dashboard/TrashView';
 import { DesignEditor } from './components/dashboard/DesignEditor';
 import { TemplateGallery } from './components/dashboard/TemplateGallery';
-import { TopBar } from './components/editor/TopBar';
 import type { ExportVariant } from './components/editor/ExportMenu';
 import { RibbonToolbar } from './components/layout/RibbonToolbar';
 import { VariantTabs } from './components/editor/VariantTabs';
@@ -27,7 +26,6 @@ import { ClassesDashboard } from './components/dashboard/ClassesDashboard';
 import './styles/PrintStyles.css';
 
 function App() {
-  const worksheetId = useWorksheetStore((state) => state.id);
   const title = useWorksheetStore((state) => state.title);
   const taskIds = useWorksheetStore((state) => state.taskIds);
   const tasksById = useWorksheetStore((state) => state.tasksById);
@@ -46,15 +44,8 @@ function App() {
   const removeVariant = useWorksheetStore((state) => state.removeVariant);
   const showHeader = useWorksheetStore((state) => state.showHeader);
   const setShowHeader = useWorksheetStore((state) => state.setShowHeader);
-  const setTitle = useWorksheetStore((state) => state.setTitle);
-  const classId = useWorksheetStore((state) => state.classId);
-  const setClassId = useWorksheetStore((state) => state.setClassId);
 
   const saveCurrentWorksheet = useWorkspaceStore((s) => s.saveCurrentWorksheet);
-  const exportWorksheet = useWorkspaceStore((s) => s.exportWorksheet);
-  const shareWorksheet = useWorkspaceStore((s) => s.shareWorksheet);
-  const canShareWorksheetFiles = useWorkspaceStore((s) => s.canShareWorksheetFiles);
-  const classProfiles = useWorkspaceStore((s) => s.classProfiles);
   const loadClassProfiles = useWorkspaceStore((s) => s.loadClassProfiles);
   const currentView = useWorkspaceStore((s) => s.currentView);
   const setCurrentView = useWorkspaceStore((s) => s.setCurrentView);
@@ -71,7 +62,6 @@ function App() {
   const fontFamily = useSettingsStore((state) => state.fontFamily);
   const brandColor = useSettingsStore((state) => state.brandColor);
   const themeMode = useSettingsStore((state) => state.themeMode);
-  const toggleThemeMode = useSettingsStore((state) => state.toggleThemeMode);
   const loadCustomFonts = useFontStore((state) => state.loadCustomFonts);
 
   const [dashboardView, setDashboardView] = useState<DashboardView>('dashboard');
@@ -80,8 +70,6 @@ function App() {
   const [showSourcesManager, setShowSourcesManager] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [isAbgenExporting, setIsAbgenExporting] = useState(false);
-  const [isAbgenSharing, setIsAbgenSharing] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', themeMode === 'dark');
@@ -154,32 +142,6 @@ function App() {
     const { exportToDocx } = await import('./utils/docx');
     for (const variant of variants) {
       await exportToDocx(title, tasksById, taskIds, variant === 'teacher');
-    }
-  };
-
-  const handleAbgenExport = async () => {
-    if (taskIds.length === 0 || isAbgenExporting) return;
-    setIsAbgenExporting(true);
-    try {
-      await saveCurrentWorksheet();
-      await exportWorksheet(worksheetId);
-    } catch (error) {
-      window.alert('ABGEN-Export fehlgeschlagen.\n\n' + String(error));
-    } finally {
-      setIsAbgenExporting(false);
-    }
-  };
-
-  const handleAbgenShare = async () => {
-    if (taskIds.length === 0 || isAbgenSharing) return;
-    setIsAbgenSharing(true);
-    try {
-      await saveCurrentWorksheet();
-      await shareWorksheet(worksheetId);
-    } catch (error) {
-      window.alert('ABGEN-Teilen fehlgeschlagen.\n\n' + String(error));
-    } finally {
-      setIsAbgenSharing(false);
     }
   };
 
