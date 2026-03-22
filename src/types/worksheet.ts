@@ -41,6 +41,9 @@ export interface LineaturTask extends BaseTask {
     gridColumns: number;
     lineStyle: LineStyle;
     lineRows: number; // Number of line groups/rows (min 1, default 4)
+    rowCount?: number;
+    lineHeight?: number;
+    gapColor?: string;
 }
 
 export type ClozeGapStyle = 'continuous' | 'per-letter';
@@ -61,6 +64,10 @@ export interface ImagePlaceholderTask extends BaseTask {
     imageId?: number;   // Dexie-ID des hochgeladenen Bildes
     caption: string;
     imageAlign?: ImageAlignment; // Default: 'left'
+    align?: ImageAlignment; // Ribbon-Sync
+    opacity?: number; // 0..1
+    width?: string; // z.B. "320px" / "100%"
+    height?: string; // z.B. "auto" / "180px"
     widthMm: number;    // Breite auf dem A4-Blatt
     heightMm: number;   // Höhe auf dem A4-Blatt
 }

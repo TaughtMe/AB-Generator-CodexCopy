@@ -77,7 +77,7 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                     {task.options.map((option) => (
                         <div
                             key={option.id}
-                            className="mc-option-card flex items-start gap-2 group/option rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-1.5 h-auto transition-colors focus-within:ring-2 focus-within:ring-blue-500/35 focus-within:border-blue-500"
+                            className="mc-option-card flex items-start gap-2 group/option rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-1.5 min-h-0 h-auto transition-colors focus-within:ring-2 focus-within:ring-blue-500/35 focus-within:border-blue-500"
                         >
                             {/* Correct toggle – mc-correct-marker controls print visibility */}
                             {isActive ? (
@@ -94,14 +94,14 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                                 </button>
                             ) : (
                                 <span
-                                    className="shrink-0 w-5 h-5 mt-1 border-2 border-worksheet-border rounded-sm print:hidden"
+                                    className="shrink-0 w-5 h-5 mt-1.5 border-2 border-worksheet-border rounded-sm print:hidden"
                                     data-correct={option.isCorrect}
                                 />
                             )}
 
                             {/* Print-only checkbox indicator */}
                             <span
-                                className="mc-print-checkbox hidden shrink-0 w-5 h-5 mt-1 border-2 border-worksheet-border rounded-sm"
+                                className="mc-print-checkbox hidden shrink-0 w-5 h-5 mt-1.5 border-2 border-worksheet-border rounded-sm"
                                 data-correct={option.isCorrect}
                             />
 

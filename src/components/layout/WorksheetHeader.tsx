@@ -24,6 +24,7 @@ export const WorksheetHeader: React.FC = () => {
     } = useSettingsStore();
     const showHeader = useWorksheetStore((s) => s.showHeader);
     const liveTitle = useWorksheetStore((s) => s.title);
+    const setTitle = useWorksheetStore((s) => s.setTitle);
     const currentWorksheetId = useWorkspaceStore((s) => s.currentWorksheetId);
     const recentWorksheets = useWorkspaceStore((s) => s.recentWorksheets);
     const { previewUrl: logoUrl, setPreviewUrl, clearImage } = useImageUpload();
@@ -31,7 +32,8 @@ export const WorksheetHeader: React.FC = () => {
     const persistedTitle = currentWorksheetId
         ? recentWorksheets.find((sheet) => sheet.id === currentWorksheetId)?.title
         : null;
-    const title = liveTitle || persistedTitle || 'Neues Arbeitsblatt';
+    const title = liveTitle ?? persistedTitle ?? 'Neues Arbeitsblatt';
+    const printableTitle = title.trim() ? title : 'Neues Arbeitsblatt';
 
     useEffect(() => {
         if (logoImageId) {
@@ -49,7 +51,15 @@ export const WorksheetHeader: React.FC = () => {
                     className="text-base font-bold text-slate-800 pb-3 mb-4"
                     style={{ borderBottom: '2px solid #e2e8f0' }}
                 >
-                    {title || 'Neues Arbeitsblatt'}
+                    <input
+                        type="text"
+                        value={title}
+                        onChange={(event) => setTitle(event.target.value)}
+                        placeholder="Titel des Arbeitsblattes"
+                        aria-label="Titel des Arbeitsblattes"
+                        className="no-print w-full bg-transparent border-0 p-0 text-base font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                    />
+                    <span className="hidden print:block">{printableTitle}</span>
                 </h2>
             </div>
         );
@@ -95,7 +105,15 @@ export const WorksheetHeader: React.FC = () => {
                             )}
                             {showWorksheetTitle && (
                                 <p className="text-sm text-slate-600 leading-tight mt-0.5">
-                                    {title}
+                                    <input
+                                        type="text"
+                                        value={title}
+                                        onChange={(event) => setTitle(event.target.value)}
+                                        placeholder="Titel des Arbeitsblattes"
+                                        aria-label="Titel des Arbeitsblattes"
+                                        className="no-print w-full bg-transparent border-0 p-0 text-sm text-slate-600 placeholder:text-slate-400 focus:outline-none"
+                                    />
+                                    <span className="hidden print:block">{printableTitle}</span>
                                 </p>
                             )}
                         </div>

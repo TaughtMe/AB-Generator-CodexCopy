@@ -150,7 +150,11 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
 
     return (
         <div className="a4-desk">
-            <div className="a4-page editor-a4-page bg-worksheet-paper text-worksheet-ink shadow-lg" style={pageStyle} data-brand-color={brandColor}>
+            <div
+                className="a4-page editor-a4-page shrink-0 w-full max-w-[794px] min-w-[794px] min-h-[1123px] print:min-h-[297mm] print:h-auto bg-white text-worksheet-ink shadow-lg mx-auto p-[20mm]"
+                style={pageStyle}
+                data-brand-color={brandColor}
+            >
                 <div ref={containerRef} className="worksheet-content flow-root">
                     {renderItems}
                 </div>

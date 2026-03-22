@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import {
     Home,
     Save,
@@ -24,15 +24,19 @@ import {
     Moon,
     Sun,
     BookOpen,
+    Crop,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useStore } from 'zustand';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useFontStore } from '../../store/fontStore';
-import { ColorPickerDropdown } from '../editor/ColorPickerDropdown';
+import type { ImagePlaceholderTask } from '../../types/worksheet';
 import { FONT_SIZE_OPTIONS } from '../editor/tiptapFontSize';
+import type { ExportVariant } from '../editor/ExportMenu';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { ColorPickerButton } from '../ui/ColorPickerButton';
 
 /* ══════════════════════════════════════════════════
    RibbonToolbar – Zentrale Ribbon-Toolbar (MS-Word-Stil)
@@ -41,7 +45,15 @@ import { ICON_SIZES } from '../ui/iconSizes';
    activeEditor-State.
    ══════════════════════════════════════════════════ */
 
-type RibbonTab = 'allgemein' | 'tabellen' | 'sonderzeichen';
+type RibbonTab = 'Allgemein' | 'Tabellen' | 'Sonderzeich.' | 'Bildformat';
+
+interface ToolbarBlock {
+    label: string;
+    content: ReactNode;
+    hideLabel?: boolean;
+    disabled?: boolean;
+    className?: string;
+}
 
 const FONT_FAMILY_OPTIONS = [
     { label: 'Standard', value: '' },
@@ -50,24 +62,13 @@ const FONT_FAMILY_OPTIONS = [
     { label: 'Comic Sans MS', value: 'Comic Sans MS' },
 ];
 
-function normalizeColorForInput(color?: string): string {
-    if (!color) return '#000000';
-    const trimmed = color.trim();
-    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
-    if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
-        const [, r, g, b] = trimmed;
-        return `#${r}${r}${g}${g}${b}${b}`;
-    }
-    return '#000000';
-}
-
 export interface RibbonToolbarProps {
     onBackToDashboard: () => void;
     onSave: () => Promise<void> | void;
     isSaving: boolean;
     hasTasks: boolean;
-    onExportPdf: () => void;
-    onExportDocx: () => void;
+    onExportPdf: (variants: ExportVariant[]) => Promise<void> | void;
+    onExportDocx: (variants: ExportVariant[]) => Promise<void> | void;
     onOpenSources: () => void;
 }
 
@@ -80,35 +81,72 @@ export function RibbonToolbar({
     onExportDocx,
     onOpenSources,
 }: RibbonToolbarProps) {
-    const [activeTab, setActiveTab] = useState<RibbonTab>('allgemein');
+    const [activeTab, setActiveTab] = useState<RibbonTab>('Allgemein');
     const [showAiDropdown, setShowAiDropdown] = useState(false);
-    const [showExportDropdown, setShowExportDropdown] = useState(false);
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
     const aiDropdownRef = useRef<HTMLDivElement>(null);
     const exportDropdownRef = useRef<HTMLDivElement>(null);
 
     const activeEditor = useWorkspaceStore((s) => s.activeEditor);
+    const updateTask = useWorkspaceStore((s) => s.updateTask);
     const saveStatus = useWorksheetStore((s) => s.saveStatus);
+    const activeTaskId = useWorksheetStore((s) => s.activeTaskId);
+    const tasksById = useWorksheetStore((s) => s.tasksById);
     const themeMode = useSettingsStore((s) => s.themeMode);
     const toggleThemeMode = useSettingsStore((s) => s.toggleThemeMode);
     const customFonts = useFontStore((s) => s.customFonts);
+    const canUndo = useStore(useWorksheetStore.temporal, (state) => state.pastStates.length > 0);
+    const canRedo = useStore(useWorksheetStore.temporal, (state) => state.futureStates.length > 0);
+    const activeTask = activeTaskId ? tasksById[activeTaskId] : undefined;
+    const activeImageTask = activeTask
+        && (((activeTask as { type?: string }).type === 'image-placeholder') || ((activeTask as { type?: string }).type === 'image'))
+        ? activeTask as ImagePlaceholderTask
+        : undefined;
+    const isImageTaskSelected = Boolean(activeImageTask);
+    const isInlineImageSelected = activeEditor?.isActive('image') ?? false;
+    const isImageSelected = isInlineImageSelected || isImageTaskSelected;
+
+    useEffect(() => {
+        if (isImageSelected) {
+            setActiveTab('Bildformat');
+            return;
+        }
+        if (activeTab === 'Bildformat') {
+            setActiveTab('Allgemein');
+        }
+    }, [isImageSelected, activeTab, activeEditor, activeTask]);
 
     const hasUnsavedChanges = saveStatus === 'unsaved';
     const editorDisabled = !activeEditor;
 
     // Close dropdowns on outside click
     useEffect(() => {
-        if (!showAiDropdown && !showExportDropdown) return;
+        if (!showAiDropdown && !isExportMenuOpen) return;
         const handler = (e: MouseEvent) => {
             if (showAiDropdown && aiDropdownRef.current && !aiDropdownRef.current.contains(e.target as Node)) {
                 setShowAiDropdown(false);
             }
-            if (showExportDropdown && exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
-                setShowExportDropdown(false);
+            if (isExportMenuOpen && exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
+                setIsExportMenuOpen(false);
             }
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, [showAiDropdown, showExportDropdown]);
+    }, [showAiDropdown, isExportMenuOpen]);
+
+    const handleExport = useCallback(async (target: 'pdf-student' | 'pdf-teacher' | 'docx') => {
+        if (!hasTasks) return;
+        setIsExportMenuOpen(false);
+        if (target === 'pdf-student') {
+            await onExportPdf(['student' as ExportVariant]);
+            return;
+        }
+        if (target === 'pdf-teacher') {
+            await onExportPdf(['teacher' as ExportVariant]);
+            return;
+        }
+        await onExportDocx(['student' as ExportVariant]);
+    }, [hasTasks, onExportDocx, onExportPdf]);
 
     // Force re-render on editor transaction to update active states
     const [, setTick] = useState(0);
@@ -119,12 +157,9 @@ export function RibbonToolbar({
         return () => { activeEditor.off('transaction', onTransaction); };
     }, [activeEditor]);
 
-    /* ── Helper: Textfarbwert lesen ── */
-    const textColor = activeEditor
-        ? normalizeColorForInput(
-            (activeEditor.getAttributes('textStyle') as { color?: string }).color,
-          )
-        : '#000000';
+    const activeTextColor = activeEditor
+        ? (((activeEditor.getAttributes('textStyle') as { color?: string }).color) ?? null)
+        : null;
 
     const selectedFontSize = activeEditor
         ? ((activeEditor.getAttributes('textStyle') as { fontSize?: string }).fontSize ?? '')
@@ -134,82 +169,125 @@ export function RibbonToolbar({
         ? ((activeEditor.getAttributes('textStyle') as { fontFamily?: string }).fontFamily ?? '')
         : '';
 
-    return (
-        <div className="no-print sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm select-none">
-            {/* ── Tab-Header ── */}
-            <div className="flex items-center gap-0 border-b border-slate-200 dark:border-slate-700 px-2">
-                {(['allgemein', 'tabellen', 'sonderzeichen'] as RibbonTab[]).map((tab) => (
-                    <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setActiveTab(tab)}
-                        className={clsx(
-                            'px-4 py-1.5 text-xs font-medium capitalize transition-colors cursor-pointer min-h-[44px] min-w-[44px]',
-                            activeTab === tab
-                                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
-                        )}
-                    >
-                        {tab === 'sonderzeichen' ? 'Sonderzeich.' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </button>
-                ))}
+    const imageAttributes = activeEditor
+        ? (activeEditor.getAttributes('image') as { align?: 'left' | 'center' | 'right' })
+        : undefined;
+
+    const selectedImageAlign: 'left' | 'center' | 'right' =
+        imageAttributes?.align === 'center' || imageAttributes?.align === 'right'
+            ? imageAttributes.align
+            : 'left';
+    const selectedTaskAlign: 'left' | 'center' | 'right' =
+        activeImageTask?.imageAlign === 'center' || activeImageTask?.imageAlign === 'right'
+            ? activeImageTask.imageAlign
+            : 'left';
+    const selectedToolbarImageAlign = isImageTaskSelected ? selectedTaskAlign : selectedImageAlign;
+    const systemBlock = useMemo<ToolbarBlock>(() => ({
+        label: 'System',
+        hideLabel: true,
+        className: 'ml-auto',
+        content: (
+            <div className="flex items-center gap-1">
+                <RibbonBtn
+                    title={themeMode === 'dark' ? 'Helles Design' : 'Dunkles Design'}
+                    onClick={toggleThemeMode}
+                    compact
+                >
+                    {themeMode === 'dark'
+                        ? <Sun className={ICON_SIZES[16]} />
+                        : <Moon className={ICON_SIZES[16]} />
+                    }
+                </RibbonBtn>
             </div>
+        ),
+    }), [themeMode, toggleThemeMode]);
 
-            {/* ── Ribbon Body (Allgemein tab) ── */}
-            {activeTab === 'allgemein' && (
-                <div className="flex flex-wrap items-center justify-start gap-0 px-1 py-0.5">
-                    {/* ─── Block 1: Home + Speichern ─── */}
-                    <RibbonGroup>
-                        <RibbonBtn
-                            title="Dashboard"
-                            onClick={onBackToDashboard}
-                        >
-                            <Home className={ICON_SIZES[18]} />
-                        </RibbonBtn>
-                        <RibbonBtn
-                            title={isSaving ? 'Speichert…' : 'Speichern'}
-                            onClick={onSave}
-                            disabled={isSaving}
-                        >
-                            <Save className={clsx(
-                                ICON_SIZES[18],
-                                hasUnsavedChanges ? 'text-red-500' : 'text-green-500',
-                            )} />
-                        </RibbonBtn>
-                    </RibbonGroup>
-
-                    <RibbonDivider />
-
-                    {/* ─── Block 2: Undo / Redo ─── */}
-                    <RibbonGroup disabled={editorDisabled}>
-                        <RibbonBtn
-                            title="Rückgängig (Ctrl+Z)"
-                            onClick={() => activeEditor?.chain().focus().undo().run()}
-                            disabled={editorDisabled || !activeEditor?.can().undo()}
-                        >
-                            <Undo2 className={ICON_SIZES[16]} />
-                        </RibbonBtn>
-                        <RibbonBtn
-                            title="Wiederholen (Ctrl+Y)"
-                            onClick={() => activeEditor?.chain().focus().redo().run()}
-                            disabled={editorDisabled || !activeEditor?.can().redo()}
-                        >
-                            <Redo2 className={ICON_SIZES[16]} />
-                        </RibbonBtn>
-                    </RibbonGroup>
-
-                    <RibbonDivider />
-
-                    {/* ─── Block 3 (2-zeilig): Textstile ─── */}
-                    <RibbonGroup disabled={editorDisabled}>
-                        <div className="flex flex-col gap-0.5">
-                            {/* Reihe 1: B I U S */}
-                            <div className="flex items-center gap-0.5">
+    const toolbarBlocks = useMemo<ToolbarBlock[]>(() => [
+        {
+            label: 'DATEI',
+            content: (
+                <div className="flex items-center gap-2">
+                    <RibbonBtn
+                        title="Dashboard"
+                        onClick={onBackToDashboard}
+                        compact
+                        className="!h-10 !w-10"
+                    >
+                        <Home className={ICON_SIZES[16]} />
+                    </RibbonBtn>
+                    <RibbonBtn
+                        title={isSaving ? 'Speichert…' : 'Speichern'}
+                        onClick={onSave}
+                        disabled={isSaving}
+                        compact
+                        className="!h-10 !w-10"
+                    >
+                        <Save className={clsx(
+                            ICON_SIZES[16],
+                            hasUnsavedChanges ? 'text-red-500' : 'text-green-500',
+                        )} />
+                    </RibbonBtn>
+                    <RibbonBtn
+                        title="Rückgängig (Ctrl+Z)"
+                        onClick={() => useWorksheetStore.temporal.getState().undo()}
+                        disabled={!canUndo}
+                        compact
+                        className="!h-10 !w-10"
+                    >
+                        <Undo2 className={ICON_SIZES[14]} />
+                    </RibbonBtn>
+                    <RibbonBtn
+                        title="Wiederholen (Ctrl+Y)"
+                        onClick={() => useWorksheetStore.temporal.getState().redo()}
+                        disabled={!canRedo}
+                        compact
+                        className="!h-10 !w-10"
+                    >
+                        <Redo2 className={ICON_SIZES[14]} />
+                    </RibbonBtn>
+                </div>
+            ),
+        },
+        {
+            label: 'Schriftart',
+            disabled: editorDisabled,
+            content: (
+                <div className="flex items-center gap-2">
+                    <div className="flex rounded-md shadow-sm border border-slate-700">
+                        <div className="px-1 py-1 border-r border-slate-700/60">
+                            <select
+                                value={selectedFontFamily}
+                                onChange={(e) => {
+                                    const font = e.target.value;
+                                    if (!activeEditor) return;
+                                    const chain = activeEditor.chain().focus();
+                                    if (!font) { chain.unsetFontFamily().run(); return; }
+                                    chain.setFontFamily(font).run();
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                disabled={editorDisabled}
+                                className="h-8 min-w-[130px] max-w-[170px] rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 text-xs text-slate-600 dark:text-slate-300 disabled:opacity-50"
+                                aria-label="Schriftart"
+                            >
+                                <optgroup label="Standard">
+                                    {FONT_FAMILY_OPTIONS.map((o) => <option key={o.label} value={o.value}>{o.label}</option>)}
+                                </optgroup>
+                                {customFonts.length > 0 && (
+                                    <optgroup label="Eigene">
+                                        {customFonts.map((f) => <option key={f.id} value={f.name}>{f.name}</option>)}
+                                    </optgroup>
+                                )}
+                            </select>
+                        </div>
+                        <div className="flex items-center">
+                            <div className="flex border-r border-slate-700/60">
                                 <RibbonBtn
                                     title="Fett (Ctrl+B)"
                                     active={activeEditor?.isActive('bold')}
                                     onClick={() => activeEditor?.chain().focus().toggleBold().run()}
                                     disabled={editorDisabled}
+                                    compact
+                                    className="rounded-none border-r border-slate-700/60"
                                 >
                                     <Bold className={ICON_SIZES[14]} />
                                 </RibbonBtn>
@@ -218,6 +296,8 @@ export function RibbonToolbar({
                                     active={activeEditor?.isActive('italic')}
                                     onClick={() => activeEditor?.chain().focus().toggleItalic().run()}
                                     disabled={editorDisabled}
+                                    compact
+                                    className="rounded-none border-r border-slate-700/60"
                                 >
                                     <Italic className={ICON_SIZES[14]} />
                                 </RibbonBtn>
@@ -226,6 +306,8 @@ export function RibbonToolbar({
                                     active={activeEditor?.isActive('underline')}
                                     onClick={() => activeEditor?.chain().focus().toggleUnderline().run()}
                                     disabled={editorDisabled}
+                                    compact
+                                    className="rounded-none border-r border-slate-700/60"
                                 >
                                     <Underline className={ICON_SIZES[14]} />
                                 </RibbonBtn>
@@ -234,266 +316,452 @@ export function RibbonToolbar({
                                     active={activeEditor?.isActive('strike')}
                                     onClick={() => activeEditor?.chain().focus().toggleStrike().run()}
                                     disabled={editorDisabled}
+                                    compact
+                                    className="rounded-none"
                                 >
                                     <Strikethrough className={ICON_SIZES[14]} />
                                 </RibbonBtn>
                             </div>
-                            {/* Reihe 2: H, A+, A-, Farbe, Schriftart, Schriftgröße */}
-                            <div className="flex items-center gap-0.5">
-                                <RibbonBtn
-                                    title="Überschrift"
-                                    active={activeEditor?.isActive('heading')}
-                                    onClick={() => activeEditor?.chain().focus().toggleHeading({ level: 2 }).run()}
-                                    disabled={editorDisabled}
-                                >
-                                    <Heading className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                                <RibbonBtn
-                                    title="Größer"
-                                    onClick={() => {
-                                        if (!activeEditor) return;
-                                        const current = (activeEditor.getAttributes('textStyle') as { fontSize?: string }).fontSize ?? '12pt';
-                                        const idx = FONT_SIZE_OPTIONS.indexOf(current as typeof FONT_SIZE_OPTIONS[number]);
-                                        const next = FONT_SIZE_OPTIONS[Math.min((idx < 0 ? 2 : idx) + 1, FONT_SIZE_OPTIONS.length - 1)];
-                                        activeEditor.chain().focus().setFontSize(next).run();
-                                    }}
-                                    disabled={editorDisabled}
-                                >
-                                    <AArrowUp className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                                <RibbonBtn
-                                    title="Kleiner"
-                                    onClick={() => {
-                                        if (!activeEditor) return;
-                                        const current = (activeEditor.getAttributes('textStyle') as { fontSize?: string }).fontSize ?? '12pt';
-                                        const idx = FONT_SIZE_OPTIONS.indexOf(current as typeof FONT_SIZE_OPTIONS[number]);
-                                        const next = FONT_SIZE_OPTIONS[Math.max((idx < 0 ? 2 : idx) - 1, 0)];
-                                        activeEditor.chain().focus().setFontSize(next).run();
-                                    }}
-                                    disabled={editorDisabled}
-                                >
-                                    <AArrowDown className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                                <ColorPickerDropdown
-                                    value={textColor}
-                                    onChange={(color) => activeEditor?.chain().focus().setColor(color).run()}
-                                    title="Textfarbe"
-                                />
-                                {/* Schriftgröße Dropdown */}
-                                <select
-                                    value={selectedFontSize}
-                                    onChange={(e) => {
-                                        const size = e.target.value;
-                                        if (!activeEditor) return;
-                                        const chain = activeEditor.chain().focus();
-                                        if (!size) { chain.unsetFontSize().run(); return; }
-                                        chain.setFontSize(size).run();
-                                    }}
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                    disabled={editorDisabled}
-                                    className="h-7 min-w-[68px] rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-1 text-[11px] text-slate-600 dark:text-slate-300 disabled:opacity-50"
-                                    aria-label="Schriftgröße"
-                                >
-                                    <option value="">Std.</option>
-                                    {FONT_SIZE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                                {/* Schriftart Dropdown */}
-                                <select
-                                    value={selectedFontFamily}
-                                    onChange={(e) => {
-                                        const font = e.target.value;
-                                        if (!activeEditor) return;
-                                        const chain = activeEditor.chain().focus();
-                                        if (!font) { chain.unsetFontFamily().run(); return; }
-                                        chain.setFontFamily(font).run();
-                                    }}
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                    disabled={editorDisabled}
-                                    className="h-7 min-w-[90px] max-w-[130px] rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-1 text-[11px] text-slate-600 dark:text-slate-300 disabled:opacity-50"
-                                    aria-label="Schriftart"
-                                >
-                                    <optgroup label="Standard">
-                                        {FONT_FAMILY_OPTIONS.map((o) => <option key={o.label} value={o.value}>{o.label}</option>)}
-                                    </optgroup>
-                                    {customFonts.length > 0 && (
-                                        <optgroup label="Eigene">
-                                            {customFonts.map((f) => <option key={f.id} value={f.name}>{f.name}</option>)}
-                                        </optgroup>
-                                    )}
-                                </select>
-                            </div>
-                        </div>
-                    </RibbonGroup>
-
-                    <RibbonDivider />
-
-                    {/* ─── Block 4 (2-zeilig): Ausrichtung + Listen ─── */}
-                    <RibbonGroup disabled={editorDisabled}>
-                        <div className="flex flex-col gap-0.5">
-                            {/* Reihe 1: Ausrichtung */}
-                            <div className="flex items-center gap-0.5">
-                                <RibbonBtn
-                                    title="Linksbündig"
-                                    active={activeEditor?.isActive({ textAlign: 'left' })}
-                                    onClick={() => activeEditor?.chain().focus().setTextAlign('left').run()}
-                                    disabled={editorDisabled}
-                                >
-                                    <AlignLeft className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                                <RibbonBtn
-                                    title="Zentriert"
-                                    active={activeEditor?.isActive({ textAlign: 'center' })}
-                                    onClick={() => activeEditor?.chain().focus().setTextAlign('center').run()}
-                                    disabled={editorDisabled}
-                                >
-                                    <AlignCenter className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                                <RibbonBtn
-                                    title="Rechtsbündig"
-                                    active={activeEditor?.isActive({ textAlign: 'right' })}
-                                    onClick={() => activeEditor?.chain().focus().setTextAlign('right').run()}
-                                    disabled={editorDisabled}
-                                >
-                                    <AlignRight className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                                <RibbonBtn
-                                    title="Blocksatz"
-                                    active={activeEditor?.isActive({ textAlign: 'justify' })}
-                                    onClick={() => activeEditor?.chain().focus().setTextAlign('justify').run()}
-                                    disabled={editorDisabled}
-                                >
-                                    <AlignJustify className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                            </div>
-                            {/* Reihe 2: Listen + Einrückung */}
-                            <div className="flex items-center gap-0.5">
-                                <RibbonBtn
-                                    title="Aufzählung"
-                                    active={activeEditor?.isActive('bulletList')}
-                                    onClick={() => activeEditor?.chain().focus().toggleBulletList().run()}
-                                    disabled={editorDisabled}
-                                >
-                                    <List className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                                <RibbonBtn
-                                    title="Nummerierte Liste"
-                                    active={activeEditor?.isActive('orderedList')}
-                                    onClick={() => activeEditor?.chain().focus().toggleOrderedList().run()}
-                                    disabled={editorDisabled}
-                                >
-                                    <ListOrdered className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                                <RibbonBtn
-                                    title="Einrücken"
-                                    onClick={() => activeEditor?.chain().focus().sinkListItem('listItem').run()}
-                                    disabled={editorDisabled}
-                                >
-                                    <Indent className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                                <RibbonBtn
-                                    title="Ausrücken"
-                                    onClick={() => activeEditor?.chain().focus().liftListItem('listItem').run()}
-                                    disabled={editorDisabled}
-                                >
-                                    <Outdent className={ICON_SIZES[14]} />
-                                </RibbonBtn>
-                            </div>
-                        </div>
-                    </RibbonGroup>
-
-                    <RibbonDivider />
-
-                    {/* ─── Block 5: KI-Button ─── */}
-                    <RibbonGroup>
-                        <div className="relative" ref={aiDropdownRef}>
-                            <button
-                                type="button"
-                                onClick={() => setShowAiDropdown(!showAiDropdown)}
-                                onMouseDown={(e) => e.preventDefault()}
-                                className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg min-h-[56px] min-w-[56px] transition-colors cursor-pointer bg-gradient-to-b from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white shadow"
-                                title="KI-Assistent"
+                            <RibbonBtn
+                                title="Überschrift"
+                                active={activeEditor?.isActive('heading')}
+                                onClick={() => activeEditor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                                disabled={editorDisabled}
+                                compact
+                                className="rounded-none"
                             >
-                                <Sparkles className={ICON_SIZES[20]} />
-                                <span className="text-[10px] font-medium leading-none">KI</span>
-                            </button>
-                            {showAiDropdown && (
-                                <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 py-1">
-                                    <DropdownItem onClick={() => { setShowAiDropdown(false); }}>
-                                        Text vereinfachen
-                                    </DropdownItem>
-                                    <DropdownItem onClick={() => { setShowAiDropdown(false); }}>
-                                        Korrigieren
-                                    </DropdownItem>
-                                </div>
+                                <Heading className={ICON_SIZES[14]} />
+                            </RibbonBtn>
+                        </div>
+                    </div>
+
+                    <div className="flex rounded-md shadow-sm border border-slate-700">
+                        <div className="px-1 py-1 border-r border-slate-700/60">
+                            <select
+                                value={selectedFontSize}
+                                onChange={(e) => {
+                                    const size = e.target.value;
+                                    if (!activeEditor) return;
+                                    const chain = activeEditor.chain().focus();
+                                    if (!size) { chain.unsetFontSize().run(); return; }
+                                    chain.setFontSize(size).run();
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                disabled={editorDisabled}
+                                className="h-8 min-w-[78px] rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 text-xs text-slate-600 dark:text-slate-300 disabled:opacity-50"
+                                aria-label="Schriftgröße"
+                            >
+                                <option value="">Std.</option>
+                                {FONT_SIZE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        <div className="flex border-r border-slate-700/60">
+                            <RibbonBtn
+                                title="Größer"
+                                onClick={() => {
+                                    if (!activeEditor) return;
+                                    const current = (activeEditor.getAttributes('textStyle') as { fontSize?: string }).fontSize ?? '12pt';
+                                    const idx = FONT_SIZE_OPTIONS.indexOf(current as typeof FONT_SIZE_OPTIONS[number]);
+                                    const next = FONT_SIZE_OPTIONS[Math.min((idx < 0 ? 2 : idx) + 1, FONT_SIZE_OPTIONS.length - 1)];
+                                    activeEditor.chain().focus().setFontSize(next).run();
+                                }}
+                                disabled={editorDisabled}
+                                compact
+                                className="rounded-none border-r border-slate-700/60 !p-0 !items-center !justify-center"
+                            >
+                                <AArrowUp className="h-[18px] w-[18px]" />
+                            </RibbonBtn>
+                            <RibbonBtn
+                                title="Kleiner"
+                                onClick={() => {
+                                    if (!activeEditor) return;
+                                    const current = (activeEditor.getAttributes('textStyle') as { fontSize?: string }).fontSize ?? '12pt';
+                                    const idx = FONT_SIZE_OPTIONS.indexOf(current as typeof FONT_SIZE_OPTIONS[number]);
+                                    const next = FONT_SIZE_OPTIONS[Math.max((idx < 0 ? 2 : idx) - 1, 0)];
+                                    activeEditor.chain().focus().setFontSize(next).run();
+                                }}
+                                disabled={editorDisabled}
+                                compact
+                                className="rounded-none !p-0 !items-center !justify-center"
+                            >
+                                <AArrowDown className="h-[18px] w-[18px]" />
+                            </RibbonBtn>
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center border-l border-slate-700/60">
+                            <ColorPickerButton
+                                color={activeTextColor}
+                                onChange={(newColor) => activeEditor?.chain().focus().setColor(newColor).run()}
+                            />
+                        </div>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            label: 'Absatz',
+            disabled: editorDisabled,
+            content: (
+                <div className="flex items-center gap-2">
+                    <div className="flex rounded-md shadow-sm border border-slate-700 overflow-hidden p-1">
+                        <RibbonBtn
+                            title="Linksbündig"
+                            active={activeEditor?.isActive({ textAlign: 'left' })}
+                            onClick={() => activeEditor?.chain().focus().setTextAlign('left').run()}
+                            disabled={editorDisabled}
+                            compact
+                            className="rounded-none border-r border-slate-700/60"
+                        >
+                            <AlignLeft className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                        <RibbonBtn
+                            title="Zentriert"
+                            active={activeEditor?.isActive({ textAlign: 'center' })}
+                            onClick={() => activeEditor?.chain().focus().setTextAlign('center').run()}
+                            disabled={editorDisabled}
+                            compact
+                            className="rounded-none border-r border-slate-700/60"
+                        >
+                            <AlignCenter className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                        <RibbonBtn
+                            title="Rechtsbündig"
+                            active={activeEditor?.isActive({ textAlign: 'right' })}
+                            onClick={() => activeEditor?.chain().focus().setTextAlign('right').run()}
+                            disabled={editorDisabled}
+                            compact
+                            className="rounded-none border-r border-slate-700/60"
+                        >
+                            <AlignRight className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                        <RibbonBtn
+                            title="Blocksatz"
+                            active={activeEditor?.isActive({ textAlign: 'justify' })}
+                            onClick={() => activeEditor?.chain().focus().setTextAlign('justify').run()}
+                            disabled={editorDisabled}
+                            compact
+                            className="rounded-none"
+                        >
+                            <AlignJustify className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                    </div>
+
+                    <div className="flex rounded-md shadow-sm border border-slate-700 overflow-hidden p-1">
+                        <RibbonBtn
+                            title="Aufzählung"
+                            active={activeEditor?.isActive('bulletList')}
+                            onClick={() => activeEditor?.chain().focus().toggleBulletList().run()}
+                            disabled={editorDisabled}
+                            compact
+                            className="rounded-none border-r border-slate-700/60"
+                        >
+                            <List className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                        <RibbonBtn
+                            title="Nummerierte Liste"
+                            active={activeEditor?.isActive('orderedList')}
+                            onClick={() => activeEditor?.chain().focus().toggleOrderedList().run()}
+                            disabled={editorDisabled}
+                            compact
+                            className="rounded-none border-r border-slate-700/60"
+                        >
+                            <ListOrdered className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                        <RibbonBtn
+                            title="Einrücken"
+                            onClick={() => activeEditor?.chain().focus().sinkListItem('listItem').run()}
+                            disabled={editorDisabled}
+                            compact
+                            className="rounded-none border-r border-slate-700/60"
+                        >
+                            <Indent className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                        <RibbonBtn
+                            title="Ausrücken"
+                            onClick={() => activeEditor?.chain().focus().liftListItem('listItem').run()}
+                            disabled={editorDisabled}
+                            compact
+                            className="rounded-none"
+                        >
+                            <Outdent className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            label: 'AKTIONEN',
+            content: (
+                <div className="flex items-center gap-2">
+                    <div className="relative" ref={aiDropdownRef}>
+                        <button
+                            type="button"
+                            onClick={() => setShowAiDropdown(!showAiDropdown)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-md transition-colors cursor-pointer bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white shadow"
+                            title="KI-Assistent"
+                        >
+                            <Sparkles className={ICON_SIZES[14]} />
+                        </button>
+                        {showAiDropdown && (
+                            <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 py-1">
+                                <DropdownItem onClick={() => { setShowAiDropdown(false); }}>
+                                    Text vereinfachen
+                                </DropdownItem>
+                                <DropdownItem onClick={() => { setShowAiDropdown(false); }}>
+                                    Korrigieren
+                                </DropdownItem>
+                            </div>
+                        )}
+                    </div>
+                    <div className="relative" ref={exportDropdownRef}>
+                        <button
+                            type="button"
+                            onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            disabled={!hasTasks}
+                            className={clsx(
+                                'inline-flex h-10 w-10 items-center justify-center rounded-md transition-colors cursor-pointer',
+                                'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+                                !hasTasks && 'opacity-30 cursor-not-allowed',
+                            )}
+                            title="Exportieren"
+                        >
+                            <Download className={ICON_SIZES[14]} />
+                        </button>
+                        {isExportMenuOpen && (
+                            <div className="absolute top-full right-0 mt-2 w-56 bg-slate-800 border border-slate-700 shadow-xl rounded-md z-50 overflow-hidden">
+                                <button
+                                    type="button"
+                                    onClick={() => { void handleExport('pdf-student'); }}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
+                                >
+                                    Als PDF (Schülerversion)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { void handleExport('pdf-teacher'); }}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
+                                >
+                                    Als PDF (Lehrerversion)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { void handleExport('docx'); }}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
+                                >
+                                    Als Word (DOCX)
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <RibbonBtn
+                        title="Quellen verwalten"
+                        onClick={onOpenSources}
+                        compact
+                        className="!h-10 !w-10"
+                    >
+                        <BookOpen className={ICON_SIZES[14]} />
+                    </RibbonBtn>
+                </div>
+            ),
+        },
+        systemBlock,
+    ], [
+        activeEditor,
+        activeTextColor,
+        canRedo,
+        canUndo,
+        customFonts,
+        editorDisabled,
+        hasTasks,
+        hasUnsavedChanges,
+        isSaving,
+        onBackToDashboard,
+        onOpenSources,
+        onSave,
+        selectedFontFamily,
+        selectedFontSize,
+        showAiDropdown,
+        isExportMenuOpen,
+        handleExport,
+        systemBlock,
+    ]);
+
+    const imageToolbarBlocks = useMemo<ToolbarBlock[]>(() => [
+        {
+            label: 'Anpassung',
+            disabled: !isImageTaskSelected,
+            content: (
+                <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex rounded-md shadow-sm border border-slate-700 overflow-hidden p-1">
+                        <RibbonBtn
+                            title="Zuschneiden"
+                            onClick={() => {
+                                if (!activeTaskId) return;
+                                updateTask(
+                                    activeTaskId,
+                                    { isCropping: true } as unknown as Partial<ImagePlaceholderTask>,
+                                );
+                            }}
+                            disabled={!isImageTaskSelected}
+                            compact
+                            className="rounded-none"
+                        >
+                            <Crop className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            label: 'Ausrichtung',
+            disabled: (!isInlineImageSelected && !isImageTaskSelected) || (editorDisabled && !isImageTaskSelected),
+            content: (
+                <div className="flex items-center gap-2">
+                    <div className="flex rounded-md shadow-sm border border-slate-700 overflow-hidden p-1">
+                        <RibbonBtn
+                            title="Bild links ausrichten"
+                            active={selectedToolbarImageAlign === 'left'}
+                            onClick={() => {
+                                if (isImageTaskSelected && activeImageTask) {
+                                    updateTask(activeImageTask.id, { align: 'left', imageAlign: 'left' } as Partial<ImagePlaceholderTask>);
+                                    return;
+                                }
+                                activeEditor?.chain().focus().updateAttributes('image', { align: 'left' }).run();
+                            }}
+                            disabled={(!isInlineImageSelected && !isImageTaskSelected) || (editorDisabled && !isImageTaskSelected)}
+                            compact
+                            className="rounded-none border-r border-slate-700/60"
+                        >
+                            <AlignLeft className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                        <RibbonBtn
+                            title="Bild zentrieren"
+                            active={selectedToolbarImageAlign === 'center'}
+                            onClick={() => {
+                                if (isImageTaskSelected && activeImageTask) {
+                                    updateTask(activeImageTask.id, { align: 'center', imageAlign: 'center' } as Partial<ImagePlaceholderTask>);
+                                    return;
+                                }
+                                activeEditor?.chain().focus().updateAttributes('image', { align: 'center' }).run();
+                            }}
+                            disabled={(!isInlineImageSelected && !isImageTaskSelected) || (editorDisabled && !isImageTaskSelected)}
+                            compact
+                            className="rounded-none border-r border-slate-700/60"
+                        >
+                            <AlignCenter className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                        <RibbonBtn
+                            title="Bild rechts ausrichten"
+                            active={selectedToolbarImageAlign === 'right'}
+                            onClick={() => {
+                                if (isImageTaskSelected && activeImageTask) {
+                                    updateTask(activeImageTask.id, { align: 'right', imageAlign: 'right' } as Partial<ImagePlaceholderTask>);
+                                    return;
+                                }
+                                activeEditor?.chain().focus().updateAttributes('image', { align: 'right' }).run();
+                            }}
+                            disabled={(!isInlineImageSelected && !isImageTaskSelected) || (editorDisabled && !isImageTaskSelected)}
+                            compact
+                            className="rounded-none"
+                        >
+                            <AlignRight className={ICON_SIZES[14]} />
+                        </RibbonBtn>
+                    </div>
+                </div>
+            ),
+        },
+        systemBlock,
+    ], [
+        activeEditor,
+        activeImageTask,
+        editorDisabled,
+        isImageTaskSelected,
+        isInlineImageSelected,
+        activeTaskId,
+        updateTask,
+        selectedToolbarImageAlign,
+        systemBlock,
+    ]);
+
+    const tabs = useMemo<RibbonTab[]>(() => {
+        const baseTabs: RibbonTab[] = ['Allgemein', 'Tabellen', 'Sonderzeich.'];
+        if (isImageSelected) {
+            baseTabs.push('Bildformat');
+        }
+        return baseTabs;
+    }, [isImageSelected]);
+
+    const activeBlocks = activeTab === 'Bildformat' ? imageToolbarBlocks : toolbarBlocks;
+
+    return (
+        <div className="no-print print:hidden sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm select-none">
+            {/* ── Tab-Header ── */}
+            <div className="flex items-center gap-0 border-b border-slate-200 dark:border-slate-700 px-2">
+                {tabs.map((tab) => (
+                    <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setActiveTab(tab)}
+                        className={clsx(
+                            'py-1.5 text-xs transition-colors cursor-pointer min-h-[44px] min-w-[44px]',
+                            tab === 'Bildformat'
+                                ? clsx(
+                                    'ml-1 px-4 rounded-t-md font-semibold',
+                                    activeTab === tab
+                                        ? 'bg-purple-600 text-white shadow-sm'
+                                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-200 dark:hover:bg-purple-900/60',
+                                )
+                                : clsx(
+                                    'px-4 font-medium',
+                                    activeTab === tab
+                                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
+                                ),
+                        )}
+                    >
+                        {tab}
+                    </button>
+                ))}
+            </div>
+
+            {/* ── Ribbon Body (Allgemein / Bildformat) ── */}
+            {(activeTab === 'Allgemein' || activeTab === 'Bildformat') && (
+                <div className="flex flex-wrap items-stretch justify-start px-1 pt-2 pb-1">
+                    {activeBlocks.map(({ label, content, hideLabel, disabled, className }) => (
+                        <div
+                            key={label}
+                            className={clsx(
+                                'flex flex-col items-center justify-start gap-y-1 self-stretch pr-4 mr-2 border-r border-slate-300 dark:border-slate-700 last:border-r-0 last:pr-0 last:mr-0',
+                                className,
+                                disabled && 'opacity-50 pointer-events-none',
+                            )}
+                        >
+                            <div className="flex flex-col gap-y-2">
+                                {content}
+                            </div>
+                            {!hideLabel && (
+                                <span className="text-[10px] text-slate-400 text-center uppercase tracking-wider mt-auto pt-1">
+                                    {label}
+                                </span>
                             )}
                         </div>
-                    </RibbonGroup>
-
-                    <RibbonDivider />
-
-                    {/* ─── Block 6: Export-Dropdown + Quellen ─── */}
-                    <RibbonGroup>
-                        <div className="relative" ref={exportDropdownRef}>
-                            <button
-                                type="button"
-                                onClick={() => setShowExportDropdown(!showExportDropdown)}
-                                onMouseDown={(e) => e.preventDefault()}
-                                disabled={!hasTasks}
-                                className={clsx(
-                                    'inline-flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg min-h-[56px] min-w-[56px] transition-colors cursor-pointer',
-                                    'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-                                    !hasTasks && 'opacity-30 cursor-not-allowed',
-                                )}
-                                title="Exportieren"
-                            >
-                                <Download className={ICON_SIZES[18]} />
-                                <span className="text-[10px] font-medium leading-none">Export</span>
-                            </button>
-                            {showExportDropdown && (
-                                <div className="absolute top-full left-0 mt-1 w-52 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 py-1">
-                                    <DropdownItem onClick={() => { setShowExportDropdown(false); onExportPdf(); }}>
-                                        Als PDF herunterladen
-                                    </DropdownItem>
-                                    <DropdownItem onClick={() => { setShowExportDropdown(false); onExportDocx(); }}>
-                                        Als Word (DOCX) herunterladen
-                                    </DropdownItem>
-                                </div>
-                            )}
-                        </div>
-                        <RibbonBtn
-                            title="Quellen verwalten"
-                            onClick={onOpenSources}
-                        >
-                            <BookOpen className={ICON_SIZES[14]} />
-                        </RibbonBtn>
-                    </RibbonGroup>
-
-                    <RibbonDivider />
-
-                    {/* ─── Block 7: Dark/Light Mode ─── */}
-                    <RibbonGroup>
-                        <RibbonBtn
-                            title={themeMode === 'dark' ? 'Helles Design' : 'Dunkles Design'}
-                            onClick={toggleThemeMode}
-                        >
-                            {themeMode === 'dark'
-                                ? <Sun className={ICON_SIZES[18]} />
-                                : <Moon className={ICON_SIZES[18]} />
-                            }
-                        </RibbonBtn>
-                    </RibbonGroup>
+                    ))}
                 </div>
             )}
 
             {/* ── Tabellen Tab (Platzhalter) ── */}
-            {activeTab === 'tabellen' && (
+            {activeTab === 'Tabellen' && (
                 <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
                     Tabellen-Werkzeuge – demnächst verfügbar
                 </div>
             )}
 
             {/* ── Sonderzeichen Tab (Platzhalter) ── */}
-            {activeTab === 'sonderzeichen' && (
+            {activeTab === 'Sonderzeich.' && (
                 <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
                     Sonderzeichen – demnächst verfügbar
                 </div>
@@ -506,25 +774,6 @@ export function RibbonToolbar({
    Primitive Sub-Components
    ═══════════════════════════════════════════════ */
 
-/** Vertikale Trennlinie zwischen Blöcken */
-function RibbonDivider() {
-    return <div className="w-px self-stretch bg-slate-200 dark:bg-slate-700 mx-0.5" />;
-}
-
-/** Wrapper für einen logischen Block, optional mit Opacity-Deaktivierung */
-function RibbonGroup({ children, disabled }: { children: ReactNode; disabled?: boolean }) {
-    return (
-        <div
-            className={clsx(
-                'flex items-center gap-px px-1 py-0.5',
-                disabled && 'opacity-50 pointer-events-none',
-            )}
-        >
-            {children}
-        </div>
-    );
-}
-
 /** Einzelner Ribbon-Button mit Apple-HIG Touch-Targets und Fokus-Schutz */
 interface RibbonBtnProps {
     children: ReactNode;
@@ -532,9 +781,19 @@ interface RibbonBtnProps {
     onClick?: () => void;
     active?: boolean;
     disabled?: boolean;
+    compact?: boolean;
+    className?: string;
 }
 
-function RibbonBtn({ children, title, onClick, active, disabled }: RibbonBtnProps) {
+function RibbonBtn({
+    children,
+    title,
+    onClick,
+    active,
+    disabled,
+    compact,
+    className,
+}: RibbonBtnProps) {
     return (
         <button
             type="button"
@@ -544,11 +803,12 @@ function RibbonBtn({ children, title, onClick, active, disabled }: RibbonBtnProp
             disabled={disabled}
             className={clsx(
                 'inline-flex items-center justify-center rounded transition-colors cursor-pointer',
-                'min-h-[44px] min-w-[44px] p-1.5',
+                compact ? 'h-8 w-8 p-1' : 'min-h-[44px] min-w-[44px] p-1.5',
                 active
                     ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
                 disabled && 'opacity-30 cursor-not-allowed',
+                className,
             )}
         >
             {children}

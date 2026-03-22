@@ -236,14 +236,14 @@ function App() {
 
   /* ── Editor View ── */
   return (
-    <div className="min-h-screen pb-32 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen print:h-auto pb-32 print:pb-0 bg-slate-100 print:bg-white dark:bg-slate-950 print:dark:bg-white text-slate-900 dark:text-slate-100 print:dark:text-slate-900">
       <RibbonToolbar
         onBackToDashboard={handleBackToDashboard}
         onSave={handleSave}
         isSaving={isSaving}
         hasTasks={taskIds.length > 0}
-        onExportPdf={() => handlePdfExport(['student'])}
-        onExportDocx={() => handleDocxExport(['student'])}
+        onExportPdf={handlePdfExport}
+        onExportDocx={handleDocxExport}
         onOpenSources={() => setShowSourcesManager(true)}
       />
 
@@ -257,7 +257,7 @@ function App() {
         onRemoveVariant={removeVariant}
       />
 
-      <div className="lg:flex lg:items-stretch">
+      <div className="lg:flex lg:items-stretch print:block print:overflow-visible print:p-0 print:m-0">
         {/* Outline-Navigator (linke Sidebar) */}
         <div
           className={`no-print hidden lg:block shrink-0 h-[calc(100vh-90px)] sticky top-[90px] transition-all duration-200 ease-in-out overflow-hidden ${
@@ -274,7 +274,7 @@ function App() {
           )}
         </div>
 
-        <div className="flex-1 min-w-0 pb-28">
+        <div className="flex-1 min-w-0 pb-28 print:block print:pb-0 print:overflow-visible print:p-0 print:m-0">
           <WorksheetCanvas
             taskIds={taskIds}
             tasksById={tasksById}

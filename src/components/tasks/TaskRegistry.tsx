@@ -89,7 +89,9 @@ export const TaskEditorRenderer: React.FC<{ task: Task; isActive?: boolean }> = 
     const Component = entry.editor;
     return (
         <Suspense fallback={<div className="h-24 rounded-md bg-slate-100 dark:bg-slate-800 animate-pulse" />}>
-            <Component task={task} isActive={isActive} />
+            <div className="print:break-inside-avoid print:break-after-auto">
+                <Component task={task} isActive={isActive} />
+            </div>
         </Suspense>
     );
 };

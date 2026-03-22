@@ -318,7 +318,7 @@ export function WorksheetCanvas({
         <div
             ref={canvasRef}
             className={clsx(
-                'overflow-x-auto relative',
+                'overflow-x-auto overflow-y-auto relative',
                 isPlacingNewTask && menuAtIndex === null && 'cursor-crosshair',
             )}
             style={{
@@ -362,7 +362,7 @@ export function WorksheetCanvas({
                                 const showIndicator = isPlacingNewTask && menuAtIndex === null && hoverIndex === idx;
                                 const isTaskNumberHidden = task.showNumber === false;
                                 const taskWrapperClassName = clsx(
-                                    'task-block print:break-inside-avoid print:mb-0',
+                                    'task-block print:break-inside-avoid print:break-after-auto print:mb-0',
                                     isTaskNumberHidden ? 'mt-2 print:mt-2' : 'mt-8 print:mt-8',
                                 );
 

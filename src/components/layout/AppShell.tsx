@@ -49,7 +49,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     }, [isOnboardingRunning, shouldAutoStartOnboarding]);
 
     return (
-        <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
+        <div className="min-h-screen flex print:block print:w-full print:m-0 print:p-0 print:overflow-visible bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 print:bg-white">
             <Suspense fallback={null}>
                 <OnboardingTour
                     run={isOnboardingRunning}
@@ -63,7 +63,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             {/* ── Mobile Overlay Backdrop ── */}
             {sidebarOpen && (
                 <div
-                    className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden"
+                    className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden print:hidden"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
@@ -74,6 +74,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     fixed inset-y-0 left-0 z-40 w-64
                     transform transition-transform duration-200 ease-in-out
                     md:translate-x-0 md:static md:z-auto
+                    print:hidden
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
                 `}
             >
@@ -91,18 +92,18 @@ export const AppShell: React.FC<AppShellProps> = ({
             </aside>
 
             {/* ── Main Content ── */}
-            <main className="flex-1 min-w-0 overflow-y-auto">
+            <main className="flex-1 min-w-0 overflow-y-auto print:block print:w-full print:m-0 print:p-0 print:overflow-visible print:bg-white">
                 {/* Mobile Hamburger-Button */}
                 <button
                     onClick={() => setSidebarOpen(true)}
-                    className="md:hidden fixed top-4 left-4 z-20 p-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-lg cursor-pointer"
+                    className="md:hidden print:hidden fixed top-4 left-4 z-20 p-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-lg cursor-pointer"
                     aria-label="Menü öffnen"
                 >
                     <Menu className={`${ICON_SIZES[20]} text-slate-600 dark:text-slate-300`} />
                 </button>
 
-                <div className="min-h-screen flex flex-col">
-                    <div className="flex-1 min-h-0">
+                <div className="min-h-screen flex flex-col print:block print:min-h-0 print:m-0 print:p-0">
+                    <div className="flex-1 min-h-0 print:block print:w-full print:min-h-0 print:m-0 print:p-0 print:overflow-visible">
                         {children}
                     </div>
 

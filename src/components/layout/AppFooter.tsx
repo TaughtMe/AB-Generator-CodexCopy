@@ -1,4 +1,5 @@
 import type { LegalModalType } from './LegalModals';
+import packageJsonRaw from '../../../package.json?raw';
 
 interface AppFooterProps {
   onOpenLegalModal: (modal: LegalModalType) => void;
@@ -10,12 +11,27 @@ const LEGAL_LINKS: Array<{ id: LegalModalType; label: string }> = [
   { id: 'lizenzen', label: 'Lizenzen' },
 ];
 
+function readPackageVersion(raw: string): string | null {
+  try {
+    const parsed = JSON.parse(raw) as { version?: unknown };
+    const version = typeof parsed.version === 'string' ? parsed.version.trim() : '';
+    return version.length > 0 ? version : null;
+  } catch {
+    return null;
+  }
+}
+
+const packageVersion = readPackageVersion(packageJsonRaw);
+
 export function AppFooter({ onOpenLegalModal }: AppFooterProps) {
   const currentYear = new Date().getFullYear();
   const appVersion =
-    typeof __APP_VERSION__ === 'string' && __APP_VERSION__.trim().length > 0
+    packageVersion
+    ?? (
+      typeof __APP_VERSION__ === 'string' && __APP_VERSION__.trim().length > 0
       ? __APP_VERSION__
-      : 'dev';
+      : 'dev'
+    );
 
   return (
     <footer className="mt-auto border-t border-slate-800/80 bg-slate-950 text-slate-300">

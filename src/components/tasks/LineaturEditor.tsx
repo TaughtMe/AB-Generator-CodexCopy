@@ -2,7 +2,7 @@ import React from 'react';
 import type { LineaturTask } from '../../types/worksheet';
 import type { LineStyle } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
-import { getLineaturBackground, getRowHeightMM, LINE_STYLE_LABELS } from '../../utils/lineaturStyles';
+import { getLineaturBackground, getRowHeightMM } from '../../utils/lineaturStyles';
 
 interface LineaturEditorProps {
     task: LineaturTask;
@@ -12,47 +12,52 @@ interface LineaturEditorProps {
 export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task, isActive = true }) => {
     const updateTask = useWorksheetStore((s) => s.updateTask);
 
-    // Fallback for legacy tasks without lineRows
-    const lineRows = task.lineRows ?? 4;
+    const rowCount = Math.max(1, Math.min(20, Math.round(task.rowCount ?? task.lineRows ?? 5)));
+    const bandHeightMM = 5;
+    const gapColor = task.gapColor && task.gapColor.trim().length > 0
+        ? task.gapColor
+        : '#eaf4e8';
+    const lineStyleOptions: Array<{ value: LineStyle; label: string }> = [
+        { value: 'primary-4-lines', label: 'Grundschul-Lineatur' },
+        { value: 'lines-8mm', label: 'Einfach liniert' },
+        { value: 'grid-5mm', label: 'Kästchen 5mm' },
+        { value: 'grid-10mm', label: 'Kästchen 10mm' },
+    ];
+
+    const handleRowCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const rows = Math.max(1, Math.min(20, Number(e.target.value)));
+        updateTask(task.id, { rowCount: rows, lineRows: rows });
+    };
 
     const handleStyleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         updateTask(task.id, { lineStyle: e.target.value as LineStyle });
     };
 
-    const handleRowsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const rows = Math.max(1, Math.min(20, Number(e.target.value)));
-        updateTask(task.id, { lineRows: rows });
+    const handleGapColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        updateTask(task.id, { gapColor: e.target.value });
     };
 
-    // Calculate preview height based on rows × row height
-    const rowHeightMM = getRowHeightMM(task.lineStyle);
-    // Convert mm to approximate px for preview (96 DPI screen: 1mm ≈ 3.78px)
-    const previewHeightPx = Math.max(20, lineRows * rowHeightMM * 3.78);
-
     return (
-        <div className="space-y-3">
-            {/* Compact Controls – no-print so they don't show on paper */}
+        <div className="space-y-3 print:break-inside-avoid print:break-after-auto">
             {isActive && (
-                <div className="flex items-center gap-3 no-print flex-wrap">
-                    {/* Style Selector */}
-                    <label className="text-xs text-worksheet-inkLight uppercase tracking-wider shrink-0">
-                        Linienart
-                    </label>
-                    <select
-                        value={task.lineStyle}
-                        onChange={handleStyleChange}
-                        className="flex-1 min-w-0 px-2 py-1 rounded-md border border-worksheet-border bg-worksheet-field text-worksheet-ink text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow cursor-pointer"
-                    >
-                        {(Object.entries(LINE_STYLE_LABELS) as [LineStyle, string][]).map(
-                            ([value, label]) => (
-                                <option key={value} value={value}>
-                                    {label}
+                <div className="flex items-center gap-4 no-print flex-wrap">
+                    <div className="flex items-center gap-2 shrink-0">
+                        <label className="text-xs text-worksheet-inkLight uppercase tracking-wider">
+                            Linienart
+                        </label>
+                        <select
+                            value={task.lineStyle}
+                            onChange={handleStyleChange}
+                            className="min-w-[190px] px-2 py-1 rounded-md border border-worksheet-border bg-worksheet-field text-worksheet-ink text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow cursor-pointer"
+                        >
+                            {lineStyleOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
                                 </option>
-                            )
-                        )}
-                    </select>
+                            ))}
+                        </select>
+                    </div>
 
-                    {/* Row Count Slider */}
                     <div className="flex items-center gap-2 shrink-0">
                         <label className="text-xs text-worksheet-inkLight uppercase tracking-wider">
                             Zeilen
@@ -61,30 +66,65 @@ export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task, isActive =
                             type="range"
                             min={1}
                             max={20}
-                            value={lineRows}
-                            onChange={handleRowsChange}
+                            value={rowCount}
+                            onChange={handleRowCountChange}
                             className="w-20 cursor-pointer accent-blue-500"
                         />
                         <span className="text-xs font-bold text-blue-600 tabular-nums w-5 text-right">
-                            {lineRows}
+                            {rowCount}
                         </span>
                     </div>
 
-                    {/* Read-only info */}
-                    <span className="text-[10px] text-worksheet-inkLight tabular-nums shrink-0">
-                        {task.gridColumns > 1 ? `${task.gridColumns} Sp.` : 'Vollbreite'}
-                    </span>
+                    {task.lineStyle === 'primary-4-lines' && (
+                        <div className="flex items-center gap-2 shrink-0">
+                            <label className="text-xs text-worksheet-inkLight uppercase tracking-wider">
+                                Abstandsfarbe
+                            </label>
+                            <input
+                                type="color"
+                                value={gapColor}
+                                onChange={handleGapColorChange}
+                                className="h-8 w-10 cursor-pointer rounded border border-worksheet-border bg-white p-1"
+                                aria-label="Abstandsfarbe"
+                            />
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* Live Lineatur Preview – this IS the content that prints */}
-            <div
-                className="rounded border border-worksheet-border overflow-hidden print:border-none"
-                style={{
-                    ...getLineaturBackground(task.lineStyle),
-                    height: `${previewHeightPx}px`,
-                }}
-            />
+            {task.lineStyle === 'primary-4-lines' ? (
+                <div
+                    className="rounded border border-worksheet-border overflow-hidden print:border-none print:rounded-none"
+                >
+                    <div
+                        className="pt-8 pb-4 px-4 flex flex-col gap-y-6"
+                        style={{ backgroundColor: task.gapColor || 'var(--theme-color-light, #eaf4e8)' }}
+                    >
+                        {Array.from({ length: rowCount }).map((_, blockIndex) => (
+                            <div
+                                key={`${task.id}-row-${blockIndex}`}
+                                className="bg-white border border-slate-500 w-full flex flex-col"
+                            >
+                                {Array.from({ length: 3 }).map((__, bandIndex) => (
+                                    <div
+                                        key={`${task.id}-row-${blockIndex}-band-${bandIndex}`}
+                                        className={bandIndex < 2 ? 'w-full border-b border-slate-400' : 'w-full'}
+                                        style={{ height: `${bandHeightMM}mm` }}
+                                    />
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <div
+                    className="rounded border border-worksheet-border overflow-hidden print:border-none print:rounded-none"
+                    style={{
+                        ...getLineaturBackground(task.lineStyle),
+                        height: `${rowCount * getRowHeightMM(task.lineStyle)}mm`,
+                    }}
+                />
+            )}
         </div>
     );
 };

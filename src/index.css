@@ -221,16 +221,19 @@ body {
     vertical-align: baseline;
 }
 
-@media print {
-    .a4-page .task-card,
-    .a4-page [data-task-id],
-    .dark .a4-page .task-card,
-    .dark .a4-page [data-task-id] {
-        border: 0 !important;
-        border-color: transparent !important;
-        box-shadow: none !important;
-        outline: none !important;
-        background: transparent !important;
-        ring-width: 0 !important;
-    }
+.cloze-gap-per-letter {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 0.15em;
+    margin: 0 0.125rem;
+    vertical-align: baseline;
+    line-height: 1.8;
 }
+
+.cloze-gap-letter {
+    display: inline-block;
+    border-bottom: 2px solid currentColor;
+}
+
+/* Print rules consolidated in PrintStyles.css – no @media print here
+   to avoid conflicting @page / margin declarations. */

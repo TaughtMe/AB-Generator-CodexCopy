@@ -42,7 +42,9 @@ export function getLineaturBackground(lineStyle: LineStyle): CSSProperties {
         case 'primary-4-lines': {
             // Grundschul-Lineatur: Haus-Metapher mit 4mm/4mm/4mm + 8mm Zeilenabstand
             // 4 Linien bei 0mm, 4mm, 8mm, 12mm; Wiederholung alle 20mm
+            // Line thickness 0.3mm for reliable print rendering at any DPI
             const repeatHeight = '20mm';
+            const lineThickness = '0.3mm';
             const lineColor = '#94a3b8'; // Slate-400, dezent für Schreibunterlage
             const midbandColor = '#f1f5f9'; // Slate-100
 
@@ -50,27 +52,27 @@ export function getLineaturBackground(lineStyle: LineStyle): CSSProperties {
                 backgroundImage: `
                     repeating-linear-gradient(to bottom,
                         ${lineColor} 0,
-                        ${lineColor} 1px,
+                        ${lineColor} ${lineThickness},
 
-                        transparent 1px,
+                        transparent ${lineThickness},
                         transparent 4mm,
 
                         ${lineColor} 4mm,
-                        ${lineColor} calc(4mm + 1px),
+                        ${lineColor} calc(4mm + ${lineThickness}),
 
-                        ${midbandColor} calc(4mm + 1px),
+                        ${midbandColor} calc(4mm + ${lineThickness}),
                         ${midbandColor} 8mm,
 
                         ${lineColor} 8mm,
-                        ${lineColor} calc(8mm + 1px),
+                        ${lineColor} calc(8mm + ${lineThickness}),
 
-                        transparent calc(8mm + 1px),
+                        transparent calc(8mm + ${lineThickness}),
                         transparent 12mm,
 
                         ${lineColor} 12mm,
-                        ${lineColor} calc(12mm + 1px),
+                        ${lineColor} calc(12mm + ${lineThickness}),
 
-                        transparent calc(12mm + 1px),
+                        transparent calc(12mm + ${lineThickness}),
                         transparent 20mm
                     )
                 `,

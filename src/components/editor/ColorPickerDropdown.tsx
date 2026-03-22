@@ -5,6 +5,10 @@ interface ColorPickerDropdownProps {
     value: string;
     onChange: (color: string) => void;
     title?: string;
+    rootClassName?: string;
+    triggerClassName?: string;
+    swatchClassName?: string;
+    panelClassName?: string;
 }
 
 interface PaletteColor {
@@ -57,6 +61,10 @@ export function ColorPickerDropdown({
     value,
     onChange,
     title = 'Textfarbe',
+    rootClassName,
+    triggerClassName,
+    swatchClassName,
+    panelClassName,
 }: ColorPickerDropdownProps) {
     const [open, setOpen] = useState(false);
     const [alignRight, setAlignRight] = useState(false);
@@ -122,7 +130,7 @@ export function ColorPickerDropdown({
     };
 
     return (
-        <div ref={rootRef} className="relative">
+        <div ref={rootRef} className={clsx('relative', rootClassName)}>
             <button
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -130,6 +138,7 @@ export function ColorPickerDropdown({
                 className={clsx(
                     'h-7 w-8 rounded border border-slate-200 bg-white p-1',
                     'hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40',
+                    triggerClassName,
                 )}
                 title={title}
                 aria-label={title}
@@ -137,7 +146,7 @@ export function ColorPickerDropdown({
                 aria-expanded={open}
             >
                 <span
-                    className="block h-5 w-5 rounded border border-slate-300"
+                    className={clsx('block h-5 w-5 rounded border border-slate-300', swatchClassName)}
                     style={{ backgroundColor: value }}
                     aria-hidden="true"
                 />
@@ -149,6 +158,7 @@ export function ColorPickerDropdown({
                     className={clsx(
                         'absolute top-full z-30 mt-1 w-44 max-w-[calc(100vw-1rem)] rounded-md border border-slate-200 bg-white p-2 shadow-lg',
                         alignRight ? 'right-0' : 'left-0',
+                        panelClassName,
                     )}
                     role="dialog"
                     aria-label="Farbpalette"

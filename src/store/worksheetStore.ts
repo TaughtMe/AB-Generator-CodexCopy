@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { temporal } from 'zundo';
 import type {
     Task,
     TaskType,
@@ -89,8 +91,32 @@ interface WorksheetStore extends Worksheet {
     resetWorksheet: () => void;
 }
 
+type PersistedWorksheetSlice = Pick<
+    WorksheetStore,
+    'id'
+    | 'title'
+    | 'variants'
+    | 'activeVariantId'
+    | 'tasksById'
+    | 'taskIds'
+    | 'chatHistory'
+    | 'sources'
+    | 'classId'
+    | 'showHeader'
+>;
+
+type WorksheetTemporalSlice = Pick<
+    WorksheetStore,
+    'title'
+    | 'showHeader'
+    | 'variants'
+    | 'activeVariantId'
+    | 'tasksById'
+    | 'taskIds'
+>;
+
 /** Default line style for new lineatur tasks */
-const DEFAULT_LINE_STYLE: LineStyle = 'grid-5mm';
+const DEFAULT_LINE_STYLE: LineStyle = 'primary-4-lines';
 const VALID_LINE_STYLES: LineStyle[] = ['grid-5mm', 'grid-10mm', 'lines-8mm', 'primary-4-lines'];
 const VALID_COLUMNS_LAYOUTS: ColumnsLayout[] = ['50-50', '60-40', '40-60'];
 const VALID_CLOZE_GAP_STYLES: ClozeGapStyle[] = ['continuous', 'per-letter'];
@@ -120,7 +146,10 @@ function createNewTask(type: TaskType): Task {
                 promptHtml: '',
                 lineStyle: DEFAULT_LINE_STYLE,
                 gridColumns: getGridColumns(DEFAULT_LINE_STYLE),
-                lineRows: 4,
+                lineRows: 5,
+                rowCount: 5,
+                lineHeight: 12,
+                gapColor: '#eaf4e8',
             };
         case 'cloze':
             return {
@@ -132,7 +161,18 @@ function createNewTask(type: TaskType): Task {
                 distractors: '',
             };
         case 'image-placeholder':
-            return { ...base, type: 'image-placeholder', caption: '', imageAlign: 'left', widthMm: 80, heightMm: 60 };
+            return {
+                ...base,
+                type: 'image-placeholder',
+                caption: '',
+                imageAlign: 'left',
+                align: 'left',
+                opacity: 1,
+                width: '100%',
+                height: 'auto',
+                widthMm: 80,
+                heightMm: 60,
+            };
         case 'math':
             return { ...base, type: 'math', content: '' };
         case 'page-break':
@@ -242,10 +282,21 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 ? (task.lineStyle as LineStyle)
                 : fallback.lineStyle;
 
+            const rawRowCount = typeof task.rowCount === 'number' && Number.isFinite(task.rowCount)
+                ? task.rowCount
+                : task.lineRows;
             const lineRows =
-                typeof task.lineRows === 'number' && Number.isFinite(task.lineRows)
-                    ? Math.max(1, Math.min(20, Math.round(task.lineRows)))
+                typeof rawRowCount === 'number' && Number.isFinite(rawRowCount)
+                    ? Math.max(1, Math.min(20, Math.round(rawRowCount)))
                     : fallback.lineRows;
+            const lineHeight =
+                typeof task.lineHeight === 'number' && Number.isFinite(task.lineHeight)
+                    ? Math.max(4, Math.min(20, task.lineHeight))
+                    : (typeof fallback.lineHeight === 'number' ? Math.max(4, Math.min(20, fallback.lineHeight)) : 12);
+            const gapColor =
+                typeof task.gapColor === 'string' && task.gapColor.trim().length > 0
+                    ? task.gapColor.trim()
+                    : (typeof fallback.gapColor === 'string' && fallback.gapColor.trim().length > 0 ? fallback.gapColor.trim() : '#eaf4e8');
 
             return {
                 ...task,
@@ -253,6 +304,9 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 promptHtml: typeof task.promptHtml === 'string' ? task.promptHtml : fallback.promptHtml,
                 lineStyle,
                 lineRows,
+                rowCount: lineRows,
+                lineHeight,
+                gapColor,
                 gridColumns: getGridColumns(lineStyle),
             };
         }
@@ -302,6 +356,19 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
             const imageAlign = VALID_IMAGE_ALIGNMENTS.includes(task.imageAlign as ImageAlignment)
                 ? (task.imageAlign as ImageAlignment)
                 : (fallback.imageAlign ?? 'left');
+            const align = VALID_IMAGE_ALIGNMENTS.includes(task.align as ImageAlignment)
+                ? (task.align as ImageAlignment)
+                : (imageAlign ?? fallback.align ?? 'left');
+            const opacity =
+                typeof task.opacity === 'number' && Number.isFinite(task.opacity)
+                    ? Math.max(0, Math.min(1, task.opacity))
+                    : (typeof fallback.opacity === 'number' ? Math.max(0, Math.min(1, fallback.opacity)) : 1);
+            const width = typeof task.width === 'string' && task.width.trim().length > 0
+                ? task.width
+                : fallback.width;
+            const height = typeof task.height === 'string' && task.height.trim().length > 0
+                ? task.height
+                : fallback.height;
 
             return {
                 ...task,
@@ -309,6 +376,10 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 caption: typeof task.caption === 'string' ? task.caption : fallback.caption,
                 imageId,
                 imageAlign,
+                align,
+                opacity,
+                width,
+                height,
                 widthMm:
                     typeof task.widthMm === 'number' && Number.isFinite(task.widthMm)
                         ? Math.max(10, Math.round(task.widthMm))
@@ -476,22 +547,39 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
             const lineTask = task as LineaturTask & {
                 promptHtml?: unknown;
                 lineRows?: unknown;
+                rowCount?: unknown;
+                lineHeight?: unknown;
+                gapColor?: unknown;
                 lineStyle?: unknown;
                 gridColumns?: unknown;
             };
 
             const normalizedLineStyle =
-                typeof lineTask.lineStyle === 'string'
+                typeof lineTask.lineStyle === 'string' && VALID_LINE_STYLES.includes(lineTask.lineStyle as LineStyle)
                     ? (lineTask.lineStyle as LineStyle)
                     : DEFAULT_LINE_STYLE;
+            const normalizedRowCount =
+                typeof lineTask.rowCount === 'number' && Number.isFinite(lineTask.rowCount)
+                    ? Math.max(1, Math.min(20, Math.round(lineTask.rowCount)))
+                    : typeof lineTask.lineRows === 'number' && Number.isFinite(lineTask.lineRows)
+                        ? Math.max(1, Math.min(20, Math.round(lineTask.lineRows)))
+                        : 5;
+            const normalizedLineHeight =
+                typeof lineTask.lineHeight === 'number' && Number.isFinite(lineTask.lineHeight)
+                    ? Math.max(4, Math.min(20, lineTask.lineHeight))
+                    : 12;
+            const normalizedGapColor =
+                typeof lineTask.gapColor === 'string' && lineTask.gapColor.trim().length > 0
+                    ? lineTask.gapColor.trim()
+                    : '#eaf4e8';
 
             normalized[id] = {
                 ...task,
                 promptHtml: typeof lineTask.promptHtml === 'string' ? lineTask.promptHtml : '',
-                lineRows:
-                    typeof lineTask.lineRows === 'number' && Number.isFinite(lineTask.lineRows)
-                        ? Math.max(1, Math.min(20, Math.round(lineTask.lineRows)))
-                        : 4,
+                lineRows: normalizedRowCount,
+                rowCount: normalizedRowCount,
+                lineHeight: normalizedLineHeight,
+                gapColor: normalizedGapColor,
                 lineStyle: normalizedLineStyle,
                 gridColumns:
                     typeof lineTask.gridColumns === 'number' && lineTask.gridColumns > 0
@@ -631,7 +719,34 @@ function syncActiveVariantTaskState(
     };
 }
 
-const MAX_UNDO_STACK = 50;
+const TEMPORAL_HISTORY_LIMIT = 50;
+const MAX_UNDO_STACK = TEMPORAL_HISTORY_LIMIT;
+
+function partializePersistedWorksheetSlice(state: WorksheetStore): PersistedWorksheetSlice {
+    return {
+        id: state.id,
+        title: state.title,
+        variants: state.variants,
+        activeVariantId: state.activeVariantId,
+        tasksById: state.tasksById,
+        taskIds: state.taskIds,
+        chatHistory: state.chatHistory,
+        sources: state.sources,
+        classId: state.classId,
+        showHeader: state.showHeader,
+    };
+}
+
+function partializeTemporalWorksheetSlice(state: WorksheetStore): WorksheetTemporalSlice {
+    return {
+        title: state.title,
+        showHeader: state.showHeader,
+        variants: state.variants,
+        activeVariantId: state.activeVariantId,
+        tasksById: state.tasksById,
+        taskIds: state.taskIds,
+    };
+}
 
 /** Push current task state to undo stack (call before mutations) */
 function pushUndoSnapshot(state: WorksheetStore): { _undoStack: WorksheetTaskState[]; _redoStack: WorksheetTaskState[] } {
@@ -660,7 +775,10 @@ function syncActiveVariantTaskStateUnsaved(
 
 const INITIAL_WORKSHEET_VARIANT = createWorksheetVariant('Standard');
 
-export const useWorksheetStore = create<WorksheetStore>((set) => ({
+export const useWorksheetStore = create<WorksheetStore>()(
+    persist(
+        temporal(
+            (set) => ({
     variants: [INITIAL_WORKSHEET_VARIANT],
     activeVariantId: INITIAL_WORKSHEET_VARIANT.id,
     id: crypto.randomUUID(),
@@ -731,10 +849,28 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
                     promptHtml: typeof (taskData as Partial<LineaturTask>).promptHtml === 'string'
                         ? (taskData as Partial<LineaturTask>).promptHtml
                         : '',
-                    lineRows:
-                        typeof (taskData as Partial<LineaturTask>).lineRows === 'number'
-                            ? Math.max(1, Math.min(20, Math.round((taskData as Partial<LineaturTask>).lineRows as number)))
-                            : 4,
+                    lineRows: (() => {
+                        const partial = taskData as Partial<LineaturTask>;
+                        const rawRows = typeof partial.rowCount === 'number' ? partial.rowCount : partial.lineRows;
+                        return typeof rawRows === 'number'
+                            ? Math.max(1, Math.min(20, Math.round(rawRows)))
+                            : 5;
+                    })(),
+                    rowCount: (() => {
+                        const partial = taskData as Partial<LineaturTask>;
+                        const rawRows = typeof partial.rowCount === 'number' ? partial.rowCount : partial.lineRows;
+                        return typeof rawRows === 'number'
+                            ? Math.max(1, Math.min(20, Math.round(rawRows)))
+                            : 5;
+                    })(),
+                    lineHeight:
+                        typeof (taskData as Partial<LineaturTask>).lineHeight === 'number'
+                            ? Math.max(4, Math.min(20, (taskData as Partial<LineaturTask>).lineHeight as number))
+                            : 12,
+                    gapColor:
+                        typeof (taskData as Partial<LineaturTask>).gapColor === 'string'
+                            ? ((taskData as Partial<LineaturTask>).gapColor as string)
+                            : '#eaf4e8',
                 }
                 : taskData;
 
@@ -1276,4 +1412,15 @@ export const useWorksheetStore = create<WorksheetStore>((set) => ({
             taskIds: newTaskIds,
         });
     }),
-}));
+            }),
+            {
+                limit: TEMPORAL_HISTORY_LIMIT,
+                partialize: partializeTemporalWorksheetSlice,
+            },
+        ),
+        {
+            name: 'worksheet-storage',
+            partialize: partializePersistedWorksheetSlice,
+        },
+    ),
+);

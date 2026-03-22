@@ -786,6 +786,7 @@ interface WorkspaceActions {
     startTemplateEdit: (templateId: string) => void;
     clearTemplateEdit: () => void;
     setActiveEditor: (editor: Editor | null) => void;
+    updateTask: (taskId: string, updates: Partial<Task>) => void;
 }
 
 type WorkspaceStore = WorkspaceState & WorkspaceActions;
@@ -1745,6 +1746,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
     setActiveEditor: (editor) => {
         set({ activeEditor: editor });
+    },
+
+    updateTask: (taskId, updates) => {
+        useWorksheetStore.getState().updateTask(taskId, updates);
     },
     };
 

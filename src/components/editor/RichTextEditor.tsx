@@ -14,6 +14,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { StyledTableCell, StyledTableHeader } from './tiptapTableStyling';
 import { FontSize } from './tiptapFontSize';
 import { TextAlign } from './tiptapTextAlign';
+import { TiptapImage } from './tiptapImage';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
 
 /* ══════════════════════════════════════════════════
@@ -100,6 +101,7 @@ function RichTextEditorInner({
             TextAlign.configure({
                 types: ['heading', 'paragraph', 'tableCell', 'tableHeader'],
             }),
+            TiptapImage,
             Underline,
             Placeholder.configure({ placeholder }),
             // Default table keymaps bleiben aktiv (Tab = nächste Zelle, Ende = neue Zeile, Enter = Zeilenumbruch in Zelle).
@@ -204,7 +206,7 @@ function RichTextEditorInner({
                 editor={editor}
                 className={clsx(
                     'overflow-hidden text-sm text-worksheet-ink prose prose-sm max-w-none rounded-lg',
-                    isMinimal ? 'min-h-[40px] p-2' : 'px-3 py-2',
+                    isMinimal ? 'min-h-0 h-auto p-0' : 'px-3 py-2',
                     isMinimal ? 'prose-p:my-0 prose-ul:my-0 prose-ol:my-0' : 'prose-p:my-1 prose-ul:my-1 prose-ol:my-1',
                     'prose-li:my-0 prose-li:marker:text-worksheet-inkLight',
                     '[&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',

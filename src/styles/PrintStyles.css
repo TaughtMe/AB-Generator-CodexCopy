@@ -49,23 +49,29 @@
     /* ── Reset the UI zoom transform so print is always at 100% ── */
     .zoom-container {
         transform: none !important;
+        transform-origin: initial !important;
         position: static !important;
+        width: 100% !important;
     }
 
     /* ── Reset the overflow wrapper around the zoom container ── */
     .overflow-x-auto {
         overflow: visible !important;
         padding-bottom: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
     }
 
     /* Hide desk background and toolbar */
     .a4-desk,
     .a4-desk-multi {
+        display: block !important;
         background: none !important;
         padding: 0 !important;
         margin: 0 !important;
         min-height: auto !important;
         gap: 0 !important;
+        width: 100% !important;
     }
 
     /* The A4 page itself – margins handled by @page, not by CSS */
@@ -74,6 +80,8 @@
         margin: 0 !important;
         border-radius: 0 !important;
         width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
         height: auto !important;
         min-height: auto !important;
         padding: 0 !important;
@@ -81,6 +89,7 @@
         overflow: visible !important;
         font-size: var(--worksheet-font-size-pt, 11pt) !important;
         line-height: 1.45 !important;
+        flex-shrink: 1 !important;
     }
 
     /* ── Hide non-printable UI elements ── */
@@ -222,6 +231,23 @@
         color: transparent !important;
         -webkit-text-fill-color: transparent !important;
         text-shadow: none !important;
+    }
+
+    /* ── Cloze per-letter gaps: individual stroke per character ── */
+    .cloze-gap-per-letter {
+        display: inline-flex;
+        align-items: flex-end;
+        gap: 0.15em;
+        margin: 0 0.125rem;
+        vertical-align: baseline;
+        line-height: 1.8;
+    }
+
+    .cloze-gap-letter {
+        display: inline-block;
+        border-bottom: 2px solid #334155;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 
     /* ── Hide form controls in print (inputs show as text) ── */

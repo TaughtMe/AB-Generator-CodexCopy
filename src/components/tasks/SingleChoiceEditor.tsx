@@ -76,7 +76,7 @@ export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, is
                     {task.options.map((option) => (
                         <div
                             key={option.id}
-                            className="sc-option-card flex items-start gap-2 group/option rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-1.5 h-auto transition-colors focus-within:ring-2 focus-within:ring-blue-500/35 focus-within:border-blue-500"
+                            className="sc-option-card flex items-start gap-2 group/option rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-1.5 min-h-0 h-auto transition-colors focus-within:ring-2 focus-within:ring-blue-500/35 focus-within:border-blue-500"
                         >
                             {isActive ? (
                                 <button
@@ -92,13 +92,13 @@ export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, is
                                 </button>
                             ) : (
                                 <span
-                                    className="shrink-0 w-5 h-5 mt-1 border-2 border-worksheet-border rounded-full print:hidden"
+                                    className="shrink-0 w-5 h-5 mt-1.5 border-2 border-worksheet-border rounded-full print:hidden"
                                     data-correct={option.isCorrect}
                                 />
                             )}
 
                             <span
-                                className="sc-print-radio hidden shrink-0 w-5 h-5 mt-1 border-2 border-worksheet-border rounded-full"
+                                className="sc-print-radio hidden shrink-0 w-5 h-5 mt-1.5 border-2 border-worksheet-border rounded-full"
                                 data-correct={option.isCorrect}
                             />
 

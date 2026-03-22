@@ -1,11 +1,14 @@
-import { StrictMode } from 'react'
+import React, { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
+import { ErrorBoundary } from 'react-error-boundary'
 import './index.css'
-import App from './App.tsx'
-import { ErrorBoundary } from './components/ErrorBoundary'
+import { ErrorFallback } from './components/ui/ErrorFallback'
+import { LoadingScreen } from './components/ui/LoadingScreen'
 import { UpdatePrompt } from './components/pwa/UpdatePrompt'
 import { loadGoogleFont } from './utils/googleFonts'
 import { useSettingsStore } from './store/settingsStore'
+
+const App = React.lazy(() => import('./App'))
 
 // Aktive Schriftart beim App-Start laden (Google Font CDN)
 const currentFont = useSettingsStore.getState().fontFamily;
@@ -13,9 +16,11 @@ if (currentFont) loadGoogleFont(currentFont);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ErrorBoundary>
-      <App />
-      <UpdatePrompt />
+    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()}>
+      <Suspense fallback={<LoadingScreen />}>
+        <App />
+        <UpdatePrompt />
+      </Suspense>
     </ErrorBoundary>
   </StrictMode>,
 )
