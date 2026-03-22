@@ -9,7 +9,7 @@ import { captureWorksheetThumbnail } from './utils/thumbnailCapture';
 import { ChatAssistant } from './components/ai/ChatAssistant';
 import { EditorChatSidebar } from './components/ai/EditorChatSidebar';
 import { SettingsModal } from './components/settings/SettingsModal';
-import { Dashboard } from './components/dashboard/Dashboard';
+import { DashboardView } from './components/dashboard/DashboardView';
 import { TrashView } from './components/dashboard/TrashView';
 import { DesignEditor } from './components/dashboard/DesignEditor';
 import { TemplateGallery } from './components/dashboard/TemplateGallery';
@@ -20,7 +20,8 @@ import { FloatingToolbar } from './components/editor/FloatingToolbar';
 import { WorksheetCanvas } from './components/editor/WorksheetCanvas';
 import { SourcesManagerModal } from './components/editor/SourcesManagerModal';
 import { OutlineNavigator } from './components/layout/OutlineNavigator';
-import { AppShell, type DashboardView } from './components/layout/AppShell';
+import { AppShell, type DashboardView as AppShellView } from './components/layout/AppShell';
+import { LegalModals, type LegalModalType } from './components/layout/LegalModals';
 import { ClassesDashboard } from './components/dashboard/ClassesDashboard';
 
 import './styles/PrintStyles.css';
@@ -46,6 +47,8 @@ function App() {
   const setShowHeader = useWorksheetStore((state) => state.setShowHeader);
 
   const saveCurrentWorksheet = useWorkspaceStore((s) => s.saveCurrentWorksheet);
+  const createNewWorksheet = useWorkspaceStore((s) => s.createNewWorksheet);
+  const openWorksheet = useWorkspaceStore((s) => s.openWorksheet);
   const loadClassProfiles = useWorkspaceStore((s) => s.loadClassProfiles);
   const currentView = useWorkspaceStore((s) => s.currentView);
   const setCurrentView = useWorkspaceStore((s) => s.setCurrentView);
@@ -64,10 +67,11 @@ function App() {
   const themeMode = useSettingsStore((state) => state.themeMode);
   const loadCustomFonts = useFontStore((state) => state.loadCustomFonts);
 
-  const [dashboardView, setDashboardView] = useState<DashboardView>('dashboard');
+  const [dashboardView, setDashboardView] = useState<AppShellView>('dashboard');
   const [showDesignEditor, setShowDesignEditor] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showSourcesManager, setShowSourcesManager] = useState(false);
+  const [activeLegalModal, setActiveLegalModal] = useState<LegalModalType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
 
@@ -187,6 +191,54 @@ function App() {
 
   /* ── Dashboard View (mit AppShell + Sidebar) ── */
   if (currentView !== 'editor') {
+    if (currentView === 'dashboard' && dashboardView === 'dashboard') {
+      return (
+        <>
+          <DashboardView
+            onCreateWorksheet={() => {
+              createNewWorksheet();
+              setCurrentView('editor');
+            }}
+            onOpenAssistant={() => setCurrentView('ai-chat')}
+            onOpenWorksheet={async (id) => {
+              const ok = await openWorksheet(id);
+              if (ok) setCurrentView('editor');
+            }}
+            onSidebarAction={(action) => {
+              if (action === 'settings') {
+                setShowSettingsModal(true);
+                return;
+              }
+
+              setDashboardView(action);
+              setCurrentView('dashboard');
+            }}
+            onOpenLegalModal={(modal) => setActiveLegalModal(modal)}
+          />
+          <SettingsModal
+            isOpen={showSettingsModal}
+            onClose={() => setShowSettingsModal(false)}
+          />
+          <DesignEditor
+            isOpen={showDesignEditor}
+            onClose={() => {
+              setShowDesignEditor(false);
+              clearTemplateEdit();
+            }}
+          />
+          <TemplateGallery
+            isOpen={isTemplateGalleryOpen}
+            onClose={closeTemplateGallery}
+            onOpenDesignEditor={() => setShowDesignEditor(true)}
+          />
+          <LegalModals
+            activeModal={activeLegalModal}
+            onClose={() => setActiveLegalModal(null)}
+          />
+        </>
+      );
+    }
+
     return (
       <>
         <AppShell
@@ -199,13 +251,6 @@ function App() {
         >
           {currentView === 'ai-chat' && (
             <ChatAssistant onBack={() => setCurrentView('dashboard')} />
-          )}
-          {currentView === 'dashboard' && dashboardView === 'dashboard' && (
-            <Dashboard
-              onOpenEditor={() => setCurrentView('editor')}
-              onOpenAIChat={() => setCurrentView('ai-chat')}
-              onOpenDesignEditor={() => setShowDesignEditor(true)}
-            />
           )}
           {currentView === 'dashboard' && dashboardView === 'profiles' && (
             <ClassesDashboard />

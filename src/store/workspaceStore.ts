@@ -978,7 +978,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         for (const item of oldRecent) {
             if (item.thumbnailUrl) URL.revokeObjectURL(item.thumbnailUrl);
         }
-        const recent = await listRecentWorksheets(50, activeFilter);
+        const recent = await listRecentWorksheets(5000, activeFilter);
         set({ recentWorksheets: recent });
     },
 
