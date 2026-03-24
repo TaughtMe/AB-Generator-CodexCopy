@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import {
     saveWorksheet,
     loadWorksheet,
@@ -668,6 +669,7 @@ interface WorkspaceState {
     /** Aktive Filter für die Materialien-Ansicht */
     filter: WorksheetFilter;
     currentView: WorkspaceView;
+    aiModel: string;
     chatMessages: ChatMessage[];
     aiSidebarDraft: string;
     isChatLoading: boolean;
@@ -687,10 +689,28 @@ interface WorkspaceState {
     autoSaveStatus: WorkspaceAutoSaveStatus;
     /** Aktuell fokussierter Tiptap-Editor (für Ribbon-Toolbar) */
     activeEditor: Editor | null;
+    documentMeta: DocumentMeta;
+    savedFiles: SavedFileSnapshot[];
+    isFirstSave: boolean;
 }
 
 export type WorkspaceView = 'dashboard' | 'ai-chat' | 'editor';
 export type WorkspaceAutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+export type DocumentMeta = {
+    title: string;
+    subject: string;
+    classLevel: string;
+};
+
+type SavedFileSnapshot = {
+    id: string;
+    meta: DocumentMeta;
+    lastModified: string;
+    tasks?: Task[];
+    taskCount?: number;
+    variations?: unknown[];
+    variationCount?: number;
+};
 
 type PersistWorksheetOptions = {
     refreshRecent?: boolean;
@@ -754,6 +774,7 @@ interface WorkspaceActions {
     /** Importiert ein Arbeitsblatt aus einer .abgen-Datei und speichert es mit neuen IDs */
     importWorksheet: (file: File) => Promise<string | null>;
     setCurrentView: (view: WorkspaceView) => void;
+    setAiModel: (model: string) => void;
     addChatMessage: (message: ChatMessage) => void;
     setChatMessages: (messages: ChatMessage[]) => void;
     setAiSidebarDraft: (draft: string) => void;
@@ -787,11 +808,16 @@ interface WorkspaceActions {
     clearTemplateEdit: () => void;
     setActiveEditor: (editor: Editor | null) => void;
     updateTask: (taskId: string, updates: Partial<Task>) => void;
+    updateDocumentMeta: (meta: Partial<DocumentMeta>) => void;
+    saveCurrentDocument: () => void;
+    markAsSaved: () => void;
 }
 
 type WorkspaceStore = WorkspaceState & WorkspaceActions;
 
-export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
+export const useWorkspaceStore = create<WorkspaceStore>()(
+  persist(
+    (set, get) => {
     let latestPersistOperationId = 0;
     let latestChatRequestId = 0;
     let hasInitialTrashCleanupRun = false;
@@ -831,6 +857,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
     const persistCurrentWorksheetWithStatus = async (options: PersistCurrentWorksheetOptions = {}): Promise<void> => {
         const ws = useWorksheetStore.getState();
+        const meta = get().documentMeta;
         await persistWorksheetRecordWithStatus(
             [
                 ws.id,
@@ -844,6 +871,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 options.thumbnail,
                 ws.variants,
                 ws.activeVariantId,
+                meta.subject,
+                meta.classLevel,
             ],
             options,
         );
@@ -868,6 +897,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     classProfilesError: null,
     filter: {},
     currentView: 'dashboard',
+    aiModel: 'GPT-4o (Standard)',
     chatMessages: [],
     aiSidebarDraft: '',
     isChatLoading: false,
@@ -884,6 +914,13 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     editingTemplateId: null,
     autoSaveStatus: 'idle',
     activeEditor: null,
+    documentMeta: {
+        title: 'Unbenannt',
+        subject: '',
+        classLevel: '',
+    },
+    savedFiles: [],
+    isFirstSave: true,
 
     loadClassProfiles: async () => {
         set({ isClassProfilesLoading: true, classProfilesError: null });
@@ -1034,6 +1071,12 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
                 isChatLoading: false,
                 isLoading: false,
                 autoSaveStatus: 'saved',
+                documentMeta: {
+                    title: record.title || 'Unbenannt',
+                    subject: record.documentSubject ?? '',
+                    classLevel: record.documentClassLevel ?? '',
+                },
+                isFirstSave: false,
             });
             return true;
         } catch {
@@ -1045,13 +1088,20 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     createNewWorksheet: () => {
         const wsStore = useWorksheetStore.getState();
         wsStore.resetWorksheet();
+        const nextWorksheet = useWorksheetStore.getState();
         set({
-            currentWorksheetId: useWorksheetStore.getState().id,
+            currentWorksheetId: nextWorksheet.id,
             chatMessages: [],
             chatError: null,
             chatStatusNotice: null,
             isChatLoading: false,
             autoSaveStatus: 'idle',
+            documentMeta: {
+                title: nextWorksheet.title || 'Unbenannt',
+                subject: '',
+                classLevel: '',
+            },
+            isFirstSave: true,
         });
     },
 
@@ -1109,6 +1159,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             original.thumbnailBlob,
             duplicated.variants,
             duplicated.activeVariantId,
+            original.documentSubject,
+            original.documentClassLevel,
         );
 
         await get().loadRecent();
@@ -1208,6 +1260,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             undefined,
             importedClonedVariants,
             importedActiveVariantId,
+            undefined,
+            undefined,
         );
 
         if (importedDesign) {
@@ -1220,6 +1274,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
     setCurrentView: (view) => {
         set({ currentView: view });
+    },
+
+    setAiModel: (model) => {
+        set({ aiModel: model });
     },
 
     addChatMessage: (message) => {
@@ -1751,6 +1809,85 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     updateTask: (taskId, updates) => {
         useWorksheetStore.getState().updateTask(taskId, updates);
     },
+
+    updateDocumentMeta: (meta) => {
+        set((state) => {
+            const nextMeta: DocumentMeta = {
+                ...state.documentMeta,
+                ...meta,
+            };
+            const ws = useWorksheetStore.getState();
+            const worksheetId = ws.id;
+            const savedFileId = state.currentWorksheetId
+                ?? worksheetId
+                ?? (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                    ? crypto.randomUUID()
+                    : Date.now().toString());
+            const lastModified = new Date().toISOString();
+            const nextSavedFiles = [
+                {
+                    id: savedFileId,
+                    meta: nextMeta,
+                    lastModified,
+                    tasks: [...ws.taskIds.map((taskId) => ({ ...ws.tasksById[taskId] }))],
+                    taskCount: ws.taskIds.length,
+                    variations: ws.variants.map((variant) => ({ id: variant.id, label: variant.label })),
+                    variationCount: Math.max(1, ws.variants.length),
+                },
+                ...state.savedFiles.filter((file) => file.id !== savedFileId),
+            ];
+
+            return {
+                currentWorksheetId: state.currentWorksheetId ?? savedFileId,
+                documentMeta: nextMeta,
+                savedFiles: nextSavedFiles,
+            };
+        });
+    },
+
+    saveCurrentDocument: () => {
+        set((state) => {
+            const ws = useWorksheetStore.getState();
+            const now = new Date().toISOString();
+            const docId = state.currentWorksheetId
+                ?? ws.id
+                ?? crypto.randomUUID();
+
+            const currentSnapshot = {
+                id: docId,
+                meta: { ...state.documentMeta },
+                lastModified: now,
+                tasks: [...ws.taskIds.map((tid) => ({ ...ws.tasksById[tid] }))],
+                taskCount: ws.taskIds.length,
+                variations: ws.variants.map((variant) => ({ id: variant.id, label: variant.label })),
+                variationCount: Math.max(1, ws.variants.length),
+            };
+
+            const existingIndex = state.savedFiles.findIndex((f) => f.id === docId);
+
+            if (existingIndex >= 0) {
+                const updatedFiles = [...state.savedFiles];
+                updatedFiles[existingIndex] = currentSnapshot;
+                return {
+                    savedFiles: updatedFiles,
+                    isFirstSave: false,
+                    currentWorksheetId: docId,
+                    documentMeta: { ...state.documentMeta },
+                };
+            }
+
+            return {
+                savedFiles: [currentSnapshot, ...state.savedFiles],
+                isFirstSave: false,
+                currentWorksheetId: docId,
+                documentMeta: { ...state.documentMeta },
+            };
+        });
+    },
+
+    markAsSaved: () => {
+        set({ isFirstSave: false });
+    },
     };
 
     queueMicrotask(() => {
@@ -1758,4 +1895,15 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     });
 
     return store;
-});
+    },
+    {
+      name: 'workspace-storage',
+      partialize: (state) => ({
+        savedFiles: state.savedFiles,
+        documentMeta: state.documentMeta,
+        isFirstSave: state.isFirstSave,
+        currentWorksheetId: state.currentWorksheetId,
+      }),
+    },
+  ),
+);

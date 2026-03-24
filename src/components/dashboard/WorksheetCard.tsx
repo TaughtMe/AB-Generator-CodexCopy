@@ -1,5 +1,26 @@
 import React from 'react';
-import { Trash2, CheckSquare, Type, Grid3X3, Image, Columns, Calculator, Scissors, Copy, MoreVertical, FileDown, Share2, Heading, Table } from 'lucide-react';
+import {
+    Trash2,
+    CheckSquare,
+    Type,
+    Grid3X3,
+    Image as ImageIcon,
+    Columns,
+    Calculator,
+    Scissors,
+    Copy,
+    MoreVertical,
+    FileDown,
+    Share2,
+    Heading,
+    Table,
+    Menu,
+    Edit2,
+    FolderPlus,
+    Download,
+    ChevronLeft,
+    FileText,
+} from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -12,7 +33,7 @@ import { ICON_SIZES } from '../ui/iconSizes';
    (Header + erste Tasks) im Thumbnail-Bereich.
    ══════════════════════════════════════════════════ */
 
-interface WorksheetCardProps {
+interface LegacyWorksheetCardProps {
     meta: WorksheetMeta;
     isDeleting: boolean;
     isDuplicating: boolean;
@@ -24,6 +45,28 @@ interface WorksheetCardProps {
     onExport: (e: React.MouseEvent, meta: WorksheetMeta) => void;
     onShare: (e: React.MouseEvent, meta: WorksheetMeta) => void;
     onDelete: (e: React.MouseEvent, meta: WorksheetMeta) => void;
+}
+
+interface WorksheetCardProps {
+    title: string;
+    subject: string;
+    date: string;
+    taskCount: number;
+    tasks?: any[];
+    thumbnailUrl?: string;
+    onOpen?: () => void;
+    onRenameAction?: () => Promise<void> | void;
+    onAssignAction?: () => Promise<void> | void;
+    onDuplicateAction?: () => Promise<void> | void;
+    onDeleteAction?: () => Promise<void> | void;
+    onDownloadStudentAction?: () => Promise<void> | void;
+    onDownloadTeacherAction?: () => Promise<void> | void;
+}
+
+type WorksheetCardComponentProps = LegacyWorksheetCardProps | WorksheetCardProps;
+
+function isLegacyWorksheetCardProps(props: WorksheetCardComponentProps): props is LegacyWorksheetCardProps {
+    return 'meta' in props;
 }
 
 /** Relative Zeitangabe */
@@ -62,7 +105,7 @@ function taskIcon(type: string) {
         case 'cloze': return <Type className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'heading': return <Heading className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'lineatur': return <Grid3X3 className={`${ICON_SIZES[7]} shrink-0`} />;
-        case 'image-placeholder': return <Image className={`${ICON_SIZES[7]} shrink-0`} />;
+        case 'image-placeholder': return <ImageIcon className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'columns': return <Columns className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'table': return <Table className={`${ICON_SIZES[7]} shrink-0`} />;
         case 'math': return <Calculator className={`${ICON_SIZES[7]} shrink-0`} />;
@@ -115,7 +158,10 @@ const MiniTaskLine: React.FC<{ item: TaskPreviewItem; index: number }> = ({ item
     );
 };
 
-export const WorksheetCard: React.FC<WorksheetCardProps> = ({
+const recentMenuButtonClassName =
+    'flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors';
+
+const LegacyWorksheetCard: React.FC<LegacyWorksheetCardProps> = ({
     meta,
     isDeleting,
     isDuplicating,
@@ -303,4 +349,250 @@ export const WorksheetCard: React.FC<WorksheetCardProps> = ({
             </div>
         </div>
     );
+};
+
+const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
+    title,
+    subject,
+    date,
+    taskCount,
+    tasks,
+    onOpen,
+    onRenameAction,
+    onAssignAction,
+    onDuplicateAction,
+    onDeleteAction,
+    onDownloadStudentAction,
+    onDownloadTeacherAction,
+}) => {
+    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const [showDownloadMenu, setShowDownloadMenu] = React.useState(false);
+    const menuRef = React.useRef<HTMLDivElement | null>(null);
+    const previewTasks = (tasks || []).slice(0, 3);
+
+    React.useEffect(() => {
+        if (!isMenuOpen) return;
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (!menuRef.current) return;
+            if (menuRef.current.contains(event.target as Node)) return;
+            setIsMenuOpen(false);
+            setShowDownloadMenu(false);
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            setIsMenuOpen(false);
+            setShowDownloadMenu(false);
+        };
+
+        window.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('keydown', handleEscape);
+        return () => {
+            window.removeEventListener('pointerdown', handlePointerDown);
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, [isMenuOpen]);
+
+    const runAction = async (action?: () => Promise<void> | void) => {
+        try {
+            await action?.();
+        } catch (error) {
+            console.error('Worksheet action failed:', error);
+        } finally {
+            setIsMenuOpen(false);
+            setShowDownloadMenu(false);
+        }
+    };
+
+    return (
+        <article
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+                if (isMenuOpen) {
+                    setIsMenuOpen(false);
+                    setShowDownloadMenu(false);
+                    return;
+                }
+                onOpen?.();
+            }}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onOpen?.();
+                }
+            }}
+            className="relative rounded-xl bg-white dark:bg-slate-800 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700/60 transition hover:-translate-y-0.5 hover:ring-slate-300 dark:hover:ring-slate-500/80"
+        >
+            <div className="relative aspect-video bg-white dark:bg-slate-900 p-3 overflow-hidden border-b border-slate-200 dark:border-slate-800">
+                <div className="transform scale-[0.6] origin-top-left w-[166%] h-[166%] pointer-events-none flex flex-col gap-4">
+                    {previewTasks.length === 0 ? (
+                        <div className="h-full flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-2 text-slate-400 dark:text-slate-500">
+                                <FileText size={16} />
+                                <span className="text-[10px]">Leeres Arbeitsblatt</span>
+                            </div>
+                        </div>
+                    ) : (
+                        previewTasks.map((task, index) => {
+                            const taskType = typeof task?.type === 'string' ? task.type : 'text';
+
+                            if (taskType === 'lines' || taskType === 'lineatur') {
+                                return (
+                                    <div key={index} className="flex flex-col gap-1 w-full">
+                                        <div className="border-b border-slate-300 dark:border-slate-600 w-full h-2" />
+                                        <div className="border-b border-slate-300 dark:border-slate-600 w-full h-2" />
+                                        <div className="border-b border-slate-300 dark:border-slate-600 w-full h-2" />
+                                    </div>
+                                );
+                            }
+
+                            if (taskType === 'image' || taskType === 'image-placeholder') {
+                                return (
+                                    <div
+                                        key={index}
+                                        className="w-full h-16 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 flex items-center justify-center"
+                                    >
+                                        <ImageIcon size={16} className="text-slate-400" />
+                                    </div>
+                                );
+                            }
+
+                            const rawContent = typeof task?.content === 'string' ? task.content : '';
+
+                            return (
+                                <div
+                                    key={index}
+                                    className="text-xs text-slate-600 dark:text-slate-400 line-clamp-3 leading-relaxed"
+                                >
+                                    {rawContent ? rawContent.replace(/<[^>]+>/g, '') : 'Textblock...'}
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+                <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white dark:from-slate-900 to-transparent z-10" />
+            </div>
+
+            <div ref={menuRef} className="absolute top-2 right-2 z-50">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMenuOpen(!isMenuOpen);
+                        if (isMenuOpen) {
+                            setShowDownloadMenu(false);
+                        }
+                    }}
+                    className="absolute top-0 right-0 z-20 p-1.5 rounded-md bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 shadow-sm transition-all"
+                >
+                    <Menu size={18} />
+                </button>
+
+                {isMenuOpen && (
+                    <div
+                        className="absolute top-10 right-0 w-56 bg-white border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700 rounded-md z-50 overflow-hidden flex flex-col"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        {!showDownloadMenu ? (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        void runAction(onRenameAction);
+                                    }}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <Edit2 size={16} />
+                                    Umbenennen
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        void runAction(onAssignAction);
+                                    }}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <FolderPlus size={16} />
+                                    Klasse/Fach zuordnen
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        void runAction(onDuplicateAction);
+                                    }}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <Copy size={16} />
+                                    Duplizieren
+                                </button>
+                                <button
+                                    onClick={() => setShowDownloadMenu(true)}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <Download size={16} />
+                                    Herunterladen
+                                </button>
+                                <hr className="border-slate-200 dark:border-slate-700" />
+                                <button
+                                    onClick={() => {
+                                        void runAction(onDeleteAction);
+                                    }}
+                                    className={`${recentMenuButtonClassName} text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-slate-700/50`}
+                                >
+                                    <Trash2 size={16} />
+                                    Löschen
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => setShowDownloadMenu(false)}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <ChevronLeft size={16} />
+                                    Zurück
+                                </button>
+                                <hr className="border-slate-200 dark:border-slate-700" />
+                                <button
+                                    onClick={() => {
+                                        void runAction(onDownloadStudentAction);
+                                    }}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <FileText size={16} />
+                                    Schülerversion
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        void runAction(onDownloadTeacherAction);
+                                    }}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <FileText size={16} />
+                                    Lehrerversion (mit Lösung)
+                                </button>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <div className="p-4 flex flex-col gap-2">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h3>
+                <div className="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
+                    <span>{date}</span>
+                    <span>{taskCount} {taskCount === 1 ? 'Aufgabe' : 'Aufgaben'}</span>
+                </div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                    {subject || 'Ohne Fach'}
+                </div>
+            </div>
+        </article>
+    );
+};
+
+export const WorksheetCard: React.FC<WorksheetCardComponentProps> = (props) => {
+    if (isLegacyWorksheetCardProps(props)) {
+        return <LegacyWorksheetCard {...props} />;
+    }
+
+    return <RecentWorksheetCard {...props} />;
 };

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
     DndContext,
     DragOverlay,
@@ -84,7 +84,7 @@ interface WorksheetCanvasProps {
     onCancelPlacing: () => void;
 }
 
-export function WorksheetCanvas({
+export const WorksheetCanvas = React.memo(function WorksheetCanvas({
     taskIds,
     tasksById,
     fontFamily,
@@ -479,7 +479,7 @@ export function WorksheetCanvas({
             )}
         </div>
     );
-}
+});
 
 /* ══════════════════════════════════════════════════
    PlacementIndicator – Blaue Einfüge-Linie

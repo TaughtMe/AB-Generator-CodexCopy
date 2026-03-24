@@ -1,142 +1,214 @@
-import React from 'react';
-import { BookOpen, LayoutDashboard, Users, Settings, HelpCircle, ChevronDown, Trash2 } from 'lucide-react';
-import { useProfileStore } from '../../store/profileStore';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  LayoutDashboard,
+  BookOpenText,
+  Trash2,
+  Settings,
+  Sparkles,
+  Check,
+} from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import type { DashboardView } from './AppShell';
-import { IconButton } from '../ui/IconButton';
-import { ICON_SIZES } from '../ui/iconSizes';
+import { useShallow } from 'zustand/react/shallow';
+import { useSettingsStore } from '../../store/settingsStore';
+import { useProviderModels } from '../../hooks/useProviderModels';
 
-/* ══════════════════════════════════════════════════
-   Sidebar.tsx – Fixe linke Navigation
-   Kontext-Dropdown oben, Navigation, Footer-Icons.
-   ══════════════════════════════════════════════════ */
+export type SidebarView = 'dashboard' | 'profiles' | 'trash' | 'settings';
 
 interface SidebarProps {
-    activeView: DashboardView;
-    onChangeView: (view: DashboardView) => void;
-    onOpenSettings: () => void;
+  activeView: SidebarView;
+  onChangeView: (view: SidebarView) => void;
+  onOpenSettings?: () => void;
+  onOpenLegalModal?: (modal: 'impressum' | 'datenschutz') => void;
 }
 
-/** Navigation items */
-const NAV_ITEMS: { id: DashboardView | 'settings'; label: string; icon: React.ElementType; action?: 'settings' }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'profiles', label: 'Klassen & Fächer', icon: Users },
-    { id: 'trash', label: 'Papierkorb', icon: Trash2 },
-    { id: 'settings', label: 'Einstellungen', icon: Settings, action: 'settings' },
+const NAV_ITEMS: { id: SidebarView; label: string; icon: React.ElementType }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'profiles', label: 'Meine Fächer', icon: BookOpenText },
+  { id: 'trash', label: 'Papierkorb', icon: Trash2 },
+  { id: 'settings', label: 'Einstellungen', icon: Settings },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({
-    activeView,
-    onChangeView,
-    onOpenSettings,
-}) => {
-    const subjects = useProfileStore((s) => s.subjects);
-    const classes = useWorkspaceStore((s) => s.classProfiles);
-    const activeSubjectId = useProfileStore((s) => s.activeSubjectId);
-    const activeClassId = useProfileStore((s) => s.activeClassId);
-    const setActiveSubject = useProfileStore((s) => s.setActiveSubject);
-    const setActiveClass = useProfileStore((s) => s.setActiveClass);
+const LEGAL_LINKS = [
+  { key: 'impressum' as const, label: 'Impressum' },
+  { key: 'datenschutz' as const, label: 'Datenschutz' },
+];
 
-    const activeSubject = activeSubjectId ? subjects.find((s) => s.id === activeSubjectId) : null;
-    const activeClass = activeClassId ? classes.find((c) => c.id === activeClassId) : null;
+export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalModal }: SidebarProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { aiModel, setAiModel } = useWorkspaceStore(useShallow((s) => ({ aiModel: s.aiModel, setAiModel: s.setAiModel })));
+  const aiProvider = useSettingsStore((state) => state.aiProvider);
+  const activeProviderConfig = useSettingsStore((state) => state.providers[state.aiProvider]);
+  const setProviderModel = useSettingsStore((state) => state.setProviderModel);
+  const [isAiMenuOpen, setIsAiMenuOpen] = useState(false);
+  const { models: detectedProviderModels, isLoading: isLoadingProviderModels } = useProviderModels(aiProvider, true);
 
-    /* Zusammengefasster Kontext-Label */
-    const contextLabel = [activeSubject?.name, activeClass?.name].filter(Boolean).join(', ') || 'Alle';
+  const modelOptions = useMemo(
+    () => Array.from(new Map(detectedProviderModels.map((option) => [option.value, option])).values()),
+    [detectedProviderModels],
+  );
+  const isAiActive = isLoadingProviderModels || modelOptions.length > 0;
+  const activeModelLabel = useMemo(
+    () => modelOptions.find((option) => option.value === aiModel)?.label ?? aiModel,
+    [aiModel, modelOptions],
+  );
 
-    return (
-        <div className="h-full flex flex-col bg-white dark:bg-slate-900/95 backdrop-blur-md border-r border-slate-200/80 dark:border-slate-700/50">
-            {/* ── Aktiver Kontext (oben) ── */}
-            <div className="px-4 pt-5 pb-4">
-                <div className="relative group">
-                    <button
-                        className="w-full flex items-center gap-3 px-3 py-2.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                    >
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
-                            <BookOpen className={`${ICON_SIZES[14]} text-white`} />
-                        </div>
-                        <div className="flex-1 text-left min-w-0">
-                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-none mb-0.5">
-                                Aktiver Kontext:
-                            </p>
-                            <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
-                                {contextLabel}
-                            </p>
-                        </div>
-                        <ChevronDown className={`${ICON_SIZES[14]} text-slate-400 shrink-0`} />
-                    </button>
+  useEffect(() => {
+    const configuredModel = activeProviderConfig.model?.trim();
+    if (!configuredModel) return;
+    if (configuredModel !== aiModel) {
+      setAiModel(configuredModel);
+    }
+  }, [activeProviderConfig.model, aiModel, setAiModel]);
 
-                    {/* Kontext-Dropdown (öffnet bei Hover) */}
-                    <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-3 space-y-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
-                        <div>
-                            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Fach</label>
-                            <select
-                                value={activeSubjectId ?? ''}
-                                onChange={(e) => setActiveSubject(e.target.value || null)}
-                                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-300 cursor-pointer"
-                            >
-                                <option value="">Alle Fächer</option>
-                                {subjects.map((s) => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Klasse</label>
-                            <select
-                                value={activeClassId ?? ''}
-                                onChange={(e) => setActiveClass(e.target.value || null)}
-                                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-300 cursor-pointer"
-                            >
-                                <option value="">Alle Klassen</option>
-                                {classes.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                        </div>
+  return (
+    <div
+      className={`relative h-screen bg-white border-r border-slate-200 dark:bg-slate-950 dark:border-slate-800 transition-all duration-300 flex flex-col justify-between print:hidden ${
+        isCollapsed ? 'w-16' : 'w-64'
+      }`}
+    >
+      {/* Toggle button (bulge on right edge) */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-12 bg-white border-y border-r border-slate-200 dark:bg-slate-950 dark:border-slate-800 rounded-r-md flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 z-50"
+      >
+        {isCollapsed ? (
+          <ChevronRight size={14} className="text-slate-500 dark:text-slate-400" />
+        ) : (
+          <ChevronLeft size={14} className="text-slate-500 dark:text-slate-400" />
+        )}
+      </button>
+
+      {/* Top: Logo / Title + Navigation */}
+      <div className="flex flex-col">
+        <div className="border-b border-slate-200 dark:border-slate-800 px-4 py-5">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsAiMenuOpen(!isAiMenuOpen)}
+              className={`flex items-center gap-3 w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ${
+                isCollapsed ? 'justify-center' : ''
+              }`}
+              title={isCollapsed ? `KI-Assistent: ${activeModelLabel}` : undefined}
+            >
+              <Sparkles
+                className={`shrink-0 w-5 h-5 ${
+                  isAiActive ? 'text-emerald-400 animate-pulse' : 'text-red-500 animate-pulse'
+                }`}
+              />
+
+              {!isCollapsed && (
+                <div className="flex flex-col items-start">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
+                    KI-Assistent
+                  </span>
+                  <span
+                    className={`text-sm font-medium ${
+                      isAiActive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
+                    }`}
+                  >
+                    {isAiActive ? activeModelLabel : 'Offline'}
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {isAiMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAiMenuOpen(false);
+                  }}
+                />
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700 rounded-lg z-50 overflow-hidden">
+                  {isLoadingProviderModels && (
+                    <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                      Lade aktive Modelle...
                     </div>
+                  )}
+                  {!isLoadingProviderModels && modelOptions.length === 0 && (
+                    <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                      Keine aktiven KI-Modelle über API gefunden.
+                    </div>
+                  )}
+                  {!isLoadingProviderModels && modelOptions.map((model) => (
+                    <button
+                      key={model.value}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProviderModel(aiProvider, model.value);
+                        setAiModel(model.value);
+                        setIsAiMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-between ${
+                        aiModel === model.value
+                          ? 'text-emerald-600 dark:text-emerald-400 bg-slate-50 dark:bg-slate-700/50'
+                          : 'text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {model.label}
+                      {aiModel === model.value && <Check size={16} />}
+                    </button>
+                  ))}
                 </div>
-            </div>
-
-            {/* ── Navigation ── */}
-            <nav className="px-3 flex-1" data-tour="sidebar-nav">
-                <ul className="space-y-0.5">
-                    {NAV_ITEMS.map(({ id, label, icon: Icon, action }, index) => {
-                        const isActive = !action && activeView === id;
-                        return (
-                            <li key={`${id}-${index}`}>
-                                <button
-                                    onClick={() => action === 'settings' ? onOpenSettings() : onChangeView(id as DashboardView)}
-                                    className={`
-                                        w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium
-                                        transition-colors cursor-pointer
-                                        ${isActive
-                                            ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400'
-                                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70'
-                                        }
-                                    `}
-                                >
-                                    <Icon className={`${ICON_SIZES[17]} ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`} />
-                                    {label}
-                                </button>
-                            </li>
-                        );
-                    })}
-                </ul>
-            </nav>
-
-            {/* ── Footer (Hilfe + Avatar) ── */}
-            <div className="px-4 py-4 border-t border-slate-100 dark:border-slate-700/40 flex items-center justify-between">
-                <IconButton
-                    size="lg"
-                    className="text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-600 dark:hover:text-slate-300"
-                    title="Hilfe"
-                >
-                    <HelpCircle className={ICON_SIZES[18]} />
-                </IconButton>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
-                    <span className="text-[11px] font-bold text-white">L</span>
-                </div>
-            </div>
+              </>
+            )}
+          </div>
         </div>
-    );
-};
+
+        <nav className="px-3 py-4">
+          <ul className="space-y-1">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeView === item.id;
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (item.id === 'settings' && onOpenSettings) {
+                        onOpenSettings();
+                        return;
+                      }
+                      onChangeView(item.id);
+                    }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition cursor-pointer ${
+                      isActive
+                        ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/70 dark:hover:text-white'
+                    } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {!isCollapsed && item.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </div>
+
+      {/* Bottom: Legal links */}
+      <div className="space-y-1 border-t border-slate-200 dark:border-slate-800 px-3 py-4">
+        {LEGAL_LINKS.map((link) => (
+          <button
+            key={link.key}
+            type="button"
+            onClick={() => onOpenLegalModal?.(link.key)}
+            className={`block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-500 dark:text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer ${
+              isCollapsed ? 'text-center px-0' : ''
+            }`}
+            title={isCollapsed ? link.label : undefined}
+          >
+            {isCollapsed ? link.label.charAt(0) : link.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -514,6 +514,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         >
                                             {isConfirmingReset ? 'Wirklich löschen?' : 'Alle lokalen Daten löschen'}
                                         </button>
+
+                                        <button
+                                            onClick={() => {
+                                                localStorage.removeItem('workspace-storage');
+                                                localStorage.removeItem('worksheet-storage');
+                                                setDataActionInfo('LocalStorage-Cache geleert. Bitte Seite neu laden.');
+                                            }}
+                                            disabled={isDataActionRunning}
+                                            className="px-3 py-2 text-xs rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                        >
+                                            Store-Cache leeren
+                                        </button>
                                     </div>
 
                                     <input

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useShallow } from 'zustand/react/shallow';
 import { ActionHub } from './ActionHub';
 import { FilterBar } from './FilterBar';
 import { WorksheetGrid } from './WorksheetGrid';
@@ -31,7 +32,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
         filter,
         setFilter,
         openTemplateGallery,
-    } = useWorkspaceStore();
+    } = useWorkspaceStore(useShallow((s) => ({
+        recentWorksheets: s.recentWorksheets,
+        loadRecent: s.loadRecent,
+        openWorksheet: s.openWorksheet,
+        createNewWorksheet: s.createNewWorksheet,
+        removeWorksheet: s.removeWorksheet,
+        duplicateWorksheet: s.duplicateWorksheet,
+        exportWorksheet: s.exportWorksheet,
+        shareWorksheet: s.shareWorksheet,
+        canShareWorksheetFiles: s.canShareWorksheetFiles,
+        filter: s.filter,
+        setFilter: s.setFilter,
+        openTemplateGallery: s.openTemplateGallery,
+    })));
 
     const GREETINGS = [
         'Hallo! 👋',

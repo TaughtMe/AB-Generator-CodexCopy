@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, LayoutTemplate, Trash2, Pencil } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useShallow } from 'zustand/react/shallow';
 import type { DesignTemplate } from '../../types/designTemplate';
 import { Modal } from '../ui/Modal';
 
@@ -25,7 +26,13 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ isOpen, onClos
         removeDesignTemplate,
         applyTemplateToCurrentWorksheet,
         startTemplateEdit,
-    } = useWorkspaceStore();
+    } = useWorkspaceStore(useShallow((s) => ({
+        designTemplates: s.designTemplates,
+        loadDesignTemplates: s.loadDesignTemplates,
+        removeDesignTemplate: s.removeDesignTemplate,
+        applyTemplateToCurrentWorksheet: s.applyTemplateToCurrentWorksheet,
+        startTemplateEdit: s.startTemplateEdit,
+    })));
 
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isDeletingId, setIsDeletingId] = useState<string | null>(null);

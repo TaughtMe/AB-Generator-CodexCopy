@@ -1,13 +1,22 @@
-import { FileText } from 'lucide-react';
-import type { WorksheetMeta } from '../../store/dexieStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { WorksheetCard } from './WorksheetCard';
 
 interface RecentGridProps {
-  items: WorksheetMeta[];
+  items: unknown[];
+  subjectNameById: Record<string, string>;
   onOpenWorksheet?: (id: string) => void;
+  onRenameWorksheet?: (id: string) => Promise<void> | void;
+  onAssignWorksheet?: (id: string) => Promise<void> | void;
+  onDuplicateWorksheet?: (id: string) => Promise<void> | void;
+  onDownloadWorksheet?: (id: string, variant: 'student' | 'teacher') => Promise<void> | void;
+  onDeleteWorksheet?: (id: string) => Promise<void> | void;
 }
 
-function formatUpdatedLabel(date: Date): string {
-  const diff = Date.now() - new Date(date).getTime();
+function formatUpdatedLabel(date: string): string {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return 'Unbekannt';
+
+  const diff = Date.now() - parsed.getTime();
   const minutes = Math.floor(diff / 60000);
 
   if (minutes < 1) return 'Gerade eben';
@@ -22,81 +31,49 @@ function formatUpdatedLabel(date: Date): string {
   return `vor ${days} Tagen`;
 }
 
-export function RecentGrid({ items, onOpenWorksheet }: RecentGridProps) {
-  const cards = items.slice(0, 4);
-  const emptySlots = Math.max(0, 4 - cards.length);
+export function RecentGrid(props: RecentGridProps) {
+  const savedFiles = useWorkspaceStore((state) => state.savedFiles);
+  const cards = [...savedFiles]
+    .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
+    .slice(0, 4);
 
   return (
     <section>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-4xl font-semibold text-white">Zuletzt bearbeitet</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Zuletzt bearbeitet</h2>
         <button
           type="button"
-          className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-700"
+          className="text-sm font-medium px-3 py-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors"
         >
           Weitere anzeigen &gt;
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        {cards.map((item) => (
-          <article
-            key={item.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => onOpenWorksheet?.(item.id)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                onOpenWorksheet?.(item.id);
-              }
-            }}
-            className="overflow-hidden rounded-xl bg-slate-800 shadow-sm ring-1 ring-slate-700/60 transition hover:-translate-y-0.5 hover:ring-slate-500/80"
-          >
-            {item.thumbnailUrl ? (
-              <div className="aspect-video bg-slate-700">
-                <img
-                  src={item.thumbnailUrl}
-                  alt={item.title}
-                  className="h-full w-full object-cover object-top"
-                  draggable={false}
-                />
-              </div>
-            ) : (
-              <div className="aspect-video bg-slate-700 p-3">
-                <div className="h-full rounded-lg border border-slate-600/70 bg-slate-600/30 p-3">
-                  <div className="mb-2 h-2 w-1/2 rounded bg-slate-400/60" />
-                  <div className="mb-2 h-2 w-3/4 rounded bg-slate-500/60" />
-                  <div className="h-2 w-2/3 rounded bg-slate-500/60" />
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2 p-4">
-              <h3 className="text-base font-semibold text-white">{item.title}</h3>
-              <div className="flex items-center justify-between text-sm text-slate-300">
-                <span>{formatUpdatedLabel(item.updatedAt)}</span>
-                <span>{item.taskCount} Aufgaben</span>
-              </div>
-            </div>
-          </article>
-        ))}
-
-        {Array.from({ length: emptySlots }).map((_, index) => (
-          <article
-            key={`empty-slot-${index}`}
-            className="overflow-hidden rounded-xl border border-dashed border-slate-700/70 bg-slate-800/40"
-          >
-            <div className="aspect-video flex items-center justify-center bg-slate-800/30">
-              <FileText className="h-8 w-8 text-slate-500" />
-            </div>
-            <div className="space-y-2 p-4">
-              <h3 className="text-base font-semibold text-slate-400">Noch kein Arbeitsblatt</h3>
-              <div className="text-sm text-slate-500">Sobald du speicherst, erscheint es hier.</div>
-            </div>
-          </article>
+      {cards.length === 0 ? (
+        <div className="w-full h-32 flex items-center justify-center rounded-xl bg-slate-50 border-2 border-dashed border-slate-200 dark:bg-slate-800/30 dark:border-slate-700/50">
+          <span className="text-sm text-slate-500 dark:text-slate-400">Keine kürzlich bearbeiteten Dateien</span>
+        </div>
+      ) : (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {cards.map((file) => (
+          <WorksheetCard
+            key={`${file.id}-${file.tasks?.length || file.taskCount || 0}`}
+            title={file.meta.title || 'Unbenannt'}
+            subject={file.meta.subject || 'Kein Fach zugeordnet'}
+            date={formatUpdatedLabel(file.lastModified)}
+            taskCount={file.tasks?.length || file.taskCount || 0}
+            tasks={file.tasks || []}
+            onOpen={() => props.onOpenWorksheet?.(file.id)}
+            onRenameAction={() => props.onRenameWorksheet?.(file.id)}
+            onAssignAction={() => props.onAssignWorksheet?.(file.id)}
+            onDuplicateAction={() => props.onDuplicateWorksheet?.(file.id)}
+            onDeleteAction={() => props.onDeleteWorksheet?.(file.id)}
+            onDownloadStudentAction={() => props.onDownloadWorksheet?.(file.id, 'student')}
+            onDownloadTeacherAction={() => props.onDownloadWorksheet?.(file.id, 'teacher')}
+          />
         ))}
       </div>
+      )}
     </section>
   );
 }

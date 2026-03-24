@@ -4,6 +4,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { addImage, getImageUrl } from '../../store/dexieStore';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useShallow } from 'zustand/react/shallow';
 import { validateTemplateName } from '../../types/designTemplate';
 import { CURATED_FONTS, loadGoogleFont, preloadCuratedFonts } from '../../utils/googleFonts';
 import { IconButton } from '../ui/IconButton';
@@ -59,7 +60,17 @@ export const DesignEditor: React.FC<DesignEditorProps> = ({ isOpen, onClose }) =
         applyTemplateToCurrentWorksheet,
         removeDesignTemplate,
         clearTemplateEdit,
-    } = useWorkspaceStore();
+    } = useWorkspaceStore(useShallow((s) => ({
+        designTemplates: s.designTemplates,
+        selectedTemplateId: s.selectedTemplateId,
+        editingTemplateId: s.editingTemplateId,
+        isTemplateLoading: s.isTemplateLoading,
+        loadDesignTemplates: s.loadDesignTemplates,
+        saveCurrentDesignAsTemplate: s.saveCurrentDesignAsTemplate,
+        applyTemplateToCurrentWorksheet: s.applyTemplateToCurrentWorksheet,
+        removeDesignTemplate: s.removeDesignTemplate,
+        clearTemplateEdit: s.clearTemplateEdit,
+    })));
 
     const [activeTemplateId, setActiveTemplateId] = useState<string>('');
     const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);

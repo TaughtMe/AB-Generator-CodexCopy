@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import type { ClozeTask, ClozeGapStyle, ClozeWordBankMode } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { Info } from 'lucide-react';
@@ -300,15 +301,15 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
                         <div
                             className="no-print text-sm text-worksheet-ink leading-loose break-words prose prose-sm max-w-none"
                             style={{ overflowWrap: 'anywhere' }}
-                            dangerouslySetInnerHTML={{ __html: printStudentHtml }}
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(printStudentHtml) }}
                         />
                     )}
                     <div className={clsx(
                         'text-sm text-worksheet-ink leading-loose whitespace-pre-wrap break-words',
                         isActive ? 'hidden print:block' : 'block',
                     )} style={{ overflowWrap: 'anywhere' }}>
-                        <span className="cloze-print-student" dangerouslySetInnerHTML={{ __html: printStudentHtml }} />
-                        <span className="cloze-print-teacher" dangerouslySetInnerHTML={{ __html: printTeacherHtml }} />
+                        <span className="cloze-print-student" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(printStudentHtml) }} />
+                        <span className="cloze-print-teacher" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(printTeacherHtml) }} />
                     </div>
                     {wordBankMode !== 'hidden' && wordBankWords.length > 0 && (
                         <div className="text-center">

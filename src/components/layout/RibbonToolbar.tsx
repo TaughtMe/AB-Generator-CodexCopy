@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } fro
 import {
     Home,
     Save,
+    ChevronDown,
     Undo2,
     Redo2,
     Bold,
@@ -37,6 +38,7 @@ import { FONT_SIZE_OPTIONS } from '../editor/tiptapFontSize';
 import type { ExportVariant } from '../editor/ExportMenu';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { ColorPickerButton } from '../ui/ColorPickerButton';
+import { SaveAsModal } from '../ui/SaveAsModal';
 
 /* ══════════════════════════════════════════════════
    RibbonToolbar – Zentrale Ribbon-Toolbar (MS-Word-Stil)
@@ -84,11 +86,16 @@ export function RibbonToolbar({
     const [activeTab, setActiveTab] = useState<RibbonTab>('Allgemein');
     const [showAiDropdown, setShowAiDropdown] = useState(false);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [isSaveMenuOpen, setIsSaveMenuOpen] = useState(false);
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const aiDropdownRef = useRef<HTMLDivElement>(null);
     const exportDropdownRef = useRef<HTMLDivElement>(null);
+    const saveDropdownRef = useRef<HTMLDivElement>(null);
 
     const activeEditor = useWorkspaceStore((s) => s.activeEditor);
     const updateTask = useWorkspaceStore((s) => s.updateTask);
+    const isFirstSave = useWorkspaceStore((s) => s.isFirstSave);
+    const saveCurrentDocument = useWorkspaceStore((s) => s.saveCurrentDocument);
     const saveStatus = useWorksheetStore((s) => s.saveStatus);
     const activeTaskId = useWorksheetStore((s) => s.activeTaskId);
     const tasksById = useWorksheetStore((s) => s.tasksById);
@@ -121,7 +128,7 @@ export function RibbonToolbar({
 
     // Close dropdowns on outside click
     useEffect(() => {
-        if (!showAiDropdown && !isExportMenuOpen) return;
+        if (!showAiDropdown && !isExportMenuOpen && !isSaveMenuOpen) return;
         const handler = (e: MouseEvent) => {
             if (showAiDropdown && aiDropdownRef.current && !aiDropdownRef.current.contains(e.target as Node)) {
                 setShowAiDropdown(false);
@@ -129,10 +136,13 @@ export function RibbonToolbar({
             if (isExportMenuOpen && exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
                 setIsExportMenuOpen(false);
             }
+            if (isSaveMenuOpen && saveDropdownRef.current && !saveDropdownRef.current.contains(e.target as Node)) {
+                setIsSaveMenuOpen(false);
+            }
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, [showAiDropdown, isExportMenuOpen]);
+    }, [showAiDropdown, isExportMenuOpen, isSaveMenuOpen]);
 
     const handleExport = useCallback(async (target: 'pdf-student' | 'pdf-teacher' | 'docx') => {
         if (!hasTasks) return;
@@ -147,6 +157,23 @@ export function RibbonToolbar({
         }
         await onExportDocx(['student' as ExportVariant]);
     }, [hasTasks, onExportDocx, onExportPdf]);
+
+    const handlePrimarySave = useCallback(() => {
+        if (isFirstSave) {
+            setIsSaveModalOpen(true);
+            setIsSaveMenuOpen(false);
+            return;
+        }
+
+        saveCurrentDocument();
+        void onSave();
+        setIsSaveMenuOpen(false);
+    }, [isFirstSave, onSave, saveCurrentDocument]);
+
+    const handleSaveAsClick = useCallback(() => {
+        setIsSaveModalOpen(true);
+        setIsSaveMenuOpen(false);
+    }, []);
 
     // Force re-render on editor transaction to update active states
     const [, setTick] = useState(0);
@@ -215,18 +242,45 @@ export function RibbonToolbar({
                     >
                         <Home className={ICON_SIZES[16]} />
                     </RibbonBtn>
-                    <RibbonBtn
-                        title={isSaving ? 'Speichert…' : 'Speichern'}
-                        onClick={onSave}
-                        disabled={isSaving}
-                        compact
-                        className="!h-10 !w-10"
-                    >
-                        <Save className={clsx(
-                            ICON_SIZES[16],
-                            hasUnsavedChanges ? 'text-red-500' : 'text-green-500',
-                        )} />
-                    </RibbonBtn>
+                    <div className="relative" ref={saveDropdownRef}>
+                        <div className="flex items-center bg-transparent hover:bg-slate-700 rounded">
+                            <button
+                                type="button"
+                                title={isSaving ? 'Speichert…' : 'Speichern'}
+                                onClick={handlePrimarySave}
+                                onMouseDown={(e) => e.preventDefault()}
+                                disabled={isSaving}
+                                className="inline-flex h-10 w-10 items-center justify-center text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <Save className={clsx(
+                                    ICON_SIZES[16],
+                                    hasUnsavedChanges ? 'text-red-500' : 'text-green-500',
+                                )} />
+                            </button>
+                            <div className="w-px h-4 bg-slate-600" />
+                            <button
+                                type="button"
+                                title="Speichern unter"
+                                onClick={() => setIsSaveMenuOpen((prev) => !prev)}
+                                onMouseDown={(e) => e.preventDefault()}
+                                className="inline-flex h-10 w-8 items-center justify-center text-slate-300"
+                            >
+                                <ChevronDown className={ICON_SIZES[14]} />
+                            </button>
+                        </div>
+                        {isSaveMenuOpen && (
+                            <div className="absolute top-full left-0 mt-2 w-44 bg-slate-800 border border-slate-700 shadow-xl rounded-md z-50 overflow-hidden">
+                                <button
+                                    type="button"
+                                    onClick={handleSaveAsClick}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
+                                >
+                                    Speichern unter...
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <RibbonBtn
                         title="Rückgängig (Ctrl+Z)"
                         onClick={() => useWorksheetStore.temporal.getState().undo()}
@@ -581,11 +635,13 @@ export function RibbonToolbar({
         isSaving,
         onBackToDashboard,
         onOpenSources,
-        onSave,
+        handlePrimarySave,
+        handleSaveAsClick,
         selectedFontFamily,
         selectedFontSize,
         showAiDropdown,
         isExportMenuOpen,
+        isSaveMenuOpen,
         handleExport,
         systemBlock,
     ]);
@@ -698,75 +754,82 @@ export function RibbonToolbar({
     const activeBlocks = activeTab === 'Bildformat' ? imageToolbarBlocks : toolbarBlocks;
 
     return (
-        <div className="no-print print:hidden sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm select-none">
+        <>
+            <div className="no-print print:hidden sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm select-none">
             {/* ── Tab-Header ── */}
-            <div className="flex items-center gap-0 border-b border-slate-200 dark:border-slate-700 px-2">
-                {tabs.map((tab) => (
-                    <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setActiveTab(tab)}
-                        className={clsx(
-                            'py-1.5 text-xs transition-colors cursor-pointer min-h-[44px] min-w-[44px]',
-                            tab === 'Bildformat'
-                                ? clsx(
-                                    'ml-1 px-4 rounded-t-md font-semibold',
-                                    activeTab === tab
-                                        ? 'bg-purple-600 text-white shadow-sm'
-                                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-200 dark:hover:bg-purple-900/60',
-                                )
-                                : clsx(
-                                    'px-4 font-medium',
-                                    activeTab === tab
-                                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
-                                ),
-                        )}
-                    >
-                        {tab}
-                    </button>
-                ))}
-            </div>
-
-            {/* ── Ribbon Body (Allgemein / Bildformat) ── */}
-            {(activeTab === 'Allgemein' || activeTab === 'Bildformat') && (
-                <div className="flex flex-wrap items-stretch justify-start px-1 pt-2 pb-1">
-                    {activeBlocks.map(({ label, content, hideLabel, disabled, className }) => (
-                        <div
-                            key={label}
+                <div className="flex items-center gap-0 border-b border-slate-200 dark:border-slate-700 px-2">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab}
+                            type="button"
+                            onClick={() => setActiveTab(tab)}
                             className={clsx(
-                                'flex flex-col items-center justify-start gap-y-1 self-stretch pr-4 mr-2 border-r border-slate-300 dark:border-slate-700 last:border-r-0 last:pr-0 last:mr-0',
-                                className,
-                                disabled && 'opacity-50 pointer-events-none',
+                                'py-1.5 text-xs transition-colors cursor-pointer min-h-[44px] min-w-[44px]',
+                                tab === 'Bildformat'
+                                    ? clsx(
+                                        'ml-1 px-4 rounded-t-md font-semibold',
+                                        activeTab === tab
+                                            ? 'bg-purple-600 text-white shadow-sm'
+                                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-200 dark:hover:bg-purple-900/60',
+                                    )
+                                    : clsx(
+                                        'px-4 font-medium',
+                                        activeTab === tab
+                                            ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
+                                    ),
                             )}
                         >
-                            <div className="flex flex-col gap-y-2">
-                                {content}
-                            </div>
-                            {!hideLabel && (
-                                <span className="text-[10px] text-slate-400 text-center uppercase tracking-wider mt-auto pt-1">
-                                    {label}
-                                </span>
-                            )}
-                        </div>
+                            {tab}
+                        </button>
                     ))}
                 </div>
-            )}
 
-            {/* ── Tabellen Tab (Platzhalter) ── */}
-            {activeTab === 'Tabellen' && (
-                <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
-                    Tabellen-Werkzeuge – demnächst verfügbar
-                </div>
-            )}
+                {/* ── Ribbon Body (Allgemein / Bildformat) ── */}
+                {(activeTab === 'Allgemein' || activeTab === 'Bildformat') && (
+                    <div className="flex flex-wrap items-stretch justify-start px-1 pt-2 pb-1">
+                        {activeBlocks.map(({ label, content, hideLabel, disabled, className }) => (
+                            <div
+                                key={label}
+                                className={clsx(
+                                    'flex flex-col items-center justify-start gap-y-1 self-stretch pr-4 mr-2 border-r border-slate-300 dark:border-slate-700 last:border-r-0 last:pr-0 last:mr-0',
+                                    className,
+                                    disabled && 'opacity-50 pointer-events-none',
+                                )}
+                            >
+                                <div className="flex flex-col gap-y-2">
+                                    {content}
+                                </div>
+                                {!hideLabel && (
+                                    <span className="text-[10px] text-slate-400 text-center uppercase tracking-wider mt-auto pt-1">
+                                        {label}
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
 
-            {/* ── Sonderzeichen Tab (Platzhalter) ── */}
-            {activeTab === 'Sonderzeich.' && (
-                <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
-                    Sonderzeichen – demnächst verfügbar
-                </div>
-            )}
-        </div>
+                {/* ── Tabellen Tab (Platzhalter) ── */}
+                {activeTab === 'Tabellen' && (
+                    <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
+                        Tabellen-Werkzeuge – demnächst verfügbar
+                    </div>
+                )}
+
+                {/* ── Sonderzeichen Tab (Platzhalter) ── */}
+                {activeTab === 'Sonderzeich.' && (
+                    <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
+                        Sonderzeichen – demnächst verfügbar
+                    </div>
+                )}
+            </div>
+            <SaveAsModal
+                isOpen={isSaveModalOpen}
+                onClose={() => setIsSaveModalOpen(false)}
+                onSave={onSave}
+            />
+        </>
     );
 }
 

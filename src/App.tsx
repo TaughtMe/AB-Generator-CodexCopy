@@ -8,7 +8,6 @@ import { useFontStore } from './store/fontStore';
 import { captureWorksheetThumbnail } from './utils/thumbnailCapture';
 import { ChatAssistant } from './components/ai/ChatAssistant';
 import { EditorChatSidebar } from './components/ai/EditorChatSidebar';
-import { SettingsModal } from './components/settings/SettingsModal';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { TrashView } from './components/dashboard/TrashView';
 import { DesignEditor } from './components/dashboard/DesignEditor';
@@ -20,9 +19,11 @@ import { FloatingToolbar } from './components/editor/FloatingToolbar';
 import { WorksheetCanvas } from './components/editor/WorksheetCanvas';
 import { SourcesManagerModal } from './components/editor/SourcesManagerModal';
 import { OutlineNavigator } from './components/layout/OutlineNavigator';
-import { AppShell, type DashboardView as AppShellView } from './components/layout/AppShell';
+import { DashboardLayout } from './components/dashboard/DashboardLayout';
 import { LegalModals, type LegalModalType } from './components/layout/LegalModals';
 import { ClassesDashboard } from './components/dashboard/ClassesDashboard';
+import { SettingsView } from './components/settings/SettingsView';
+import type { SidebarView } from './components/layout/Sidebar';
 
 import './styles/PrintStyles.css';
 
@@ -67,9 +68,8 @@ function App() {
   const themeMode = useSettingsStore((state) => state.themeMode);
   const loadCustomFonts = useFontStore((state) => state.loadCustomFonts);
 
-  const [dashboardView, setDashboardView] = useState<AppShellView>('dashboard');
+  const [sidebarView, setSidebarView] = useState<SidebarView>('dashboard');
   const [showDesignEditor, setShowDesignEditor] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showSourcesManager, setShowSourcesManager] = useState(false);
   const [activeLegalModal, setActiveLegalModal] = useState<LegalModalType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -189,80 +189,47 @@ function App() {
     addVariant(label, 'duplicate-active');
   };
 
-  /* ── Dashboard View (mit AppShell + Sidebar) ── */
+  /* ── Dashboard View (unified layout) ── */
   if (currentView !== 'editor') {
-    if (currentView === 'dashboard' && dashboardView === 'dashboard') {
-      return (
-        <>
-          <DashboardView
-            onCreateWorksheet={() => {
-              createNewWorksheet();
-              setCurrentView('editor');
-            }}
-            onOpenAssistant={() => setCurrentView('ai-chat')}
-            onOpenWorksheet={async (id) => {
-              const ok = await openWorksheet(id);
-              if (ok) setCurrentView('editor');
-            }}
-            onSidebarAction={(action) => {
-              if (action === 'settings') {
-                setShowSettingsModal(true);
-                return;
-              }
-
-              setDashboardView(action);
-              setCurrentView('dashboard');
-            }}
-            onOpenLegalModal={(modal) => setActiveLegalModal(modal)}
-          />
-          <SettingsModal
-            isOpen={showSettingsModal}
-            onClose={() => setShowSettingsModal(false)}
-          />
-          <DesignEditor
-            isOpen={showDesignEditor}
-            onClose={() => {
-              setShowDesignEditor(false);
-              clearTemplateEdit();
-            }}
-          />
-          <TemplateGallery
-            isOpen={isTemplateGalleryOpen}
-            onClose={closeTemplateGallery}
-            onOpenDesignEditor={() => setShowDesignEditor(true)}
-          />
-          <LegalModals
-            activeModal={activeLegalModal}
-            onClose={() => setActiveLegalModal(null)}
-          />
-        </>
-      );
-    }
+    const handleSidebarChange = (view: SidebarView) => {
+      setSidebarView(view);
+      if (view !== 'settings') {
+        setCurrentView('dashboard');
+      }
+    };
 
     return (
       <>
-        <AppShell
-          activeView={dashboardView}
-          onChangeView={(view) => {
-            setDashboardView(view);
-            setCurrentView('dashboard');
-          }}
-          onOpenSettings={() => setShowSettingsModal(true)}
+        <DashboardLayout
+          activeView={sidebarView}
+          onChangeView={handleSidebarChange}
         >
           {currentView === 'ai-chat' && (
-            <ChatAssistant onBack={() => setCurrentView('dashboard')} />
+            <ChatAssistant onBack={() => { setSidebarView('dashboard'); setCurrentView('dashboard'); }} />
           )}
-          {currentView === 'dashboard' && dashboardView === 'profiles' && (
+          {sidebarView === 'dashboard' && currentView === 'dashboard' && (
+            <DashboardView
+              onCreateWorksheet={() => {
+                createNewWorksheet();
+                setCurrentView('editor');
+              }}
+              onOpenAssistant={() => setCurrentView('ai-chat')}
+              onOpenWorksheet={async (id) => {
+                const ok = await openWorksheet(id);
+                if (ok) setCurrentView('editor');
+              }}
+            />
+          )}
+          {sidebarView === 'profiles' && currentView === 'dashboard' && (
             <ClassesDashboard />
           )}
-          {currentView === 'dashboard' && dashboardView === 'trash' && (
+          {sidebarView === 'trash' && currentView === 'dashboard' && (
             <TrashView />
           )}
-        </AppShell>
-        <SettingsModal
-          isOpen={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-        />
+          {sidebarView === 'settings' && (
+            <SettingsView />
+          )}
+        </DashboardLayout>
         <DesignEditor
           isOpen={showDesignEditor}
           onClose={() => {
@@ -274,6 +241,10 @@ function App() {
           isOpen={isTemplateGalleryOpen}
           onClose={closeTemplateGallery}
           onOpenDesignEditor={() => setShowDesignEditor(true)}
+        />
+        <LegalModals
+          activeModal={activeLegalModal}
+          onClose={() => setActiveLegalModal(null)}
         />
       </>
     );

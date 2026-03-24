@@ -1,21 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DashboardLayout } from './DashboardLayout';
+import { Search } from 'lucide-react';
 import { QuickActions } from './QuickActions';
 import { RecentGrid } from './RecentGrid';
 import { RecentList } from './RecentList';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useProfileStore } from '../../store/profileStore';
-import type { LegalModalType } from '../layout/LegalModals';
-
-type DashboardSidebarView = 'dashboard' | 'profiles' | 'trash';
-type DashboardSidebarAction = DashboardSidebarView | 'settings';
+import { loadWorksheet as loadWorksheetRecord, saveWorksheet as saveWorksheetRecord } from '../../store/dexieStore';
 
 interface DashboardViewProps {
   onCreateWorksheet?: () => void;
   onOpenAssistant?: () => void;
   onOpenWorksheet?: (id: string) => void | Promise<void>;
-  onSidebarAction?: (action: DashboardSidebarAction) => void;
-  onOpenLegalModal?: (modal: Extract<LegalModalType, 'impressum' | 'datenschutz'>) => void;
 }
 
 function getSortLabel(sortBy: 'updatedAt' | 'createdAt' | 'title' | undefined): string {
@@ -28,11 +23,11 @@ export function DashboardView({
   onCreateWorksheet,
   onOpenAssistant,
   onOpenWorksheet,
-  onSidebarAction,
-  onOpenLegalModal,
 }: DashboardViewProps) {
   const recentWorksheets = useWorkspaceStore((state) => state.recentWorksheets);
   const loadRecent = useWorkspaceStore((state) => state.loadRecent);
+  const duplicateWorksheet = useWorkspaceStore((state) => state.duplicateWorksheet);
+  const removeWorksheet = useWorkspaceStore((state) => state.removeWorksheet);
   const filter = useWorkspaceStore((state) => state.filter);
   const subjects = useProfileStore((state) => state.subjects);
   const classProfiles = useWorkspaceStore((state) => state.classProfiles);
@@ -78,20 +73,78 @@ export function DashboardView({
     });
   }, [classNameById, recentWorksheets, searchQuery, subjectNameById]);
 
+  const handleRenameWorksheet = async (id: string) => {
+    const record = await loadWorksheetRecord(id);
+    if (!record) return;
+
+    const nextTitle = window.prompt('Arbeitsblatt umbenennen', record.title)?.trim();
+    if (!nextTitle || nextTitle === record.title) return;
+
+    await saveWorksheetRecord(
+      record.id,
+      nextTitle,
+      record.tasksById,
+      record.taskIds,
+      record.chatHistory,
+      record.sources,
+      record.subjectId,
+      record.classId,
+      record.thumbnailBlob,
+      record.variants,
+      record.activeVariantId,
+    );
+    await loadRecent();
+  };
+
+  const handleAssignWorksheet = async (id: string) => {
+    await onOpenWorksheet?.(id);
+  };
+
+  const handleDuplicateWorksheet = async (id: string) => {
+    await duplicateWorksheet(id);
+  };
+
+  const handleDownloadWorksheet = async (id: string, variant: 'student' | 'teacher') => {
+    const record = await loadWorksheetRecord(id);
+    if (!record) return;
+
+    const { exportToDocx } = await import('../../utils/docx');
+    await exportToDocx(record.title, record.tasksById, record.taskIds, variant === 'teacher');
+  };
+
+  const handleDeleteWorksheet = async (id: string) => {
+    const shouldDelete = window.confirm('Arbeitsblatt in den Papierkorb verschieben?');
+    if (!shouldDelete) return;
+    await removeWorksheet(id);
+  };
+
   return (
-    <DashboardLayout
-      activeSidebarView="dashboard"
-      searchQuery={searchQuery}
-      onSearchQueryChange={setSearchQuery}
-      onSidebarAction={onSidebarAction}
-      onOpenLegalModal={onOpenLegalModal}
-    >
+    <div className="px-8 py-8">
+      <div className="relative max-w-2xl mb-8">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Alle Dokumente durchsuchen"
+          className="w-full max-w-xl rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-slate-500"
+        />
+      </div>
       <div className="mx-auto w-full max-w-[1200px] space-y-10">
         <QuickActions
           onCreateWorksheet={onCreateWorksheet}
           onOpenAssistant={onOpenAssistant}
         />
-        <RecentGrid items={filteredWorksheets} onOpenWorksheet={onOpenWorksheet} />
+        <RecentGrid
+          items={filteredWorksheets}
+          subjectNameById={subjectNameById}
+          onOpenWorksheet={onOpenWorksheet}
+          onRenameWorksheet={handleRenameWorksheet}
+          onAssignWorksheet={handleAssignWorksheet}
+          onDuplicateWorksheet={handleDuplicateWorksheet}
+          onDownloadWorksheet={handleDownloadWorksheet}
+          onDeleteWorksheet={handleDeleteWorksheet}
+        />
         <RecentList
           items={filteredWorksheets}
           subjectNameById={subjectNameById}
@@ -100,6 +153,6 @@ export function DashboardView({
           onOpenWorksheet={onOpenWorksheet}
         />
       </div>
-    </DashboardLayout>
+    </div>
   );
 }

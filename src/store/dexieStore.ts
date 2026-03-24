@@ -51,6 +51,9 @@ export interface WorksheetRecord {
     classId?: string;
     /** Screenshot-Thumbnail des Worksheets (JPEG Blob, top ~300px) */
     thumbnailBlob?: Blob;
+    /** Freitext-Metadaten für Save-As Dialog */
+    documentSubject?: string;
+    documentClassLevel?: string;
     /** Unix-Timestamp (ms) wenn im Papierkorb, sonst undefined */
     deletedAt?: number;
     createdAt: Date;
@@ -626,6 +629,8 @@ export async function saveWorksheet(
     thumbnailBlob?: Blob,
     variants?: WorksheetVariant[],
     activeVariantId?: string,
+    documentSubject?: string,
+    documentClassLevel?: string,
 ): Promise<void> {
     const existing = await db.worksheets.get(id);
     const now = new Date();
@@ -643,6 +648,8 @@ export async function saveWorksheet(
         thumbnailBlob: thumbnailBlob ?? existing?.thumbnailBlob,
         variants: variants ?? existing?.variants,
         activeVariantId: activeVariantId ?? existing?.activeVariantId,
+        documentSubject: documentSubject ?? existing?.documentSubject,
+        documentClassLevel: documentClassLevel ?? existing?.documentClassLevel,
         // Soft-delete status must survive regular autosaves unless explicitly changed elsewhere.
         deletedAt: existing?.deletedAt,
         createdAt: existing?.createdAt ?? now,
