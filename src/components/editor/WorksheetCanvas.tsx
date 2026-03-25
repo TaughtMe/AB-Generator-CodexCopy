@@ -109,8 +109,6 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
     const [hoverIndex, setHoverIndex] = useState<number>(0);
     /** Wenn gesetzt: Typ-Menü ist offen an dieser Position */
     const [menuAtIndex, setMenuAtIndex] = useState<number | null>(null);
-    /** Y-Position des Menüs (viewport-relativ) */
-    const [menuY, setMenuY] = useState(0);
 
     const canvasRef = useRef<HTMLDivElement>(null);
     const taskCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -169,7 +167,6 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
             if (target.closest('button, input, textarea, select, [contenteditable]')) return;
 
             setMenuAtIndex(hoverIndex);
-            setMenuY(e.clientY);
         },
         [isPlacingNewTask, menuAtIndex, hoverIndex],
     );
@@ -454,14 +451,13 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
             </DndContext>
 
             {/* ── Placement-Modus: Typ-Auswahlmenü ── */}
-            {menuAtIndex !== null && (
-                <PlacementTypeMenu
-                    y={menuY}
-                    options={TASK_TYPE_OPTIONS}
-                    onSelect={handleSelectType}
-                    onClose={() => { setMenuAtIndex(null); onCancelPlacing(); }}
-                />
-            )}
+            <PlacementTypeMenu
+                isOpen={menuAtIndex !== null}
+                editorRef={canvasRef}
+                options={TASK_TYPE_OPTIONS}
+                onSelect={handleSelectType}
+                onClose={() => { setMenuAtIndex(null); onCancelPlacing(); }}
+            />
 
             {/* ── Placement-Modus: Hinweis-Banner oben ── */}
             {isPlacingNewTask && menuAtIndex === null && (
@@ -497,20 +493,67 @@ function PlacementIndicator() {
 
 /* ══════════════════════════════════════════════════
    PlacementTypeMenu – Typ-Auswahl nach Klick im Placement-Modus.
-   Wird als fixed-positioniertes Overlay direkt an der Klick-Position gerendert.
+   Wird als fixed-positioniertes Overlay knapp über der Floating-Bar gerendert.
    ══════════════════════════════════════════════════ */
 interface PlacementTypeMenuProps {
-    y: number;
+    isOpen: boolean;
+    editorRef: React.RefObject<HTMLDivElement>;
     options: TaskOption[];
     onSelect: (type: TaskType) => void;
     onClose: () => void;
 }
 
-function PlacementTypeMenu({ y, options, onSelect, onClose }: PlacementTypeMenuProps) {
+function PlacementTypeMenu({ isOpen, editorRef, options, onSelect, onClose }: PlacementTypeMenuProps) {
     const menuRef = useRef<HTMLDivElement>(null);
+    const [anchorPosition, setAnchorPosition] = useState({ left: 0, bottom: 120 });
+
+    const updateAnchorPosition = useCallback(() => {
+        const toolbarAnchor = document.querySelector('[data-floating-toolbar-anchor="true"]');
+        if (toolbarAnchor instanceof HTMLElement) {
+            const rect = toolbarAnchor.getBoundingClientRect();
+            setAnchorPosition({
+                left: rect.left + rect.width / 2,
+                bottom: window.innerHeight - rect.top,
+            });
+            return;
+        }
+
+        const rect = editorRef.current?.getBoundingClientRect();
+        if (!rect) {
+            setAnchorPosition({
+                left: window.innerWidth / 2,
+                bottom: 120,
+            });
+            return;
+        }
+
+        setAnchorPosition({
+            left: rect.left + rect.width / 2,
+            bottom: Math.max(96, window.innerHeight - rect.bottom + 96),
+        });
+    }, [editorRef]);
+
+    useEffect(() => {
+        updateAnchorPosition();
+    }, [isOpen, updateAnchorPosition]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleViewportChange = () => updateAnchorPosition();
+        window.addEventListener('resize', handleViewportChange);
+        window.addEventListener('scroll', handleViewportChange, true);
+
+        return () => {
+            window.removeEventListener('resize', handleViewportChange);
+            window.removeEventListener('scroll', handleViewportChange, true);
+        };
+    }, [isOpen, updateAnchorPosition]);
 
     /* Klick außerhalb → schließen */
     useEffect(() => {
+        if (!isOpen) return;
+
         const handle = (e: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
                 onClose();
@@ -519,61 +562,63 @@ function PlacementTypeMenu({ y, options, onSelect, onClose }: PlacementTypeMenuP
         // Timeout, damit der auslösende Klick nicht sofort das Menü schließt
         const timer = setTimeout(() => document.addEventListener('mousedown', handle), 50);
         return () => { clearTimeout(timer); document.removeEventListener('mousedown', handle); };
-    }, [onClose]);
+    }, [isOpen, onClose]);
 
-    const taskGroup = options.filter((o) => o.group === 'task');
-    const layoutGroup = options.filter((o) => o.group === 'layout');
-
-    /* Menü nach oben oder unten öffnen, je nach Viewport-Position */
-    const spaceBelow = window.innerHeight - y;
-    const openUpward = spaceBelow < 300;
+    const taskTypes = options.filter((o) => o.group === 'task');
+    const layoutTypes = options.filter((o) => o.group === 'layout');
 
     return (
         <div
-            ref={menuRef}
-            className="fixed z-[60] w-56 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-2xl py-2 animate-in fade-in zoom-in-95 duration-150"
-            style={{
-                left: '50%',
-                transform: 'translateX(-50%)',
-                ...(openUpward
-                    ? { bottom: `${window.innerHeight - y + 8}px` }
-                    : { top: `${y + 8}px` }),
-            }}
+            className="no-print fixed z-[60] pointer-events-none"
+            style={{ left: `${anchorPosition.left}px`, bottom: `${anchorPosition.bottom}px` }}
         >
-            {/* Aufgaben */}
-            <div className="px-2 py-1">
-                <p className="px-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Aufgaben</p>
-                {taskGroup.map(({ type, label, icon: Icon }) => (
-                    <button
-                        key={type}
-                        onClick={() => onSelect(type)}
-                        className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-left group"
-                    >
-                        <div className="p-1.5 rounded-md bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors shrink-0">
-                            <Icon className={`${ICON_SIZES[13]} text-slate-500 group-hover:text-blue-600 transition-colors`} />
+            <div className="relative h-0 w-0">
+                <div
+                    ref={menuRef}
+                    className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[480px] max-w-[calc(100vw-2rem)] bg-slate-800 dark:bg-slate-900 border border-slate-700 shadow-2xl rounded-xl p-5 origin-bottom transition-all duration-300 ease-out ${
+                        isOpen
+                            ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+                            : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
+                    }`}
+                >
+                    <div className="grid grid-cols-2 gap-8">
+                        <div>
+                            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-2">
+                                Aufgaben
+                            </h3>
+                            <div className="flex flex-col gap-1">
+                                {taskTypes.map(({ type, label, icon: Icon }) => (
+                                    <button
+                                        key={type}
+                                        onClick={() => onSelect(type)}
+                                        className="w-full text-sm text-left px-3 py-2 rounded-lg hover:bg-slate-700/50 text-slate-200 transition-colors flex items-center gap-3 cursor-pointer"
+                                    >
+                                        <Icon className={`${ICON_SIZES[14]} text-slate-400`} />
+                                        <span>{label}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{label}</span>
-                    </button>
-                ))}
-            </div>
 
-            <div className="mx-3 my-1 border-t border-slate-100 dark:border-slate-700" />
-
-            {/* Layout */}
-            <div className="px-2 py-1">
-                <p className="px-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Layout</p>
-                {layoutGroup.map(({ type, label, icon: Icon }) => (
-                    <button
-                        key={type}
-                        onClick={() => onSelect(type)}
-                        className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-left group"
-                    >
-                        <div className="p-1.5 rounded-md bg-slate-100 dark:bg-slate-700 group-hover:bg-violet-100 dark:group-hover:bg-violet-900/30 transition-colors shrink-0">
-                            <Icon className={`${ICON_SIZES[13]} text-slate-500 group-hover:text-violet-600 transition-colors`} />
+                        <div>
+                            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-2">
+                                Layout
+                            </h3>
+                            <div className="flex flex-col gap-1">
+                                {layoutTypes.map(({ type, label, icon: Icon }) => (
+                                    <button
+                                        key={type}
+                                        onClick={() => onSelect(type)}
+                                        className="w-full text-sm text-left px-3 py-2 rounded-lg hover:bg-slate-700/50 text-slate-200 transition-colors flex items-center gap-3 cursor-pointer"
+                                    >
+                                        <Icon className={`${ICON_SIZES[14]} text-slate-400`} />
+                                        <span>{label}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{label}</span>
-                    </button>
-                ))}
+                    </div>
+                </div>
             </div>
         </div>
     );

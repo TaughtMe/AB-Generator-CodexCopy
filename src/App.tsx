@@ -342,13 +342,13 @@ function App() {
       </button>
 
       <div
-        className={`no-print fixed bottom-16 sm:bottom-18 lg:bottom-20 z-40 flex justify-center pointer-events-none ${
+        className={`no-print fixed bottom-4 sm:bottom-6 lg:bottom-8 z-40 flex justify-center pointer-events-none ${
           isAiSidebarOpen
             ? 'left-0 right-0 lg:right-80 xl:right-96'
             : 'left-0 right-0'
         }`}
       >
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto" data-floating-toolbar-anchor="true">
           <FloatingToolbar
             showHeader={showHeader}
             onToggleHeaderDesign={handleToggleHeaderDesign}

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, Trash2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import type { WorksheetMeta } from '../../store/dexieStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 
 interface RecentListProps {
   items: WorksheetMeta[];
@@ -29,6 +31,11 @@ export function RecentList(props: RecentListProps) {
   const { items, subjectNameById, classNameById } = props;
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const { deleteDocuments } = useWorkspaceStore(useShallow((state) => ({
+    deleteDocuments: state.deleteDocuments,
+  })));
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -74,6 +81,33 @@ export function RecentList(props: RecentListProps) {
     })
     .slice(0, 6);
 
+  const toggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    setSelectedIds([]);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === sortedFiles.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(sortedFiles.map((f) => f.id));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (deleteDocuments) {
+      deleteDocuments(selectedIds);
+    }
+    setIsSelectionMode(false);
+    setSelectedIds([]);
+  };
+
   const SortableHeader = ({
     label,
     sortKeyProp,
@@ -112,10 +146,51 @@ export function RecentList(props: RecentListProps) {
         </button>
       </div>
 
+      <div className="mb-4 flex items-center justify-end">
+        {isSelectionMode ? (
+          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-200">
+            <span className="text-sm text-slate-500 dark:text-slate-400 mr-2">
+              {selectedIds.length} ausgewählt
+            </span>
+            <button
+              onClick={handleDeleteSelected}
+              disabled={selectedIds.length === 0}
+              className="text-sm px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 disabled:cursor-not-allowed text-white rounded-md flex items-center gap-1.5 transition-colors shadow-sm"
+            >
+              <Trash2 size={16} />
+              Löschen
+            </button>
+            <button
+              onClick={toggleSelectionMode}
+              className="text-sm px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-md transition-colors"
+            >
+              Abbrechen
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={toggleSelectionMode}
+            className="text-sm px-4 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-md transition-colors shadow-sm"
+          >
+            Auswählen
+          </button>
+        )}
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/50">
         <table className="w-full table-fixed border-collapse">
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/70">
+              {isSelectionMode && (
+                <th className="w-12 px-4 py-3 border-b border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/70">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 cursor-pointer accent-blue-500 rounded border-slate-300 dark:border-slate-600"
+                    checked={selectedIds.length === sortedFiles.length && sortedFiles.length > 0}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
+              )}
               <SortableHeader label="Titel" sortKeyProp="title" className="w-[36%]" />
               <SortableHeader label="Erstellt" sortKeyProp="date" className="w-[16%]" />
               <SortableHeader label="Fach" sortKeyProp="subject" className="w-[16%]" />
@@ -127,7 +202,7 @@ export function RecentList(props: RecentListProps) {
           <tbody>
             {sortedFiles.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-400">
+                <td colSpan={isSelectionMode ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-400">
                   Noch keine Arbeitsblätter erstellt.
                 </td>
               </tr>
@@ -137,15 +212,29 @@ export function RecentList(props: RecentListProps) {
                   key={file.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => props.onOpenWorksheet?.(file.id)}
+                  onClick={() => isSelectionMode ? toggleSelect(file.id) : props.onOpenWorksheet?.(file.id)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      props.onOpenWorksheet?.(file.id);
+                      if (isSelectionMode) {
+                        toggleSelect(file.id);
+                      } else {
+                        props.onOpenWorksheet?.(file.id);
+                      }
                     }
                   }}
                   className="border-b border-slate-100 dark:border-slate-700/40 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-700/50"
                 >
+                  {isSelectionMode && (
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 cursor-pointer accent-blue-500 rounded border-slate-300 dark:border-slate-600"
+                        checked={selectedIds.includes(file.id)}
+                        onChange={() => toggleSelect(file.id)}
+                      />
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200">

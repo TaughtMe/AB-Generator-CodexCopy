@@ -837,6 +837,7 @@ interface WorkspaceActions {
     updateTask: (taskId: string, updates: Partial<Task>) => void;
     updateDocumentMeta: (meta: Partial<DocumentMeta>) => void;
     saveCurrentDocument: () => void;
+    deleteDocuments: (ids: string[]) => void;
     markAsSaved: () => void;
 }
 
@@ -2036,6 +2037,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             };
         });
     },
+
+    deleteDocuments: (ids: string[]) => set((state) => ({
+        savedFiles: state.savedFiles.filter((file) => !ids.includes(file.id)),
+    })),
 
     markAsSaved: () => {
         set({ isFirstSave: false });
