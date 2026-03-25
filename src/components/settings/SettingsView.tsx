@@ -1,8 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Cpu, Database, MessageSquare, Moon, Plus, RefreshCw, Settings, Sun, Trash2, Type } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import { PROVIDER_LABELS, PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
+import { PROVIDER_LABELS } from '../../services/ai/modelCatalog';
 import { useProviderModels } from '../../hooks/useProviderModels';
 import { exportLocalBackup, importLocalBackup } from '../../utils/dataManagement';
 import { clearAllIndexedDbData } from '../../store/dexieStore';
@@ -73,32 +73,9 @@ export const SettingsView: React.FC = () => {
 
     const activeConfig = providers[aiProvider];
     const {
-        models: detectedProviderModels,
         isLoading: isLoadingProviderModels,
         reload: reloadProviderModels,
     } = useProviderModels(aiProvider, true);
-    const mergedGeminiModels = useMemo(
-        () => {
-            if (aiProvider !== 'gemini') {
-                return PROVIDER_MODEL_OPTIONS.gemini;
-            }
-
-            return Array.from(
-                new Map([...detectedProviderModels, ...PROVIDER_MODEL_OPTIONS.gemini].map((option) => [option.value, option])).values(),
-            );
-        },
-        [aiProvider, detectedProviderModels],
-    );
-
-    const modelOptions = useMemo(() => {
-        if (aiProvider === 'gemini' && mergedGeminiModels.length > 0) {
-            return mergedGeminiModels;
-        }
-        if (detectedProviderModels.length > 0) {
-            return Array.from(new Map(detectedProviderModels.map((option) => [option.value, option])).values());
-        }
-        return PROVIDER_MODEL_OPTIONS[aiProvider];
-    }, [aiProvider, detectedProviderModels, mergedGeminiModels]);
 
     const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
     const effectiveChatModel = chatPreference === 'auto' ? activeConfig.model : chatPreference;
