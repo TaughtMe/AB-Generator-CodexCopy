@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Cpu, Database, Loader2, MessageSquare, Moon, RefreshCw, Settings, Sun, Type, XCircle } from 'lucide-react';
-import { useSettingsStore, type AIProvider } from '../../store/settingsStore';
+import React, { useMemo, useRef, useState } from 'react';
+import { Cpu, Database, MessageSquare, Moon, Plus, RefreshCw, Settings, Sun, Trash2, Type } from 'lucide-react';
+import { useSettingsStore } from '../../store/settingsStore';
+import { useWorkspaceStore } from '../../store/workspaceStore';
 import { PROVIDER_LABELS, PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
-import { testConnection } from '../../services/aiService';
 import { useProviderModels } from '../../hooks/useProviderModels';
 import { exportLocalBackup, importLocalBackup } from '../../utils/dataManagement';
 import { clearAllIndexedDbData } from '../../store/dexieStore';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { FontUpload } from './FontUpload';
+import { useShallow } from 'zustand/react/shallow';
 
 type SettingsTab = 'display' | 'fonts' | 'ai' | 'chat' | 'data' | 'legal';
 
@@ -20,7 +21,17 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: React.ElementType }> =
     { id: 'legal', label: 'Rechtliches & Kontakt', icon: Settings },
 ];
 
-const PROVIDERS: AIProvider[] = ['gemini', 'openai', 'openrouter', 'local'];
+const PROVIDER_PRESETS = [
+    { id: 'custom', label: 'Benutzerdefiniert (Eigene URL)', name: '', baseUrl: '' },
+    { id: 'openai', label: 'OpenAI (ChatGPT)', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
+    { id: 'google', label: 'Google Gemini', name: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/' },
+    { id: 'mistral', label: 'Mistral AI', name: 'Mistral', baseUrl: 'https://api.mistral.ai/v1' },
+    { id: 'groq', label: 'Groq (High-Speed)', name: 'Groq', baseUrl: 'https://api.groq.com/openai/v1' },
+    { id: 'anthropic', label: 'Anthropic Claude (via OpenRouter)', name: 'Claude (OpenRouter)', baseUrl: 'https://openrouter.ai/api/v1' },
+    { id: 'lmstudio', label: 'Lokales LM Studio', name: 'LM Studio', baseUrl: 'http://localhost:1234/v1' },
+];
+
+const formatModelName = (rawId: string) => rawId.split('/').pop() || rawId;
 
 export const SettingsView: React.FC = () => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('display');
@@ -34,19 +45,31 @@ export const SettingsView: React.FC = () => {
     const providers = useSettingsStore((state) => state.providers);
     const themeMode = useSettingsStore((state) => state.themeMode);
     const chatModelPreferences = useSettingsStore((state) => state.chatModelPreferences);
-    const aiConnectionStatusByProvider = useSettingsStore((state) => state.aiConnectionStatusByProvider);
-    const aiConnectionErrorByProvider = useSettingsStore((state) => state.aiConnectionErrorByProvider);
     const submitOnEnter = useSettingsStore((state) => state.submitOnEnter);
 
-    const setAIProvider = useSettingsStore((state) => state.setAIProvider);
-    const setProviderApiKey = useSettingsStore((state) => state.setProviderApiKey);
-    const setProviderBaseUrl = useSettingsStore((state) => state.setProviderBaseUrl);
-    const setProviderModel = useSettingsStore((state) => state.setProviderModel);
-    const setAiConnectionStatus = useSettingsStore((state) => state.setAiConnectionStatus);
     const setThemeMode = useSettingsStore((state) => state.setThemeMode);
     const setChatModelPreference = useSettingsStore((state) => state.setChatModelPreference);
     const setSubmitOnEnter = useSettingsStore((state) => state.setSubmitOnEnter);
     const restartOnboarding = useSettingsStore((state) => state.restartOnboarding);
+    const {
+        customProviders,
+        availableModels,
+        quickAccessModels,
+        addProvider,
+        updateProvider,
+        removeProvider,
+        toggleQuickAccessModel,
+        fetchModelsForProvider,
+    } = useWorkspaceStore(useShallow((state) => ({
+        customProviders: state.providers,
+        availableModels: state.availableModels,
+        quickAccessModels: state.quickAccessModels,
+        addProvider: state.addProvider,
+        updateProvider: state.updateProvider,
+        removeProvider: state.removeProvider,
+        toggleQuickAccessModel: state.toggleQuickAccessModel,
+        fetchModelsForProvider: state.fetchModelsForProvider,
+    })));
 
     const activeConfig = providers[aiProvider];
     const {
@@ -79,43 +102,6 @@ export const SettingsView: React.FC = () => {
 
     const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
     const effectiveChatModel = chatPreference === 'auto' ? activeConfig.model : chatPreference;
-    const aiConnectionStatus = aiConnectionStatusByProvider[aiProvider] ?? 'unknown';
-    const aiConnectionError = aiConnectionErrorByProvider[aiProvider] ?? null;
-
-    useEffect(() => {
-        if (activeTab !== 'ai') return;
-
-        const hasModel = Boolean(activeConfig.model?.trim());
-        const hasKey = aiProvider === 'local' ? true : Boolean(activeConfig.apiKey?.trim());
-        const hasBaseUrl = (aiProvider === 'openai' || aiProvider === 'openrouter' || aiProvider === 'local')
-            ? Boolean(activeConfig.baseUrl?.trim())
-            : true;
-
-        if (!hasModel || !hasKey || !hasBaseUrl) {
-            return;
-        }
-
-        let isCancelled = false;
-        const timer = window.setTimeout(() => {
-            setAiConnectionStatus(aiProvider, 'testing');
-            void testConnection(aiProvider).then((result) => {
-                if (isCancelled) return;
-                setAiConnectionStatus(aiProvider, result.ok ? 'ready' : 'error', result.ok ? null : result.message);
-            });
-        }, 800);
-
-        return () => {
-            isCancelled = true;
-            window.clearTimeout(timer);
-        };
-    }, [
-        activeTab,
-        aiProvider,
-        activeConfig.apiKey,
-        activeConfig.baseUrl,
-        activeConfig.model,
-        setAiConnectionStatus,
-    ]);
 
     async function handleBackupDownload() {
         setIsConfirmingReset(false);
@@ -272,106 +258,130 @@ export const SettingsView: React.FC = () => {
 
                     {activeTab === 'ai' && (
                         <div className="max-w-2xl space-y-4">
-                            <h3 className="text-base font-semibold text-slate-100">KI</h3>
-                            <p className="text-sm text-slate-400">API-Keys bleiben im Browser (LocalStorage) und werden nicht automatisch übertragen.</p>
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">KI</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Füge beliebige OpenAI-kompatible API-Anbieter hinzu und lade deren Modelle in die Quick-Access-Auswahl.</p>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Aktiver Anbieter</label>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    {PROVIDERS.map((provider) => (
-                                        <button
-                                            key={provider}
-                                            onClick={() => setAIProvider(provider)}
-                                            className={`px-3 py-2 rounded-lg text-xs border transition-colors cursor-pointer ${
-                                                aiProvider === provider
-                                                    ? 'border-blue-500 bg-blue-500/10 text-blue-300'
-                                                    : 'border-slate-700 text-slate-300 hover:bg-slate-800'
-                                            }`}
-                                        >
-                                            {PROVIDER_LABELS[provider]}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => addProvider()}
+                                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Neuen API-Anbieter hinzufügen
+                            </button>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1.5">{PROVIDER_LABELS[aiProvider]} API-Key</label>
-                                <input
-                                    type="password"
-                                    value={activeConfig.apiKey}
-                                    onChange={(e) => setProviderApiKey(aiProvider, e.target.value)}
-                                    placeholder={aiProvider === 'local' ? 'Optional für lokalen Server' : 'API-Key eingeben'}
-                                    className="w-full px-3 py-2.5 text-sm bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-200"
-                                />
-                                <div className="mt-2 min-h-5">
-                                    {aiConnectionStatus === 'ready' && (
-                                        <div className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-emerald-900/50 bg-emerald-900/20 text-emerald-300">
-                                            <CheckCircle2 className={ICON_SIZES[12]} />
-                                            <span>API aktiv</span>
-                                        </div>
-                                    )}
-                                    {aiConnectionStatus === 'error' && (
-                                        <div
-                                            className="inline-flex max-w-full items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-red-900/50 bg-red-900/20 text-red-300"
-                                            title={aiConnectionError || 'API nicht aktiv'}
-                                        >
-                                            <XCircle className={ICON_SIZES[12]} />
-                                            <span className="max-w-[28rem] truncate">{aiConnectionError || 'API nicht aktiv'}</span>
-                                        </div>
-                                    )}
-                                    {aiConnectionStatus === 'testing' && (
-                                        <div className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-800/50 text-slate-300">
-                                            <Loader2 className={`${ICON_SIZES[12]} animate-spin`} />
-                                            <span>Prüfe API...</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {(aiProvider === 'openai' || aiProvider === 'openrouter' || aiProvider === 'local') && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Base URL</label>
-                                    <input
-                                        type="text"
-                                        value={activeConfig.baseUrl ?? ''}
-                                        onChange={(e) => setProviderBaseUrl(aiProvider, e.target.value)}
-                                        placeholder={
-                                            aiProvider === 'openai'
-                                                ? 'https://api.openai.com/v1'
-                                                : aiProvider === 'openrouter'
-                                                    ? 'https://openrouter.ai/api/v1'
-                                                    : 'http://localhost:1234/v1'
-                                        }
-                                        className="w-full px-3 py-2.5 text-sm bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-200"
-                                    />
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Standardmodell</label>
-                                <div className="flex items-center gap-2">
-                                    <select
-                                        value={activeConfig.model}
-                                        onChange={(e) => setProviderModel(aiProvider, e.target.value)}
-                                        className="w-full px-3 py-2.5 text-sm bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-200 cursor-pointer"
-                                    >
-                                        {modelOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
-                                    {aiProvider === 'local' && (
+                            <div className="space-y-4">
+                                {customProviders.map((provider) => (
+                                    <div key={provider.id} className="bg-slate-800 border border-slate-700 p-5 rounded-xl mb-4 relative space-y-3">
                                         <button
                                             type="button"
-                                            onClick={() => void reloadProviderModels()}
-                                            disabled={isLoadingProviderModels}
-                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-slate-300 transition-colors hover:bg-slate-700 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                            title="Lokale Modelle aktualisieren"
-                                            aria-label="Lokale Modelle aktualisieren"
+                                            onClick={() => removeProvider(provider.id)}
+                                            className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-700 transition-colors cursor-pointer"
+                                            title="Anbieter entfernen"
                                         >
-                                            <RefreshCw className={`${ICON_SIZES[16]} ${isLoadingProviderModels ? 'animate-spin' : ''}`} />
+                                            <Trash2 className="h-4 w-4" />
                                         </button>
-                                    )}
-                                </div>
+
+                                        <div>
+                                            <label className="block text-xs text-slate-400 mb-1">Schnell-Auswahl (Vorlage)</label>
+                                            <select
+                                                value={provider.presetId ?? 'custom'}
+                                                onChange={(e) => {
+                                                    const preset = PROVIDER_PRESETS.find((p) => p.id === e.target.value);
+                                                    if (!preset) return;
+                                                    if (preset.id === 'custom') {
+                                                        updateProvider(provider.id, { presetId: 'custom' });
+                                                    } else {
+                                                        updateProvider(provider.id, { presetId: preset.id, name: preset.name, baseUrl: preset.baseUrl });
+                                                    }
+                                                }}
+                                                className="w-full px-3 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-200 cursor-pointer"
+                                            >
+                                                {PROVIDER_PRESETS.map((preset) => (
+                                                    <option key={preset.id} value={preset.id}>{preset.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-300 mb-1">Anzeigename</label>
+                                            <input
+                                                type="text"
+                                                value={provider.name}
+                                                onChange={(e) => updateProvider(provider.id, { name: e.target.value })}
+                                                disabled={provider.presetId !== 'custom' && !!provider.presetId}
+                                                placeholder="z.B. Groq, HuggingFace, LM Studio …"
+                                                className={`w-full px-3 py-2.5 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${provider.presetId !== 'custom' && provider.presetId ? 'bg-slate-900/50 text-slate-500 cursor-not-allowed border-transparent' : 'bg-slate-900 text-slate-200 border border-slate-700'}`}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-300 mb-1">Base-URL</label>
+                                            <input
+                                                type="text"
+                                                value={provider.baseUrl}
+                                                onChange={(e) => updateProvider(provider.id, { baseUrl: e.target.value })}
+                                                disabled={provider.presetId !== 'custom' && !!provider.presetId}
+                                                placeholder="https://api.openai.com/v1"
+                                                className={`w-full px-3 py-2.5 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${provider.presetId !== 'custom' && provider.presetId ? 'bg-slate-900/50 text-slate-500 cursor-not-allowed border-transparent' : 'bg-slate-900 text-slate-200 border border-slate-700'}`}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-300 mb-1">API-Key</label>
+                                            <input
+                                                type="password"
+                                                value={provider.apiKey}
+                                                onChange={(e) => updateProvider(provider.id, { apiKey: e.target.value })}
+                                                placeholder="sk-…"
+                                                className="w-full px-3 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-200"
+                                            />
+                                        </div>
+
+                                        <div className="pt-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => { void fetchModelsForProvider(provider.id); }}
+                                                disabled={!provider.baseUrl.trim()}
+                                                className="px-3 py-2 text-sm rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                            >
+                                                Modelle laden
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="rounded-xl border border-slate-700 p-4 bg-slate-800/40 space-y-3">
+                                <p className="text-xs font-semibold text-slate-300">Quick Access Modelle</p>
+                                {availableModels.length === 0 ? (
+                                    <p className="text-sm text-slate-400">Bitte einen Anbieter anlegen, API-Key eintragen und Modelle laden.</p>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {availableModels.map((model) => {
+                                            const providerName = customProviders.find((p) => p.id === model.providerId)?.name || model.providerId;
+                                            return (
+                                                <label
+                                                    key={model.id}
+                                                    className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 cursor-pointer hover:bg-slate-800"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={quickAccessModels.includes(model.id)}
+                                                        onChange={() => toggleQuickAccessModel(model.id)}
+                                                        className="h-4 w-4 rounded border-slate-500 bg-slate-900 text-blue-500 focus:ring-blue-500/50"
+                                                    />
+                                                    <span className="inline-flex items-center gap-2 min-w-0">
+                                                        <span className="shrink-0 rounded-md bg-slate-700 text-slate-300 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                                                            {providerName}
+                                                        </span>
+                                                        <span className="truncate" title={model.id}>{formatModelName(model.name)}</span>
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -391,8 +401,8 @@ export const SettingsView: React.FC = () => {
                                         className="w-full px-3 py-2.5 text-sm bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-200 cursor-pointer"
                                     >
                                         <option value="auto">Auto (nutzt Standardmodell)</option>
-                                        {modelOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                        {quickAccessModels.map((modelId) => (
+                                            <option key={modelId} value={modelId}>{formatModelName(modelId)}</option>
                                         ))}
                                     </select>
                                     {aiProvider === 'local' && (

@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
-import { useWorkspaceStore } from '../../store/workspaceStore';
+import type { WorksheetMeta } from '../../store/dexieStore';
 
 interface RecentListProps {
-  items: unknown[];
+  items: WorksheetMeta[];
   subjectNameById: Record<string, string>;
   classNameById: Record<string, string>;
   sortLabel: string;
@@ -12,10 +12,10 @@ interface RecentListProps {
 
 type SortKey = 'title' | 'date' | 'subject' | 'class' | 'variations';
 
-function formatDate(date: string): string {
+function formatDate(date: Date | string): string {
   if (!date) return '—';
 
-  const parsed = new Date(date);
+  const parsed = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(parsed.getTime())) return '—';
 
   return new Intl.DateTimeFormat('de-DE', {
@@ -26,23 +26,9 @@ function formatDate(date: string): string {
 }
 
 export function RecentList(props: RecentListProps) {
-  const savedFiles = useWorkspaceStore((state) => state.savedFiles);
+  const { items, subjectNameById, classNameById } = props;
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-
-  const variantCountById = useMemo(() => {
-    const map = new Map<string, number>();
-
-    props.items.forEach((item) => {
-      if (!item || typeof item !== 'object') return;
-      const record = item as { id?: unknown; variantCount?: unknown };
-      if (typeof record.id !== 'string') return;
-      const count = typeof record.variantCount === 'number' ? record.variantCount : 1;
-      map.set(record.id, Math.max(1, count));
-    });
-
-    return map;
-  }, [props.items]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -54,31 +40,31 @@ export function RecentList(props: RecentListProps) {
     setSortDirection('asc');
   };
 
-  const sortedFiles = [...savedFiles]
+  const sortedFiles = [...items]
     .sort((a, b) => {
       let valA: string | number = '';
       let valB: string | number = '';
 
       switch (sortKey) {
         case 'title':
-          valA = a.meta.title?.toLowerCase() || '';
-          valB = b.meta.title?.toLowerCase() || '';
+          valA = a.title?.toLowerCase() || '';
+          valB = b.title?.toLowerCase() || '';
           break;
         case 'date':
-          valA = new Date(a.lastModified).getTime();
-          valB = new Date(b.lastModified).getTime();
+          valA = new Date(a.updatedAt).getTime();
+          valB = new Date(b.updatedAt).getTime();
           break;
         case 'subject':
-          valA = a.meta.subject?.toLowerCase() || '';
-          valB = b.meta.subject?.toLowerCase() || '';
+          valA = ((a.subjectId ? subjectNameById[a.subjectId] : undefined) || a.documentSubject || '').toLowerCase();
+          valB = ((b.subjectId ? subjectNameById[b.subjectId] : undefined) || b.documentSubject || '').toLowerCase();
           break;
         case 'class':
-          valA = a.meta.classLevel?.toLowerCase() || '';
-          valB = b.meta.classLevel?.toLowerCase() || '';
+          valA = ((a.classId ? classNameById[a.classId] : undefined) || a.documentClassLevel || '').toLowerCase();
+          valB = ((b.classId ? classNameById[b.classId] : undefined) || b.documentClassLevel || '').toLowerCase();
           break;
         case 'variations':
-          valA = a.variations?.length || a.variationCount || variantCountById.get(a.id) || 1;
-          valB = b.variations?.length || b.variationCount || variantCountById.get(b.id) || 1;
+          valA = a.variantCount || 1;
+          valB = b.variantCount || 1;
           break;
       }
 
@@ -101,7 +87,7 @@ export function RecentList(props: RecentListProps) {
 
     return (
       <th
-        className={`text-left font-semibold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider pb-4 px-4 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 transition-colors group select-none ${className || ''}`}
+        className={`text-left font-semibold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider py-3 px-4 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 transition-colors group select-none ${className || ''}`}
         onClick={() => handleSort(sortKeyProp)}
       >
         <div className="flex items-center gap-1">
@@ -165,13 +151,13 @@ export function RecentList(props: RecentListProps) {
                       <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200">
                         <FileText className="h-4 w-4" />
                       </span>
-                      <span className="font-medium text-slate-900 dark:text-slate-100">{file.meta.title || 'Unbenannt'}</span>
+                      <span className="font-medium text-slate-900 dark:text-slate-100">{file.title || 'Unbenannt'}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{formatDate(file.lastModified)}</td>
-                  <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{file.meta.subject || '—'}</td>
-                  <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{file.meta.classLevel || '—'}</td>
-                  <td className="p-4 text-sm text-slate-500 dark:text-slate-400">{file.variations?.length || file.variationCount || variantCountById.get(file.id) || 1}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{formatDate(file.updatedAt)}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{(file.subjectId ? subjectNameById[file.subjectId] : undefined) || file.documentSubject || '—'}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{(file.classId ? classNameById[file.classId] : undefined) || file.documentClassLevel || '—'}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{file.variantCount || 1}</td>
                 </tr>
               ))
             )}

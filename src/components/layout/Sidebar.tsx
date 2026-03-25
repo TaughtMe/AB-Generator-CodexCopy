@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,8 +11,6 @@ import {
 } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useSettingsStore } from '../../store/settingsStore';
-import { useProviderModels } from '../../hooks/useProviderModels';
 
 export type SidebarView = 'dashboard' | 'profiles' | 'trash' | 'settings';
 
@@ -35,32 +33,23 @@ const LEGAL_LINKS = [
   { key: 'datenschutz' as const, label: 'Datenschutz' },
 ];
 
+const formatModelName = (rawId: string) => rawId.split('/').pop() || rawId;
+
 export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalModal }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { aiModel, setAiModel } = useWorkspaceStore(useShallow((s) => ({ aiModel: s.aiModel, setAiModel: s.setAiModel })));
-  const aiProvider = useSettingsStore((state) => state.aiProvider);
-  const activeProviderConfig = useSettingsStore((state) => state.providers[state.aiProvider]);
-  const setProviderModel = useSettingsStore((state) => state.setProviderModel);
+  const { quickAccessModels, activeModel, setActiveModel } = useWorkspaceStore(
+    useShallow((state) => ({
+      quickAccessModels: state.quickAccessModels,
+      activeModel: state.activeModel,
+      setActiveModel: state.setActiveModel,
+    })),
+  );
   const [isAiMenuOpen, setIsAiMenuOpen] = useState(false);
-  const { models: detectedProviderModels, isLoading: isLoadingProviderModels } = useProviderModels(aiProvider, true);
-
-  const modelOptions = useMemo(
-    () => Array.from(new Map(detectedProviderModels.map((option) => [option.value, option])).values()),
-    [detectedProviderModels],
-  );
-  const isAiActive = isLoadingProviderModels || modelOptions.length > 0;
+  const isAiActive = quickAccessModels.length > 0;
   const activeModelLabel = useMemo(
-    () => modelOptions.find((option) => option.value === aiModel)?.label ?? aiModel,
-    [aiModel, modelOptions],
+    () => (isAiActive ? formatModelName(activeModel || quickAccessModels[0]) : 'Keine Modelle konfiguriert'),
+    [activeModel, isAiActive, quickAccessModels],
   );
-
-  useEffect(() => {
-    const configuredModel = activeProviderConfig.model?.trim();
-    if (!configuredModel) return;
-    if (configuredModel !== aiModel) {
-      setAiModel(configuredModel);
-    }
-  }, [activeProviderConfig.model, aiModel, setAiModel]);
 
   return (
     <div
@@ -86,15 +75,21 @@ export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalM
           <div className="relative">
             <button
               type="button"
-              onClick={() => setIsAiMenuOpen(!isAiMenuOpen)}
+              onClick={() => {
+                if (!isAiActive) return;
+                setIsAiMenuOpen((prev) => !prev);
+              }}
+              disabled={!isAiActive}
               className={`flex items-center gap-3 w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ${
                 isCollapsed ? 'justify-center' : ''
+              } ${
+                !isAiActive ? 'cursor-not-allowed opacity-80 hover:bg-slate-50 dark:hover:bg-slate-900/50' : ''
               }`}
               title={isCollapsed ? `KI-Assistent: ${activeModelLabel}` : undefined}
             >
               <Sparkles
                 className={`shrink-0 w-5 h-5 ${
-                  isAiActive ? 'text-emerald-400 animate-pulse' : 'text-red-500 animate-pulse'
+                  isAiActive ? 'text-emerald-400 animate-pulse' : 'text-red-500 dark:text-slate-400'
                 }`}
               />
 
@@ -108,13 +103,13 @@ export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalM
                       isAiActive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
                     }`}
                   >
-                    {isAiActive ? activeModelLabel : 'Offline'}
+                    {isAiActive ? activeModelLabel : 'Keine Modelle konfiguriert'}
                   </span>
                 </div>
               )}
             </button>
 
-            {isAiMenuOpen && (
+            {isAiMenuOpen && isAiActive && (
               <>
                 <div
                   className="fixed inset-0 z-40"
@@ -124,34 +119,23 @@ export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalM
                   }}
                 />
                 <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700 rounded-lg z-50 overflow-hidden">
-                  {isLoadingProviderModels && (
-                    <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
-                      Lade aktive Modelle...
-                    </div>
-                  )}
-                  {!isLoadingProviderModels && modelOptions.length === 0 && (
-                    <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
-                      Keine aktiven KI-Modelle über API gefunden.
-                    </div>
-                  )}
-                  {!isLoadingProviderModels && modelOptions.map((model) => (
+                  {quickAccessModels.map((modelId) => (
                     <button
-                      key={model.value}
+                      key={modelId}
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setProviderModel(aiProvider, model.value);
-                        setAiModel(model.value);
+                        setActiveModel(modelId);
                         setIsAiMenuOpen(false);
                       }}
                       className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-between ${
-                        aiModel === model.value
+                        activeModel === modelId
                           ? 'text-emerald-600 dark:text-emerald-400 bg-slate-50 dark:bg-slate-700/50'
                           : 'text-slate-700 dark:text-slate-300'
                       }`}
                     >
-                      {model.label}
-                      {aiModel === model.value && <Check size={16} />}
+                      <span className="truncate" title={modelId}>{formatModelName(modelId)}</span>
+                      {activeModel === modelId && <Check size={16} />}
                     </button>
                   ))}
                 </div>

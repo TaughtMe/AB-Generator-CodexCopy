@@ -74,6 +74,8 @@ export interface WorksheetMeta {
     variantCount: number;
     subjectId?: string;
     classId?: string;
+    documentSubject?: string;
+    documentClassLevel?: string;
     createdAt: Date;
     updatedAt: Date;
     /** First few tasks summarised for the card preview */
@@ -608,6 +610,8 @@ function toWorksheetMeta(rec: WorksheetRecord): WorksheetMeta {
         variantCount: Math.max(1, variants.length),
         subjectId,
         classId,
+        documentSubject: rec.documentSubject,
+        documentClassLevel: rec.documentClassLevel,
         createdAt,
         updatedAt,
         taskPreview,

@@ -658,6 +658,23 @@ function canShareFiles(): boolean {
    Verbindet worksheetStore (In-Memory) mit Dexie (Persistenz).
    ══════════════════════════════════════════════════ */
 
+/** @deprecated Nur noch als Compat-Re-Export – intern durch CustomProvider ersetzt. */
+export type ProviderId = string;
+
+export interface CustomProvider {
+    id: string;
+    name: string;
+    baseUrl: string;
+    apiKey: string;
+    presetId: string;
+}
+
+export interface AIModel {
+    id: string;
+    name: string;
+    providerId: string;
+}
+
 interface WorkspaceState {
     recentWorksheets: WorksheetMeta[];
     trashedWorksheets: WorksheetMeta[];
@@ -669,6 +686,10 @@ interface WorkspaceState {
     /** Aktive Filter für die Materialien-Ansicht */
     filter: WorksheetFilter;
     currentView: WorkspaceView;
+    providers: CustomProvider[];
+    availableModels: AIModel[];
+    quickAccessModels: string[];
+    activeModel: string;
     aiModel: string;
     chatMessages: ChatMessage[];
     aiSidebarDraft: string;
@@ -745,6 +766,12 @@ interface WorkspaceActions {
     loadTrash: () => Promise<void>;
     /** Setzt den aktiven Filter und lädt neu */
     setFilter: (filter: WorksheetFilter) => Promise<void>;
+    addProvider: () => void;
+    updateProvider: (id: string, updates: Partial<CustomProvider>) => void;
+    removeProvider: (id: string) => void;
+    toggleQuickAccessModel: (modelId: string) => void;
+    setActiveModel: (modelId: string) => void;
+    fetchModelsForProvider: (providerId: string) => Promise<void>;
     /** Speichert das aktuelle Arbeitsblatt in Dexie.
      *  Optionaler `thumbnail`-Blob wird direkt mitgespeichert.
      *  Wird kein Blob übergeben, bleibt das alte Thumbnail erhalten. */
@@ -897,6 +924,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     classProfilesError: null,
     filter: {},
     currentView: 'dashboard',
+    providers: [],
+    availableModels: [],
+    quickAccessModels: [],
+    activeModel: '',
     aiModel: 'GPT-4o (Standard)',
     chatMessages: [],
     aiSidebarDraft: '',
@@ -1276,8 +1307,128 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         set({ currentView: view });
     },
 
+    addProvider: () => {
+        const newProvider: CustomProvider = {
+            id: crypto.randomUUID(),
+            name: '',
+            baseUrl: '',
+            apiKey: '',
+            presetId: 'custom',
+        };
+        set((state) => ({ providers: [...state.providers, newProvider] }));
+    },
+
+    updateProvider: (id, updates) => {
+        set((state) => ({
+            providers: state.providers.map((p) =>
+                p.id === id ? { ...p, ...updates } : p,
+            ),
+        }));
+    },
+
+    removeProvider: (id) => {
+        set((state) => {
+            const providers = state.providers.filter((p) => p.id !== id);
+            const availableModels = state.availableModels.filter((m) => m.providerId !== id);
+            const availableIds = new Set(availableModels.map((m) => m.id));
+            const quickAccessModels = state.quickAccessModels.filter((mid) => availableIds.has(mid));
+            const activeModel = quickAccessModels.includes(state.activeModel)
+                ? state.activeModel
+                : (quickAccessModels[0] ?? '');
+            return {
+                providers,
+                availableModels,
+                quickAccessModels,
+                activeModel,
+                aiModel: activeModel,
+            };
+        });
+    },
+
+    toggleQuickAccessModel: (modelId) => {
+        const normalizedModelId = modelId.trim();
+        if (!normalizedModelId) return;
+
+        set((state) => {
+            const availableIds = new Set(state.availableModels.map((model) => model.id));
+            if (!availableIds.has(normalizedModelId)) {
+                return state;
+            }
+
+            const isSelected = state.quickAccessModels.includes(normalizedModelId);
+            const quickAccessModels = isSelected
+                ? state.quickAccessModels.filter((id) => id !== normalizedModelId)
+                : [...state.quickAccessModels, normalizedModelId];
+
+            const activeModel = isSelected && state.activeModel === normalizedModelId
+                ? (quickAccessModels[0] ?? '')
+                : (!isSelected && !state.activeModel ? normalizedModelId : state.activeModel);
+
+            return {
+                quickAccessModels,
+                activeModel,
+                aiModel: activeModel,
+            };
+        });
+    },
+
+    setActiveModel: (modelId) => {
+        const normalizedModelId = modelId.trim();
+        set({
+            activeModel: normalizedModelId,
+            aiModel: normalizedModelId,
+        });
+    },
+
+    fetchModelsForProvider: async (providerId) => {
+        const provider = get().providers.find((p) => p.id === providerId);
+        if (!provider) return;
+
+        const baseUrl = provider.baseUrl.replace(/\/+$/, '');
+        try {
+            const response = await fetch(`${baseUrl}/models`, {
+                headers: provider.apiKey
+                    ? { Authorization: `Bearer ${provider.apiKey}` }
+                    : {},
+            });
+            if (!response.ok) {
+                throw new Error(`Modelle konnten nicht geladen werden (HTTP ${response.status}).`);
+            }
+            const json = (await response.json()) as { data?: Array<{ id?: string; name?: string }> };
+            const models: AIModel[] = (json.data ?? [])
+                .map((entry) => ({
+                    id: entry.id?.trim() ?? '',
+                    name: entry.name?.trim() || entry.id?.trim() || '',
+                    providerId,
+                }))
+                .filter((model) => Boolean(model.id));
+
+            set((state) => {
+                const otherModels = state.availableModels.filter((m) => m.providerId !== providerId);
+                const availableModels = [...otherModels, ...models];
+                const availableIds = new Set(availableModels.map((m) => m.id));
+                const quickAccessModels = state.quickAccessModels.filter((mid) => availableIds.has(mid));
+                const activeModel = quickAccessModels.includes(state.activeModel)
+                    ? state.activeModel
+                    : (quickAccessModels[0] ?? '');
+                return {
+                    availableModels,
+                    quickAccessModels,
+                    activeModel,
+                    aiModel: activeModel,
+                };
+            });
+        } catch (error) {
+            console.error(`[workspaceStore] fetchModelsForProvider failed for ${providerId}:`, error);
+        }
+    },
+
     setAiModel: (model) => {
-        set({ aiModel: model });
+        const normalizedModel = model.trim();
+        set({
+            aiModel: normalizedModel,
+            activeModel: normalizedModel,
+        });
     },
 
     addChatMessage: (message) => {
@@ -1852,6 +2003,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             const docId = state.currentWorksheetId
                 ?? ws.id
                 ?? crypto.randomUUID();
+            const actualVariationCount = ws.variants?.length || 1;
 
             const currentSnapshot = {
                 id: docId,
@@ -1860,7 +2012,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                 tasks: [...ws.taskIds.map((tid) => ({ ...ws.tasksById[tid] }))],
                 taskCount: ws.taskIds.length,
                 variations: ws.variants.map((variant) => ({ id: variant.id, label: variant.label })),
-                variationCount: Math.max(1, ws.variants.length),
+                variationCount: actualVariationCount,
             };
 
             const existingIndex = state.savedFiles.findIndex((f) => f.id === docId);
@@ -1903,6 +2055,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         documentMeta: state.documentMeta,
         isFirstSave: state.isFirstSave,
         currentWorksheetId: state.currentWorksheetId,
+        providers: state.providers,
+        availableModels: state.availableModels,
+        quickAccessModels: state.quickAccessModels,
+        activeModel: state.activeModel,
       }),
     },
   ),
