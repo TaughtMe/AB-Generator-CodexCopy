@@ -4,7 +4,6 @@ import { backupBeforeUpdate } from '../../services/cloudSyncService';
 
 export default function UpdatePromptPwa() {
   const [isReloading, setIsReloading] = useState(false);
-  const [backupStatus, setBackupStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -23,11 +22,8 @@ export default function UpdatePromptPwa() {
 
     // Cloud-Backup vor Update erstellen
     try {
-      setBackupStatus('running');
       await backupBeforeUpdate();
-      setBackupStatus('done');
     } catch {
-      setBackupStatus('error');
       // Trotz Backup-Fehler wird das Update fortgesetzt
     }
 
