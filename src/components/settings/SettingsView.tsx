@@ -8,6 +8,7 @@ import { exportLocalBackup, importLocalBackup } from '../../utils/dataManagement
 import { clearAllIndexedDbData } from '../../store/dexieStore';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { FontUpload } from './FontUpload';
+import { CloudBackupSettings } from './CloudBackupSettings';
 import { useShallow } from 'zustand/react/shallow';
 
 type SettingsTab = 'display' | 'fonts' | 'ai' | 'chat' | 'data' | 'legal';
@@ -493,6 +494,9 @@ export const SettingsView: React.FC = () => {
                                     <p className="text-xs text-red-300">{dataActionError}</p>
                                 )}
                             </div>
+
+                            {/* ── Cloud-Backup ── */}
+                            <CloudBackupSettings />
                         </div>
                     )}
 

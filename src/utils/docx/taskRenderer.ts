@@ -24,6 +24,7 @@ import type {
     ImagePlaceholderTask,
     ColumnsTask,
     InstructionTask,
+    InformationTextTask,
     HeadingTask,
     TableTask,
     ImageAlignment,
@@ -784,6 +785,33 @@ function renderInstruction(
     }, 80);
 }
 
+function renderInformation(
+    task: InformationTextTask,
+    config: TaskRendererConfig,
+): (Paragraph | Table)[] {
+    if (!task.content || !task.content.trim()) {
+        return [
+            new Paragraph({
+                children: [
+                    new TextRun({
+                        text: '(Kein Informationstext)',
+                        font: config.fontFamily,
+                        size: config.fontSizePt * 2,
+                        color: config.docxTheme.muted,
+                        italics: true,
+                    }),
+                ],
+            }),
+        ];
+    }
+
+    return htmlToDocxParagraphs(task.content, {
+        fontFamily: config.fontFamily,
+        fontSizePt: config.fontSizePt,
+        color: config.docxTheme.text,
+    }, 80);
+}
+
 function renderHeading(
     task: HeadingTask,
     config: TaskRendererConfig,
@@ -984,6 +1012,8 @@ export async function renderTaskContent(
             return await renderImagePlaceholder(task, config);
         case 'instruction':
             return renderInstruction(task as InstructionTask, config);
+        case 'information':
+            return renderInformation(task as InformationTextTask, config);
         case 'heading':
             return renderHeading(task as HeadingTask, config);
         case 'table':

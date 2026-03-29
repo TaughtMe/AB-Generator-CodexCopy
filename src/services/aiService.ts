@@ -1450,6 +1450,48 @@ export async function generateChatAssistantReply(
     return responseText.trim();
 }
 
+export async function generateVocabularyDefinitions(
+    words: Array<{ id: string; word: string }>,
+): Promise<Array<{ id: string; pos: string; definition: string }>> {
+    const wordList = words.map((w) => w.word).join(', ');
+    const userPrompt = `Gib für folgende Wörter jeweils die Wortart (pos) und eine sehr kurze, einfache Definition (definition, maximal 8–10 Wörter) auf Deutsch zurück.
+Antwort NUR als JSON-Array: [{"word":"...","pos":"...","definition":"..."}]
+Wörter: ${wordList}`;
+
+    const systemPrompt = 'Du bist ein Sprachexperte und Lehrassistent. Antworte ausschließlich mit validem JSON.';
+
+    const { provider } = getActiveProviderState();
+    let responseText: string;
+
+    if (provider === 'gemini') {
+        const model = getGeminiModel(getPreferredChatModel('gemini'));
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+            systemInstruction: systemPrompt,
+        });
+        responseText = result.response.text();
+    } else {
+        responseText = await requestOpenAICompatible({
+            provider,
+            userPrompt,
+            systemPrompt,
+            modelOverride: getPreferredChatModel(provider),
+        });
+    }
+
+    const jsonStr = extractJSON(responseText);
+    const parsed: Array<{ word: string; pos: string; definition: string }> = JSON.parse(jsonStr);
+
+    return words.map((w) => {
+        const match = parsed.find((p) => p.word.toLowerCase() === w.word.toLowerCase());
+        return {
+            id: w.id,
+            pos: match?.pos ?? '',
+            definition: match?.definition ?? '',
+        };
+    });
+}
+
 export async function generateTasksFromCompiledPrompt(compiledPrompt: string): Promise<Omit<Task, 'id'>[]> {
     const responseText = await getAdapter().generateTasksFromCompiledPromptText(compiledPrompt);
     const jsonStr = extractJSON(responseText);

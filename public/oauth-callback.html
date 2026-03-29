@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cloud-Login – AB Generator</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { text-align: center; padding: 2rem; }
+        .spinner { width: 32px; height: 32px; border: 3px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 1rem; }
+        .error { color: #f87171; }
+        .success { color: #34d399; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner" id="spinner"></div>
+        <p id="status">Anmeldung wird verarbeitet…</p>
+    </div>
+    <script>
+        (function() {
+            var statusEl = document.getElementById('status');
+            var spinnerEl = document.getElementById('spinner');
+
+            // ── Implicit Flow: Token kommt im URL-Hash ──
+            var hashParams = new URLSearchParams(window.location.hash.substring(1));
+            var accessToken = hashParams.get('access_token');
+            var hashState = hashParams.get('state');
+            var expiresIn = hashParams.get('expires_in');
+
+            // ── Code Flow: Code kommt in den Query-Parametern ──
+            var queryParams = new URLSearchParams(window.location.search);
+            var code = queryParams.get('code');
+            var queryState = queryParams.get('state');
+
+            // ── Fehlerbehandlung ──
+            var error = queryParams.get('error') || hashParams.get('error');
+            var errorDescription = queryParams.get('error_description') || hashParams.get('error_description');
+
+            if (error) {
+                spinnerEl.style.display = 'none';
+                statusEl.className = 'error';
+                statusEl.textContent = 'Login fehlgeschlagen: ' + (errorDescription || error);
+                setTimeout(function() { window.location.href = '/'; }, 3000);
+                return;
+            }
+
+            if (accessToken) {
+                // Implicit Flow – Token direkt speichern
+                try {
+                    sessionStorage.setItem('ab-generator-oauth-result', JSON.stringify({
+                        access_token: accessToken,
+                        state: hashState,
+                        expires_in: expiresIn ? parseInt(expiresIn, 10) : undefined
+                    }));
+                } catch (e) { /* ignore */ }
+
+                spinnerEl.style.display = 'none';
+                statusEl.className = 'success';
+                statusEl.textContent = 'Anmeldung erfolgreich! Weiterleitung…';
+                window.location.href = '/#cloud-callback';
+                return;
+            }
+
+            if (code) {
+                // Code Flow (OneDrive) – Code weiterleiten
+                try {
+                    sessionStorage.setItem('ab-generator-oauth-result', JSON.stringify({
+                        code: code,
+                        state: queryState
+                    }));
+                } catch (e) { /* ignore */ }
+
+                spinnerEl.style.display = 'none';
+                statusEl.className = 'success';
+                statusEl.textContent = 'Anmeldung erfolgreich! Weiterleitung…';
+                window.location.href = '/#cloud-callback';
+                return;
+            }
+
+            // Weder Token noch Code erhalten
+            spinnerEl.style.display = 'none';
+            statusEl.className = 'error';
+            statusEl.textContent = 'Keine Autorisierungsdaten erhalten.';
+            setTimeout(function() { window.location.href = '/'; }, 3000);
+        })();
+    </script>
+</body>
+</html>

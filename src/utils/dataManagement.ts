@@ -325,3 +325,17 @@ export async function hardResetLocalData(): Promise<void> {
     await clearAllIndexedDbData();
     window.location.reload();
 }
+
+/**
+ * Erzeugt ein vollständiges Backup als Blob im .worksheet-Format
+ * (identisch mit JSON-Backup, aber als .worksheet gebündelt).
+ */
+export async function buildWorksheetBackupBlob(): Promise<Blob> {
+    const settings = readPersistedSettings();
+    const worksheets = serializeWorksheets(await listWorksheetRecords());
+    const templates = serializeTemplates(await listDesignTemplateRecords());
+    const classProfiles = serializeClassProfiles(await listClassProfileRecords());
+    const payload = buildBackupPayload(settings, worksheets, templates, classProfiles);
+    const json = JSON.stringify(payload, null, 2);
+    return new Blob([json], { type: 'application/json;charset=utf-8' });
+}

@@ -108,12 +108,26 @@ export interface TableTask extends BaseTask {
 }
 
 /** Reiner Informationsblock ohne Punktevergabe / Antwortfelder */
-export interface InformationTask extends BaseTask {
-    type: 'information';
-    text: string;
+export interface VocabularyItem {
+    id: string;
+    word: string;
+    pos: string; // Wortart (Part of Speech)
+    definition: string;
 }
 
-export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask | TableTask | InformationTask;
+/** Reiner Informationsblock ohne Punktevergabe / Antwortfelder */
+export interface InformationTextTask extends BaseTask {
+    type: 'information';
+    content: string;
+    hasNotesColumn: boolean;
+    textWidthRatio: number; // z.B. 50 bis 100 (%)
+    vocabulary: VocabularyItem[];
+    highlightVocabulary: boolean;
+}
+
+export type InformationTask = InformationTextTask;
+
+export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask | TableTask | InformationTextTask;
 
 export interface WorksheetTaskState {
     tasksById: Record<string, Task>;

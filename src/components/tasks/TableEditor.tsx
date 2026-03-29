@@ -213,6 +213,8 @@ export function TableEditor({ task, isActive = true }: TableEditorProps) {
                         placement: 'top',
                         offset: [0, 8],
                         interactive: true,
+                        zIndex: 99999,
+                        appendTo: () => document.getElementById('root') || document.body,
                     }}
                 >
                     <div className="no-print flex items-center gap-1 rounded-xl border border-slate-200/70 bg-white/80 px-1.5 py-1 shadow-md backdrop-blur-md">

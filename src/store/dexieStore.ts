@@ -3,6 +3,7 @@ import type { Task, WorksheetVariant } from '../types/worksheet';
 import type { ChatMessage } from '../types/ai';
 import type { WorksheetSource } from '../types/worksheet';
 import type { ClassProfile } from '../types/profiles';
+import { notifyDataChanged } from '../services/cloudSyncService';
 import {
     normalizeDesignSnapshot,
     normalizeTemplateName,
@@ -659,6 +660,9 @@ export async function saveWorksheet(
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
     });
+
+    // Cloud-Sync benachrichtigen
+    notifyDataChanged(`Arbeitsblatt gespeichert: ${title}`);
 }
 
 /** Lädt ein vollständiges Arbeitsblatt */

@@ -122,6 +122,9 @@ const VALID_COLUMNS_LAYOUTS: ColumnsLayout[] = ['50-50', '60-40', '40-60'];
 const VALID_CLOZE_GAP_STYLES: ClozeGapStyle[] = ['continuous', 'per-letter'];
 const VALID_CLOZE_WORD_BANK_MODES: ClozeWordBankMode[] = ['hidden', 'mixed', 'upside-down'];
 const VALID_IMAGE_ALIGNMENTS: ImageAlignment[] = ['left', 'center', 'right'];
+const MIN_INFORMATION_TEXT_WIDTH_RATIO = 30;
+const MAX_INFORMATION_TEXT_WIDTH_RATIO = 80;
+const DEFAULT_INFORMATION_TEXT_WIDTH_RATIO = 60;
 
 /**
  * Erzeugt ein neues Task-Objekt mit einer frischen UUID.
@@ -206,7 +209,11 @@ function createNewTask(type: TaskType): Task {
                 ...base,
                 type: 'information',
                 title: 'Information',
-                text: '',
+                content: '',
+                hasNotesColumn: false,
+                textWidthRatio: DEFAULT_INFORMATION_TEXT_WIDTH_RATIO,
+                vocabulary: [],
+                highlightVocabulary: false,
                 showNumber: false,
             };
         default:
@@ -256,6 +263,47 @@ function normalizeMultipleChoiceOptionsForStore(
     }
 
     return normalized;
+}
+
+function cloneVocabularyItems(
+    items: TaskByType<'information'>['vocabulary'],
+): TaskByType<'information'>['vocabulary'] {
+    return items.map((item) => ({
+        id: typeof item.id === 'string' && item.id.trim() ? item.id : crypto.randomUUID(),
+        word: typeof item.word === 'string' ? item.word : '',
+        pos: typeof item.pos === 'string' ? item.pos : '',
+        definition: typeof item.definition === 'string' ? item.definition : '',
+    }));
+}
+
+function normalizeVocabularyForStore(
+    rawVocabulary: unknown,
+    fallbackVocabulary: TaskByType<'information'>['vocabulary'],
+): TaskByType<'information'>['vocabulary'] {
+    if (!Array.isArray(rawVocabulary)) {
+        return cloneVocabularyItems(fallbackVocabulary);
+    }
+
+    return rawVocabulary
+        .filter(isObjectRecord)
+        .map((item) => ({
+            id: typeof item.id === 'string' && item.id.trim() ? item.id : crypto.randomUUID(),
+            word: typeof item.word === 'string' ? item.word : '',
+            pos: typeof item.pos === 'string' ? item.pos : '',
+            definition: typeof item.definition === 'string' ? item.definition : '',
+        }));
+}
+
+function clampInformationTextWidthRatio(value: unknown): number {
+    const candidate =
+        typeof value === 'number' && Number.isFinite(value)
+            ? value
+            : DEFAULT_INFORMATION_TEXT_WIDTH_RATIO;
+
+    return Math.max(
+        MIN_INFORMATION_TEXT_WIDTH_RATIO,
+        Math.min(MAX_INFORMATION_TEXT_WIDTH_RATIO, Math.round(candidate)),
+    );
 }
 
 function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: boolean): Task {
@@ -494,11 +542,27 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
             const fallback: TaskByType<'information'> = fallbackTask.type === 'information'
                 ? fallbackTask
                 : createDefaultTaskOfType('information');
+            const legacyText = (task as { text?: unknown }).text;
 
             return {
                 ...task,
                 title: typeof task.title === 'string' ? task.title : fallback.title,
-                text: typeof task.text === 'string' ? task.text : fallback.text,
+                content:
+                    typeof task.content === 'string'
+                        ? task.content
+                        : typeof legacyText === 'string'
+                            ? legacyText
+                            : fallback.content,
+                hasNotesColumn:
+                    typeof task.hasNotesColumn === 'boolean'
+                        ? task.hasNotesColumn
+                        : fallback.hasNotesColumn,
+                textWidthRatio: clampInformationTextWidthRatio(task.textWidthRatio ?? fallback.textWidthRatio),
+                vocabulary: normalizeVocabularyForStore(task.vocabulary, fallback.vocabulary),
+                highlightVocabulary:
+                    typeof task.highlightVocabulary === 'boolean'
+                        ? task.highlightVocabulary
+                        : fallback.highlightVocabulary,
             };
         }
 
@@ -599,6 +663,32 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
                 ...task,
                 wordBankMode: normalizedWordBankMode,
                 distractors: typeof clozeTask.distractors === 'string' ? clozeTask.distractors : '',
+            };
+            continue;
+        }
+
+        if (task.type === 'information') {
+            const informationTask = task as TaskByType<'information'> & { text?: unknown };
+            const fallback = createDefaultTaskOfType('information');
+
+            normalized[id] = {
+                ...task,
+                content:
+                    typeof informationTask.content === 'string'
+                        ? informationTask.content
+                        : typeof informationTask.text === 'string'
+                            ? informationTask.text
+                            : fallback.content,
+                hasNotesColumn:
+                    typeof informationTask.hasNotesColumn === 'boolean'
+                        ? informationTask.hasNotesColumn
+                        : fallback.hasNotesColumn,
+                textWidthRatio: clampInformationTextWidthRatio(informationTask.textWidthRatio),
+                vocabulary: normalizeVocabularyForStore(informationTask.vocabulary, fallback.vocabulary),
+                highlightVocabulary:
+                    typeof informationTask.highlightVocabulary === 'boolean'
+                        ? informationTask.highlightVocabulary
+                        : fallback.highlightVocabulary,
             };
             continue;
         }
@@ -874,7 +964,9 @@ export const useWorksheetStore = create<WorksheetStore>()(
                 }
                 : taskData;
 
-            const task = { ...normalizedTaskData, id } as Task;
+            const importedTask = { ...normalizedTaskData, id } as Task;
+            const fallbackTask = { ...createDefaultTaskOfType(importedTask.type), id } as Task;
+            const task = sanitizeTaskForStore(importedTask, fallbackTask, false);
             newTasksById[id] = task;
             newTaskIds.push(id);
         }
