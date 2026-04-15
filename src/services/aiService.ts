@@ -1237,6 +1237,7 @@ function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                     type: 'multiple-choice' as const,
                     title: String(item.title || 'Multiple-Choice'),
                     question: String(item.question || ''),
+                    vocabulary: [],
                     options: Array.isArray(item.options)
                         ? item.options.map((opt: Record<string, unknown>) => ({
                             id: crypto.randomUUID(),
@@ -1257,6 +1258,7 @@ function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                         type: 'math' as const,
                         title: String(item.title || 'Lückentext'),
                         content: mathMatch[1].trim(),
+                        vocabulary: [],
                         ...linesFields,
                     } as Omit<Task, 'id'>);
                 } else {
@@ -1264,6 +1266,7 @@ function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                         type: 'cloze' as const,
                         title: String(item.title || 'Lückentext'),
                         content,
+                        vocabulary: [],
                         ...linesFields,
                     } as Omit<Task, 'id'>);
                 }
@@ -1290,6 +1293,7 @@ function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                     type: 'math' as const,
                     title: String(item.title || 'Mathematik'),
                     content: String(item.content || ''),
+                    vocabulary: [],
                     ...linesFields,
                 } as Omit<Task, 'id'>);
                 break;

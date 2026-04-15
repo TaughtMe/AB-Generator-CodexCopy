@@ -1,4 +1,5 @@
 import React from 'react';
+import i18n from '../../i18n/config';
 import {
     Trash2,
     CheckSquare,
@@ -71,15 +72,16 @@ function isLegacyWorksheetCardProps(props: WorksheetCardComponentProps): props i
 
 /** Relative Zeitangabe */
 function timeAgo(date: Date): string {
+    const t = i18n.t.bind(i18n);
     const diff = Date.now() - new Date(date).getTime();
     const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return 'Gerade eben';
-    if (minutes < 60) return `vor ${minutes} Min.`;
+    if (minutes < 1) return t('common.justNow');
+    if (minutes < 60) return t('common.minutesAgo', { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `vor ${hours} Std.`;
+    if (hours < 24) return t('common.hoursAgo', { count: hours });
     const days = Math.floor(hours / 24);
-    if (days === 1) return 'Gestern';
-    return `vor ${days} Tagen`;
+    if (days === 1) return t('common.yesterday');
+    return t('common.daysAgo', { count: days });
 }
 
 /** Farbpalette je Fach-Index */
@@ -233,12 +235,12 @@ const LegacyWorksheetCard: React.FC<LegacyWorksheetCardProps> = ({
                                 })
                             ) : (
                                 <div className="text-[4px] text-slate-300 dark:text-slate-600 italic text-center pt-2">
-                                    Leer
+                                    {i18n.t('common.empty')}
                                 </div>
                             )}
                             {meta.taskCount > (meta.taskPreview?.length ?? 0) && (
                                 <div className="text-[3.5px] text-slate-300 dark:text-slate-500 text-center pt-0.5">
-                                    + {meta.taskCount - meta.taskPreview.length} weitere …
+                                    {i18n.t('common.moreItems', { count: meta.taskCount - meta.taskPreview.length })}
                                 </div>
                             )}
                         </div>
@@ -263,7 +265,7 @@ const LegacyWorksheetCard: React.FC<LegacyWorksheetCardProps> = ({
                         )}
                         {meta.variantCount > 1 && (
                             <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
-                                {meta.variantCount} Niveaus
+                                {i18n.t('common.levels', { count: meta.variantCount })}
                             </span>
                         )}
                     </div>
@@ -282,8 +284,8 @@ const LegacyWorksheetCard: React.FC<LegacyWorksheetCardProps> = ({
                         setIsMenuOpen((open) => !open);
                     }}
                     className="p-1 rounded-md bg-black/30 hover:bg-black/45 text-white transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
-                    title="Aktionen"
-                    aria-label="Aktionen öffnen"
+                    title={i18n.t('common.actions')}
+                    aria-label={i18n.t('common.actions')}
                     aria-expanded={isMenuOpen}
                     disabled={isBusy}
                 >
@@ -304,7 +306,7 @@ const LegacyWorksheetCard: React.FC<LegacyWorksheetCardProps> = ({
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                             <Copy className={ICON_SIZES[12]} />
-                            <span>{isDuplicating ? 'Dupliziere...' : 'Duplizieren'}</span>
+                            <span>{isDuplicating ? i18n.t('common.duplicating') : i18n.t('common.duplicate')}</span>
                         </button>
 
                         <button
@@ -316,7 +318,7 @@ const LegacyWorksheetCard: React.FC<LegacyWorksheetCardProps> = ({
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                             <FileDown className={ICON_SIZES[12]} />
-                            <span>{isExporting ? 'Exportiere...' : 'Exportieren (.abgen)'}</span>
+                            <span>{isExporting ? i18n.t('common.exporting') : i18n.t('worksheetCard.exportAbgen')}</span>
                         </button>
 
                         {canShare && (
@@ -329,7 +331,7 @@ const LegacyWorksheetCard: React.FC<LegacyWorksheetCardProps> = ({
                                 className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             >
                                 <Share2 className={ICON_SIZES[12]} />
-                                <span>{isSharing ? 'Teile...' : 'Teilen'}</span>
+                                <span>{isSharing ? i18n.t('common.sharing') : i18n.t('common.share')}</span>
                             </button>
                         )}
 
@@ -342,7 +344,7 @@ const LegacyWorksheetCard: React.FC<LegacyWorksheetCardProps> = ({
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                             <Trash2 className={ICON_SIZES[12]} />
-                            <span>Löschen</span>
+                            <span>{i18n.t('common.delete')}</span>
                         </button>
                     </div>
                 )}

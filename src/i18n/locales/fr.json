@@ -1,0 +1,371 @@
+{
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "back": "Retour",
+    "loading": "Chargement...",
+    "retry": "Réessayer",
+    "confirm": "Confirmer",
+    "search": "Rechercher",
+    "actions": "Actions",
+    "duplicate": "Dupliquer",
+    "duplicating": "Duplication...",
+    "export": "Exporter",
+    "exporting": "Exportation...",
+    "share": "Partager",
+    "sharing": "Partage...",
+    "restore": "Restaurer",
+    "remove": "Supprimer",
+    "add": "Ajouter",
+    "empty": "Vide",
+    "unknown": "Inconnu",
+    "active": "Actif",
+    "version": "Version",
+    "justNow": "À l'instant",
+    "minutesAgo": "il y a {{count}} min.",
+    "hoursAgo": "il y a {{count}} h.",
+    "yesterday": "Hier",
+    "daysAgo": "il y a {{count}} jours",
+    "moreItems": "+ {{count}} de plus …",
+    "levels": "{{count}} niveaux",
+    "tasks": "{{count}} exercices",
+    "noClass": "Aucune classe",
+    "noSubject": "Aucune matière",
+    "deletedProfile": "Profil supprimé",
+    "subject": "Matière",
+    "class": "Classe"
+  },
+  "settings": {
+    "title": "Paramètres globaux",
+    "subtitle": "Centre pour le tableau de bord, l'éditeur et les fonctions IA.",
+    "language": "Langue",
+    "tabs": {
+      "display": "Affichage",
+      "fonts": "Polices",
+      "ai": "IA",
+      "chat": "Chat IA",
+      "data": "Gestion des données",
+      "legal": "Mentions légales et contact",
+      "language": "Langue"
+    },
+    "display": {
+      "title": "Affichage",
+      "subtitle": "Personnalisez l'apparence de l'application.",
+      "lightMode": "Mode clair",
+      "lightModeDesc": "Fond clair",
+      "darkMode": "Mode sombre",
+      "darkModeDesc": "Fond sombre",
+      "onboarding": "Introduction et aide",
+      "onboardingDesc": "Relancez la visite guidée pour revoir les principales fonctionnalités de l'application.",
+      "restartTour": "Relancer la visite"
+    },
+    "ai": {
+      "title": "IA",
+      "subtitle": "Les clés API restent dans votre navigateur (LocalStorage) et ne sont pas transmises automatiquement.",
+      "activeProvider": "Fournisseur actif",
+      "apiKey": "Clé API",
+      "apiKeyPlaceholder": "Entrer la clé API",
+      "apiKeyOptional": "Optionnel pour le serveur local",
+      "apiActive": "API active",
+      "apiInactive": "API inactive",
+      "testingApi": "Test de l'API...",
+      "baseUrl": "URL de base",
+      "defaultModel": "Modèle par défaut",
+      "refreshModels": "Actualiser les modèles locaux"
+    },
+    "chat": {
+      "title": "Chat IA",
+      "subtitle": "Choisissez le modèle préféré du chat. « Auto » utilise le modèle par défaut de l'onglet IA.",
+      "preferredModel": "Modèle de chat préféré",
+      "autoModel": "Auto (utilise le modèle par défaut)",
+      "activeForChat": "Actif pour le chat :",
+      "submitOnEnter": "Entrée envoie le message",
+      "submitOnEnterDesc": "Quand actif : <strong>Entrée</strong> envoie, <strong>Maj+Entrée</strong> fait un saut de ligne."
+    },
+    "data": {
+      "title": "Gestion des données",
+      "description": "Toutes les données sont stockées localement dans le navigateur (LocalStorage + IndexedDB).",
+      "backupInfo": "Les sauvegardes comprennent les fiches, les paramètres et les modèles. Les données d'image ne sont pas exportées dans cette version.",
+      "included": "Inclus",
+      "includedItems": {
+        "worksheets": "Fiches de travail",
+        "settings": "Paramètres globaux",
+        "templates": "Modèles de design (sans images)"
+      },
+      "excluded": "Non inclus",
+      "excludedItems": {
+        "images": "Données d'image (Blob/Base64)",
+        "cloud": "Services externes/données cloud"
+      },
+      "downloadBackup": "Télécharger la sauvegarde",
+      "restoreBackup": "Restaurer la sauvegarde",
+      "deleteAllData": "Supprimer toutes les données locales",
+      "confirmDelete": "Vraiment supprimer ?",
+      "clearCache": "Vider le cache de stockage",
+      "backupSuccess": "Sauvegarde téléchargée en fichier JSON. Les données d'image sont délibérément exclues.",
+      "backupError": "Impossible de créer la sauvegarde.",
+      "restoreInfo": "Restauration de la sauvegarde. La page sera rechargée ensuite.",
+      "restoreError": "Impossible d'importer la sauvegarde.",
+      "deleteInfo": "Suppression des données locales. La page sera rechargée ensuite.",
+      "deleteError": "Impossible de supprimer les données locales.",
+      "confirmDeleteInfo": "Cliquez à nouveau pour supprimer définitivement toutes les données locales.",
+      "cacheCleared": "Cache LocalStorage vidé. Veuillez recharger la page."
+    },
+    "legal": {
+      "title": "Mentions légales et contact",
+      "contact": "Contact",
+      "contactInfo": "Support et questions : Toby.Bryson@schule.bayern.de",
+      "impressum": "Mentions légales",
+      "impressumInfo": "Les informations complètes sont disponibles via le lien « Mentions légales » dans le pied de page.",
+      "privacy": "Politique de confidentialité",
+      "privacyInfo": "Les informations sur le stockage local, l'utilisation optionnelle de l'IA et les services externes sont disponibles sous « Confidentialité » dans le pied de page."
+    }
+  },
+  "sidebar": {
+    "dashboard": "Tableau de bord",
+    "subjects": "Mes matières",
+    "trash": "Corbeille",
+    "settings": "Paramètres",
+    "aiAssistant": "Assistant IA",
+    "noModels": "Aucun modèle configuré",
+    "impressum": "Mentions légales",
+    "datenschutz": "Politique de confidentialité"
+  },
+  "dashboard": {
+    "greetings": {
+      "hello": "Bonjour ! 👋",
+      "welcomeBack": "Bon retour !",
+      "readyForClass": "Prêt pour le cours ?",
+      "niceToSeeYou": "Content de vous revoir !"
+    },
+    "subtitle": "Que souhaitez-vous créer aujourd'hui ?",
+    "recentlyEdited": "Récemment modifiés",
+    "searchPlaceholder": "Rechercher dans tous les documents",
+    "sort": {
+      "created": "Création",
+      "alphabetical": "Alphabétique",
+      "newest": "Plus récents"
+    },
+    "renamePrompt": "Renommer la fiche",
+    "deleteConfirm": "Déplacer la fiche vers la corbeille ?",
+    "emptyWorksheet": "Fiche vide"
+  },
+  "actionHub": {
+    "newWorksheet": "Créer une nouvelle fiche",
+    "newWorksheetDesc": "Commencer manuellement ou avec un modèle.",
+    "startAI": "Démarrer l'assistant IA",
+    "startAIDesc": "Création automatique et suggestions.",
+    "browseTemplates": "Parcourir les modèles",
+    "openHeaderEditor": "Ouvrir l'éditeur d'en-tête",
+    "resumeLast": "Reprendre la dernière fiche"
+  },
+  "quickActions": {
+    "welcomeBack": "Bon retour !",
+    "newWorksheet": "Nouvelle fiche",
+    "newWorksheetDesc": "Démarrer rapidement une nouvelle fiche.",
+    "aiAssistant": "Assistant IA",
+    "aiAssistantDesc": "Affiner la dernière fiche avec l'IA."
+  },
+  "filter": {
+    "subjectAll": "Matière : Toutes",
+    "subjectPrefix": "Matière :",
+    "classAll": "Classe : Toutes",
+    "classPrefix": "Classe :",
+    "sortNewest": "Tri : Plus récents",
+    "sortCreated": "Tri : Date de création",
+    "sortAlphabetical": "Tri : Alphabétique",
+    "subject": "Matière",
+    "class": "Classe",
+    "sort": "Tri"
+  },
+  "worksheetCard": {
+    "exportAbgen": "Exporter (.abgen)",
+    "emptyPreview": "Fiche vide"
+  },
+  "trash": {
+    "title": "Corbeille",
+    "description": "Les fiches supprimées sont automatiquement supprimées définitivement après 30 jours.",
+    "emptyTrash": "Vider la corbeille",
+    "emptying": "Vidage...",
+    "emptyState": "La corbeille est vide.",
+    "emptyStateDesc": "Les fiches supprimées apparaissent ici pendant 30 jours.",
+    "deletedToday": "Sera supprimé aujourd'hui",
+    "deletedTomorrow": "Sera supprimé dans 1 jour",
+    "deletedInDays": "Sera supprimé dans {{count}} jours",
+    "deletedOn": "Supprimé le {{date}}",
+    "permanentDelete": "Supprimer définitivement",
+    "confirmDelete": "Supprimer définitivement « {{title}} » ?",
+    "confirmEmptyTrash": "Vraiment vider la corbeille définitivement ?"
+  },
+  "profiles": {
+    "title": "Classes et matières",
+    "subtitle": "Gérez vos matières et profils de classe pour les attribuer aux fiches.",
+    "subjects": "Matières ({{count}})",
+    "addSubject": "Ajouter une matière",
+    "noSubjects": "Aucune matière créée pour l'instant.",
+    "subjectPlaceholder": "Nom de la matière (p. ex. Mathématiques)",
+    "curriculumPlaceholder": "Contexte du programme (optionnel)",
+    "classes": "Classes ({{count}})",
+    "addClass": "Ajouter une classe",
+    "noClasses": "Aucune classe créée pour l'instant.",
+    "classPlaceholder": "Nom de la classe (p. ex. 3a)",
+    "characteristicPlaceholder": "Particularité (p. ex. Inclusion, FLE)"
+  },
+  "templates": {
+    "title": "Galerie de modèles",
+    "subtitle": "Gérer les modèles de design enregistrés",
+    "loadError": "Impossible de charger les modèles.",
+    "empty": "Aucun modèle enregistré pour l'instant.",
+    "confirmDelete": "Vraiment supprimer « {{name}} » ?",
+    "deleteError": "Impossible de supprimer le modèle.",
+    "loadSingleError": "Impossible de charger le modèle.",
+    "editButton": "Modifier",
+    "deleteButton": "Supprimer le modèle",
+    "updatedAt": "Mis à jour : {{date}}"
+  },
+  "editor": {
+    "lightTheme": "Thème clair",
+    "darkTheme": "Thème sombre",
+    "backToDashboard": "Retour au tableau de bord",
+    "dashboard": "Tableau de bord",
+    "worksheetNamePlaceholder": "Nom de la fiche...",
+    "undo": "Annuler (Ctrl+Z)",
+    "redo": "Rétablir (Ctrl+Y)",
+    "showOutline": "Afficher le plan",
+    "hideOutline": "Masquer le plan",
+    "saving": "Enregistrement...",
+    "save": "Enregistrer",
+    "saveAs": "Enregistrer sous…",
+    "unsavedChanges": "Modifications non enregistrées",
+    "saveError": "Erreur d'enregistrement",
+    "saved": "Enregistré",
+    "saveAsLabel": "Enregistrer sous",
+    "newClassPlaceholder": "Nouvelle classe (p. ex. 4a)",
+    "newSubjectPlaceholder": "Nouvelle matière (p. ex. Mathématiques)",
+    "createNewClass": "Créer une nouvelle classe",
+    "createNewSubject": "Créer une nouvelle matière",
+    "sourcesManager": "Gérer les sources",
+    "sources": "Sources",
+    "shareAsAbgen": "Partager en fichier .abgen",
+    "noTasks": "Pas encore d'exercices.\nCliquez sur \"+\" ci-dessous ou utilisez le chat IA.",
+    "defaultVariant": "Niveau {{index}}"
+  },
+  "export": {
+    "abgenFormat": ".abgen (Données)",
+    "pdfFormat": "PDF",
+    "docxFormat": "Word (.docx)",
+    "studentVersion": "Version élève",
+    "teacherVersion": "Version enseignant (avec solutions)",
+    "openMenu": "Ouvrir le menu d'export",
+    "exportButton": "Exporter",
+    "selectFormat": "Choisir le format",
+    "selectVersion": "Version",
+    "minOneVersion": "Sélectionnez au moins une version",
+    "inProgress": "Export ABGEN en cours",
+    "startExport": "Démarrer l'export"
+  },
+  "ribbon": {
+    "system": "Système",
+    "file": "FICHIER",
+    "fontSection": "Police",
+    "bold": "Gras (Ctrl+B)",
+    "italic": "Italique (Ctrl+I)",
+    "underline": "Souligné (Ctrl+U)",
+    "strikethrough": "Barré",
+    "heading": "Titre",
+    "increaseFontSize": "Plus grand",
+    "decreaseFontSize": "Plus petit",
+    "paragraph": "Paragraphe",
+    "alignLeft": "Aligner à gauche",
+    "alignCenter": "Centrer",
+    "alignRight": "Aligner à droite",
+    "justify": "Justifier",
+    "standardAbbrev": "Std.",
+    "standardGroup": "Standard",
+    "customGroup": "Personnalisées",
+    "fontFamily": "Famille de police",
+    "fontSize": "Taille de police",
+    "saveAs": "Enregistrer sous...",
+    "bulletList": "Liste à puces",
+    "orderedList": "Liste numérotée",
+    "indent": "Augmenter le retrait",
+    "outdent": "Diminuer le retrait",
+    "aiAssistant": "Assistant IA",
+    "simplifyText": "Simplifier le texte",
+    "correct": "Corriger",
+    "export": "Exporter",
+    "pdfStudent": "En PDF (Version élève)",
+    "pdfTeacher": "En PDF (Version enseignant)",
+    "wordDocx": "En Word (DOCX)",
+    "manageSources": "Gérer les sources",
+    "actions": "ACTIONS",
+    "tabGeneral": "Général",
+    "tabTables": "Tableaux",
+    "tabSpecialChars": "Caract. spéc.",
+    "tabImageFormat": "Format image",
+    "tablesPlaceholder": "Outils de tableau – bientôt disponible",
+    "specialCharsPlaceholder": "Caractères spéciaux – bientôt disponible",
+    "adjustment": "Ajustement",
+    "crop": "Rogner",
+    "alignment": "Alignement",
+    "imageAlignLeft": "Aligner l'image à gauche",
+    "imageCenter": "Centrer l'image",
+    "imageAlignRight": "Aligner l'image à droite"
+  },
+  "footer": {
+    "impressum": "Mentions légales",
+    "datenschutz": "Politique de confidentialité",
+    "licenses": "Licences",
+    "copyright": "© {{year}} AB Generator",
+    "version": "Version {{version}}",
+    "legalLinks": "Liens juridiques"
+  },
+  "app": {
+    "openMenu": "Ouvrir le menu",
+    "closeAIChat": "Fermer le chat IA",
+    "openAIChat": "Ouvrir le chat IA",
+    "hideAIChat": "Masquer le chat IA",
+    "showAIChat": "Afficher le chat IA"
+  },
+  "tour": {
+    "dashboard": {
+      "aiAssistant": {
+        "title": "Assistant IA",
+        "content": "Laissez l'IA vous suggérer des exercices et des textes – gagnez du temps dans votre préparation."
+      },
+      "cloudSync": {
+        "title": "Sync. cloud",
+        "content": "Dans les paramètres, sauvegardez vos fiches dans le cloud (OneDrive, Google Drive ou WebDAV)."
+      },
+      "newWorksheet": {
+        "title": "Nouvelle fiche",
+        "content": "Cliquez ici pour créer votre première fiche ! Nous vous ferons visiter l'éditeur."
+      }
+    },
+    "editor": {
+      "addTask": {
+        "title": "Ajouter un exercice",
+        "content": "Cliquez ici pour ajouter un exercice. Choisissez ensuite où le placer dans l'éditeur."
+      },
+      "pdfExport": {
+        "title": "Export PDF",
+        "content": "Exportez votre fiche en PDF – versions élève et enseignant séparées."
+      },
+      "homeButton": {
+        "title": "Retour au tableau de bord",
+        "content": "Cliquez sur l'icône d'accueil pour revenir au tableau de bord. Votre fiche est sauvegardée automatiquement."
+      }
+    },
+    "farewell": "Amusez-vous bien à créer vos fiches ! 🎉",
+    "locale": {
+      "back": "Retour",
+      "close": "Fermer",
+      "last": "Terminer",
+      "next": "Suivant",
+      "skip": "Passer"
+    }
+  }
+}

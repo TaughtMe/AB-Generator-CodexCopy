@@ -14,7 +14,7 @@ export function QuickActions({ onCreateWorksheet, onOpenAssistant }: QuickAction
         <button
           type="button"
           onClick={onCreateWorksheet}
-          className="flex flex-1 items-center gap-4 rounded-2xl bg-gradient-to-r from-teal-400 to-emerald-500 px-6 py-6 text-left text-white shadow-sm transition hover:opacity-95"
+          className="tour-new-worksheet flex flex-1 items-center gap-4 rounded-2xl bg-gradient-to-r from-teal-400 to-emerald-500 px-6 py-6 text-left text-white shadow-sm transition hover:opacity-95"
         >
           <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
             <Plus className="h-6 w-6" />
@@ -30,7 +30,7 @@ export function QuickActions({ onCreateWorksheet, onOpenAssistant }: QuickAction
         <button
           type="button"
           onClick={onOpenAssistant}
-          className="flex flex-1 items-center gap-4 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-6 text-left text-white shadow-sm transition hover:opacity-95"
+          className="tour-ai-assistant flex flex-1 items-center gap-4 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-6 text-left text-white shadow-sm transition hover:opacity-95"
         >
           <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
             <Sparkles className="h-6 w-6" />

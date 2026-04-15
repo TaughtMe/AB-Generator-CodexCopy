@@ -15,6 +15,7 @@ import {
 import { useWorksheetStore } from '../../store/worksheetStore';
 import type { TableTask } from '../../types/worksheet';
 import { RichTextEditor } from '../editor/RichTextEditor';
+import { VocabularyList } from '../editor/shared/VocabularyList';
 import { ICON_SIZES } from '../ui/iconSizes';
 
 function containsTableMarkup(html: string): boolean {
@@ -391,6 +392,7 @@ export function TableEditor({ task, isActive = true }: TableEditorProps) {
                     minRows={4}
                     className="flex-1"
                     hideToolbar={!isActive}
+                    taskId={task.id}
                 />
 
                 {isActive && (
@@ -421,6 +423,8 @@ export function TableEditor({ task, isActive = true }: TableEditorProps) {
                     </button>
                 </div>
             )}
+
+            <VocabularyList vocabulary={task.vocabulary} taskId={task.id} />
         </div>
     );
 }

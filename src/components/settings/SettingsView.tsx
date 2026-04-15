@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Cpu, Database, MessageSquare, Moon, Plus, RefreshCw, Settings, Sun, Trash2, Type } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Cpu, Database, Globe, MessageSquare, Moon, Plus, RefreshCw, Settings, Sun, Trash2, Type } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { PROVIDER_LABELS } from '../../services/ai/modelCatalog';
@@ -11,15 +12,16 @@ import { FontUpload } from './FontUpload';
 import { CloudBackupSettings } from './CloudBackupSettings';
 import { useShallow } from 'zustand/react/shallow';
 
-type SettingsTab = 'display' | 'fonts' | 'ai' | 'chat' | 'data' | 'legal';
+type SettingsTab = 'display' | 'fonts' | 'ai' | 'chat' | 'data' | 'language' | 'legal';
 
-const TABS: Array<{ id: SettingsTab; label: string; icon: React.ElementType }> = [
-    { id: 'display', label: 'Anzeige', icon: Sun },
-    { id: 'fonts', label: 'Schriftarten', icon: Type },
-    { id: 'ai', label: 'KI', icon: Cpu },
-    { id: 'chat', label: 'KI-Chat', icon: MessageSquare },
-    { id: 'data', label: 'Datenverwaltung', icon: Database },
-    { id: 'legal', label: 'Rechtliches & Kontakt', icon: Settings },
+const TABS: Array<{ id: SettingsTab; labelKey: string; icon: React.ElementType }> = [
+    { id: 'display', labelKey: 'settings.tabs.display', icon: Sun },
+    { id: 'fonts', labelKey: 'settings.tabs.fonts', icon: Type },
+    { id: 'ai', labelKey: 'settings.tabs.ai', icon: Cpu },
+    { id: 'chat', labelKey: 'settings.tabs.chat', icon: MessageSquare },
+    { id: 'data', labelKey: 'settings.tabs.data', icon: Database },
+    { id: 'language', labelKey: 'settings.tabs.language', icon: Globe },
+    { id: 'legal', labelKey: 'settings.tabs.legal', icon: Settings },
 ];
 
 const PROVIDER_PRESETS = [
@@ -35,6 +37,7 @@ const PROVIDER_PRESETS = [
 const formatModelName = (rawId: string) => rawId.split('/').pop() || rawId;
 
 export const SettingsView: React.FC = () => {
+    const { t, i18n } = useTranslation();
     const [activeTab, setActiveTab] = useState<SettingsTab>('display');
     const [dataActionError, setDataActionError] = useState<string | null>(null);
     const [dataActionInfo, setDataActionInfo] = useState<string | null>(null);
@@ -145,6 +148,10 @@ export const SettingsView: React.FC = () => {
 
     function handleRestartOnboarding() {
         restartOnboarding();
+        localStorage.removeItem('onboarding_completed');
+        localStorage.removeItem('tour_completed_dashboard');
+        localStorage.removeItem('tour_completed_editor');
+        window.location.reload();
     }
 
     return (
@@ -157,7 +164,7 @@ export const SettingsView: React.FC = () => {
             <div className="flex gap-6 min-h-0 h-[calc(100%-4rem)]">
                 <aside className="w-56 shrink-0">
                     <nav className="space-y-1">
-                        {TABS.map(({ id, label, icon: Icon }) => {
+                        {TABS.map(({ id, labelKey, icon: Icon }) => {
                             const active = activeTab === id;
                             return (
                                 <button
@@ -170,7 +177,7 @@ export const SettingsView: React.FC = () => {
                                     }`}
                                 >
                                     <Icon className={ICON_SIZES[16]} />
-                                    {label}
+                                    {t(labelKey)}
                                 </button>
                             );
                         })}
@@ -481,7 +488,7 @@ export const SettingsView: React.FC = () => {
                                 <input
                                     ref={backupFileInputRef}
                                     type="file"
-                                    accept="application/json,.json"
+                                    accept="application/json,.json,.worksheet"
                                     onChange={handleRestoreFileChange}
                                     className="hidden"
                                 />
@@ -497,6 +504,34 @@ export const SettingsView: React.FC = () => {
 
                             {/* ── Cloud-Backup ── */}
                             <CloudBackupSettings />
+                        </div>
+                    )}
+
+                    {activeTab === 'language' && (
+                        <div className="max-w-2xl space-y-4">
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t('settings.language')}</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">{t('settings.tabs.language')}</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {[
+                                    { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+                                    { code: 'en', label: 'English', flag: '🇬🇧' },
+                                    { code: 'es', label: 'Español', flag: '🇪🇸' },
+                                    { code: 'fr', label: 'Français', flag: '🇫🇷' },
+                                ].map((lang) => (
+                                    <button
+                                        key={lang.code}
+                                        onClick={() => i18n.changeLanguage(lang.code)}
+                                        className={`flex items-center gap-3 p-4 rounded-xl border transition-colors cursor-pointer ${
+                                            i18n.resolvedLanguage === lang.code
+                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-500'
+                                                : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'
+                                        }`}
+                                    >
+                                        <span className="text-2xl">{lang.flag}</span>
+                                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{lang.label}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
 

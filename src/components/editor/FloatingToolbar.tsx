@@ -35,7 +35,7 @@ export function FloatingToolbar({
             {/* ── Aufgabe hinzufügen (Placement-Modus) ── */}
             <button
                 onClick={isPlacingNewTask ? onCancelPlacing : onStartPlacing}
-                className={`flex items-center justify-center w-9 h-9 rounded-full transition-all cursor-pointer active:scale-95 shadow-sm ${
+                className={`tour-add-task flex items-center justify-center w-9 h-9 rounded-full transition-all cursor-pointer active:scale-95 shadow-sm ${
                     isPlacingNewTask
                         ? 'bg-blue-700 text-white ring-2 ring-blue-300 ring-offset-1 animate-pulse'
                         : 'bg-blue-600 hover:bg-blue-700 text-white'

@@ -200,14 +200,71 @@ function downloadJsonFile(payload: ABGeneratorBackupV1): void {
     URL.revokeObjectURL(url);
 }
 
+function validateDataBlock(data: Record<string, unknown>): void {
+    if (!('settings' in data) || !('worksheets' in data) || !('designTemplates' in data)) {
+        throw new Error('Im Backup fehlen erforderliche Bereiche.');
+    }
+
+    if (!Array.isArray(data.worksheets) || !Array.isArray(data.designTemplates)) {
+        throw new Error('Arbeitsblätter oder Vorlagen sind im Backup ungültig.');
+    }
+    if ('classProfiles' in data && data.classProfiles != null && !Array.isArray(data.classProfiles)) {
+        throw new Error('Klassenprofile sind im Backup ungültig.');
+    }
+}
+
+/**
+ * Converts a cloud WorksheetBundleV1 into the local ABGeneratorBackupV1 shape
+ * so that the same import pipeline can handle both formats.
+ */
+function convertBundleToBackup(parsed: Record<string, unknown>): ABGeneratorBackupV1 {
+    if (parsed.version !== 1) {
+        throw new Error('Dieses .worksheet-Format wird nicht unterstützt.');
+    }
+
+    if (!('data' in parsed) || !isObject(parsed.data)) {
+        throw new Error('Das Backup enthält keinen gültigen Datenblock.');
+    }
+
+    const data = parsed.data;
+    validateDataBlock(data);
+
+    // Bundle settings are the raw persisted object { state, version? }
+    let settings: PersistedSettingsState;
+    if (isObject(data.settings) && 'state' in data.settings) {
+        settings = data.settings as PersistedSettingsState;
+    } else {
+        settings = { state: data.settings ?? {}, version: 6 };
+    }
+
+    return {
+        app: 'ab-generator',
+        schemaVersion: BACKUP_SCHEMA_VERSION,
+        exportedAt: typeof parsed.exportedAt === 'string' ? parsed.exportedAt : new Date().toISOString(),
+        imagePolicy: 'excluded',
+        data: {
+            settings,
+            worksheets: data.worksheets as BackupWorksheet[],
+            designTemplates: data.designTemplates as BackupDesignTemplate[],
+            classProfiles: Array.isArray(data.classProfiles) ? data.classProfiles as BackupClassProfile[] : [],
+        },
+    };
+}
+
 function parseBackupJson(raw: string): ABGeneratorBackupV1 {
     const parsed = JSON.parse(raw) as unknown;
     if (!isObject(parsed)) {
         throw new Error('Die Backup-Datei ist kein gültiges JSON-Objekt.');
     }
 
+    // Cloud .worksheet bundle format
+    if (parsed.format === 'ab-generator-worksheet-bundle') {
+        return convertBundleToBackup(parsed);
+    }
+
+    // Local backup format
     if (parsed.app !== 'ab-generator') {
-        throw new Error('Dieses Backup gehört nicht zu AB-Generator.');
+        throw new Error('Dieses Backup gehört nicht zu AB-Generator. Erwartet wird eine .json- oder .worksheet-Datei von AB-Generator.');
     }
 
     if (parsed.schemaVersion !== BACKUP_SCHEMA_VERSION) {
@@ -219,16 +276,7 @@ function parseBackupJson(raw: string): ABGeneratorBackupV1 {
     }
 
     const data = parsed.data;
-    if (!('settings' in data) || !('worksheets' in data) || !('designTemplates' in data)) {
-        throw new Error('Im Backup fehlen erforderliche Bereiche.');
-    }
-
-    if (!Array.isArray(data.worksheets) || !Array.isArray(data.designTemplates)) {
-        throw new Error('Arbeitsblätter oder Vorlagen sind im Backup ungültig.');
-    }
-    if ('classProfiles' in data && data.classProfiles != null && !Array.isArray(data.classProfiles)) {
-        throw new Error('Klassenprofile sind im Backup ungültig.');
-    }
+    validateDataBlock(data);
 
     return parsed as unknown as ABGeneratorBackupV1;
 }

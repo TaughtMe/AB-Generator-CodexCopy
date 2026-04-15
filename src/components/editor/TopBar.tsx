@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Moon,
     Sun,
@@ -71,6 +72,7 @@ export function TopBar({
     onToggleOutline,
     onOpenSources,
 }: TopBarProps) {
+    const { t } = useTranslation();
     const hasMissingClassSelection = Boolean(classId) && !classOptions.some((entry) => entry.id === classId);
     const autoSaveStatus = useWorkspaceStore((state) => state.autoSaveStatus);
     const worksheetSaveStatus = useWorksheetStore((state) => state.saveStatus);
@@ -166,10 +168,10 @@ export function TopBar({
                     <button
                         onClick={onBackToDashboard}
                         className="flex items-center gap-1 px-2 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
-                        title="Zurück zum Dashboard"
+                        title={t('editor.backToDashboard')}
                     >
                         <ArrowLeft className={ICON_SIZES[14]} />
-                        <span className="hidden sm:inline">Dashboard</span>
+                        <span className="hidden sm:inline">{t('editor.dashboard')}</span>
                     </button>
 
                     <div className="w-px h-5 bg-slate-200 dark:bg-slate-700/60" />
@@ -182,7 +184,7 @@ export function TopBar({
                                 ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
                                 : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
-                        title={isOutlineOpen ? 'Gliederung ausblenden' : 'Gliederung einblenden'}
+                        title={isOutlineOpen ? t('editor.hideOutline') : t('editor.showOutline')}
                     >
                         <List className={ICON_SIZES[15]} />
                     </button>
@@ -193,7 +195,7 @@ export function TopBar({
                         type="text"
                         value={title}
                         onChange={(event) => onTitleChange(event.target.value)}
-                        placeholder="Arbeitsblatt-Name..."
+                        placeholder={t('editor.worksheetNamePlaceholder')}
                         className="text-[13px] font-bold tracking-tight text-slate-800 dark:text-slate-100 bg-transparent border-0 border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none px-1 py-0.5 transition-colors min-w-0 w-40 sm:w-52"
                     />
 
@@ -204,7 +206,7 @@ export function TopBar({
                         onClick={undo}
                         disabled={!canUndo}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Rückgängig (Ctrl+Z)"
+                        title={t('editor.undo')}
                     >
                         <Undo2 className={ICON_SIZES[15]} />
                     </button>
@@ -212,7 +214,7 @@ export function TopBar({
                         onClick={redo}
                         disabled={!canRedo}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="Wiederholen (Ctrl+Y)"
+                        title={t('editor.redo')}
                     >
                         <Redo2 className={ICON_SIZES[15]} />
                     </button>
@@ -247,12 +249,12 @@ export function TopBar({
                         }`}
                         title={
                             effectiveSaveStatus === 'saving'
-                                ? 'Speichert...'
+                                ? t('editor.saving')
                                 : effectiveSaveStatus === 'unsaved'
-                                    ? 'Ungespeicherte Änderungen'
+                                    ? t('editor.unsavedChanges')
                                     : effectiveSaveStatus === 'error'
-                                        ? 'Speicherfehler'
-                                        : 'Gespeichert'
+                                        ? t('editor.saveError')
+                                        : t('editor.saved')
                         }
                     >
                         {effectiveSaveStatus === 'saving' ? (
@@ -272,12 +274,12 @@ export function TopBar({
                         )}
                         <span>
                             {effectiveSaveStatus === 'saving'
-                                ? 'Speichert...'
+                                ? t('editor.saving')
                                 : effectiveSaveStatus === 'unsaved'
-                                    ? 'Ungespeichert'
+                                    ? t('editor.unsavedChanges')
                                     : effectiveSaveStatus === 'error'
-                                        ? 'Speicherfehler'
-                                        : 'Gespeichert'}
+                                        ? t('editor.saveError')
+                                        : t('editor.saved')}
                         </span>
                     </div>
 
@@ -285,10 +287,10 @@ export function TopBar({
                         onClick={onSave}
                         disabled={!hasTasks || isAnySaveInProgress}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-l-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
-                        title="Arbeitsblatt speichern"
+                        title={t('editor.save')}
                     >
                         <Save className={ICON_SIZES[14]} />
-                        <span>{isAnySaveInProgress ? '...' : 'Speichern'}</span>
+                        <span>{isAnySaveInProgress ? '...' : t('editor.save')}</span>
                     </button>
 
                     {/* Save-As Dropdown */}
@@ -297,18 +299,18 @@ export function TopBar({
                             onClick={() => setShowSaveAs((v) => !v)}
                             disabled={!hasTasks || isAnySaveInProgress}
                             className="flex items-center px-1 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-r-lg border-l border-slate-200 dark:border-slate-700 transition-all text-xs cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
-                            title="Speichern unter…"
+                            title={t('editor.saveAs')}
                         >
                             <ChevronDown className={ICON_SIZES[12]} />
                         </button>
 
                         {showSaveAs && (
                             <div className="absolute right-0 top-full mt-1 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-4 space-y-3">
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Speichern unter</p>
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{t('editor.saveAsLabel')}</p>
 
                                 {/* Class selector */}
                                 <div className="space-y-1.5">
-                                    <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Klasse</label>
+                                    <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{t('common.class')}</label>
                                     {!showNewClass ? (
                                         <div className="flex items-center gap-1.5">
                                             <select
@@ -316,9 +318,9 @@ export function TopBar({
                                                 onChange={(e) => setSaveAsClassId(e.target.value)}
                                                 className="flex-1 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                                             >
-                                                <option value="">Keine Klasse</option>
+                                                <option value="">{t('common.noClass')}</option>
                                                 {hasMissingClassSelection && classId && (
-                                                    <option value={classId}>Gelöschtes Profil</option>
+                                                    <option value={classId}>{t('common.deletedProfile')}</option>
                                                 )}
                                                 {classOptions.map((entry) => (
                                                     <option key={entry.id} value={entry.id}>{entry.name}</option>
@@ -327,7 +329,7 @@ export function TopBar({
                                             <button
                                                 onClick={() => setShowNewClass(true)}
                                                 className="shrink-0 p-1.5 rounded-md text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
-                                                title="Neue Klasse anlegen"
+                                                title={t('editor.createNewClass')}
                                             >
                                                 <Plus className={ICON_SIZES[14]} />
                                             </button>
@@ -337,7 +339,7 @@ export function TopBar({
                                             type="text"
                                             value={newClassName}
                                             onChange={(e) => setNewClassName(e.target.value)}
-                                            placeholder="Neue Klasse (z.B. 4a)"
+                                            placeholder={t('editor.newClassPlaceholder')}
                                             className="w-full text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 placeholder:text-slate-400"
                                             autoFocus
                                         />
@@ -346,7 +348,7 @@ export function TopBar({
 
                                 {/* Subject selector */}
                                 <div className="space-y-1.5">
-                                    <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Fach</label>
+                                    <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{t('common.subject')}</label>
                                     {!showNewSubject ? (
                                         <div className="flex items-center gap-1.5">
                                             <select
@@ -354,7 +356,7 @@ export function TopBar({
                                                 onChange={(e) => setSaveAsSubjectId(e.target.value)}
                                                 className="flex-1 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                                             >
-                                                <option value="">Kein Fach</option>
+                                                <option value="">{t('common.noSubject')}</option>
                                                 {subjects.map((sub) => (
                                                     <option key={sub.id} value={sub.id}>{sub.name}</option>
                                                 ))}
@@ -362,7 +364,7 @@ export function TopBar({
                                             <button
                                                 onClick={() => setShowNewSubject(true)}
                                                 className="shrink-0 p-1.5 rounded-md text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors cursor-pointer"
-                                                title="Neues Fach anlegen"
+                                                title={t('editor.createNewSubject')}
                                             >
                                                 <Plus className={ICON_SIZES[14]} />
                                             </button>
@@ -372,7 +374,7 @@ export function TopBar({
                                             type="text"
                                             value={newSubjectName}
                                             onChange={(e) => setNewSubjectName(e.target.value)}
-                                            placeholder="Neues Fach (z.B. Mathematik)"
+                                            placeholder={t('editor.newSubjectPlaceholder')}
                                             className="w-full text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/40 placeholder:text-slate-400"
                                             autoFocus
                                         />
@@ -385,7 +387,7 @@ export function TopBar({
                                     className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     <Save className={ICON_SIZES[14]} />
-                                    Speichern unter
+                                    {t('editor.saveAsLabel')}
                                 </button>
                             </div>
                         )}
@@ -405,27 +407,27 @@ export function TopBar({
                             onClick={onShareAbgen}
                             disabled={!hasTasks || isAbgenExporting || isAbgenSharing}
                             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
-                            title="Als .abgen-Datei teilen"
+                            title={t('editor.shareAsAbgen')}
                         >
                             <Share2 className={ICON_SIZES[14]} />
-                            <span>{isAbgenSharing ? '...' : 'Teilen'}</span>
+                            <span>{isAbgenSharing ? '...' : t('common.share')}</span>
                         </button>
                     )}
 
                     <button
                         onClick={onOpenSources}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all text-xs font-medium cursor-pointer active:scale-95"
-                        title="Quellen verwalten"
+                        title={t('editor.sourcesManager')}
                     >
                         <FileText className={ICON_SIZES[14]} />
-                        <span>Quellen</span>
+                        <span>{t('editor.sources')}</span>
                     </button>
 
                     <IconButton
                         onClick={onToggleThemeMode}
                         size="md"
                         className="rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
+                        title={isDarkMode ? t('editor.lightTheme') : t('editor.darkTheme')}
                     >
                         {isDarkMode ? <Sun className={ICON_SIZES[15]} /> : <Moon className={ICON_SIZES[15]} />}
                     </IconButton>

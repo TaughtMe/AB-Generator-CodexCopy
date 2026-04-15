@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
-import DOMPurify from 'dompurify';
+import { sanitizeHtml } from '../../utils/sanitize';
 import type { ClozeTask, ClozeGapStyle, ClozeWordBankMode } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { Info } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { RichTextEditor } from '../editor/RichTextEditor';
+import { VocabularyList } from '../editor/shared/VocabularyList';
 import {
     DEFAULT_CLOZE_GAP_MULTIPLIER,
     DEFAULT_CLOZE_GAP_STYLE,
@@ -220,6 +221,7 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
                     placeholder="Text eingeben … z.B.: Die [Sonne] scheint jeden [Tag]."
                     minRows={5}
                     className="no-print"
+                    taskId={task.id}
                 />
             )}
 
@@ -301,15 +303,15 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
                         <div
                             className="no-print text-sm text-worksheet-ink leading-loose break-words prose prose-sm max-w-none"
                             style={{ overflowWrap: 'anywhere' }}
-                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(printStudentHtml) }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(printStudentHtml) }}
                         />
                     )}
                     <div className={clsx(
                         'text-sm text-worksheet-ink leading-loose whitespace-pre-wrap break-words',
                         isActive ? 'hidden print:block' : 'block',
                     )} style={{ overflowWrap: 'anywhere' }}>
-                        <span className="cloze-print-student" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(printStudentHtml) }} />
-                        <span className="cloze-print-teacher" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(printTeacherHtml) }} />
+                        <span className="cloze-print-student" dangerouslySetInnerHTML={{ __html: sanitizeHtml(printStudentHtml) }} />
+                        <span className="cloze-print-teacher" dangerouslySetInnerHTML={{ __html: sanitizeHtml(printTeacherHtml) }} />
                     </div>
                     {wordBankMode !== 'hidden' && wordBankWords.length > 0 && (
                         <div className="text-center">
@@ -332,6 +334,8 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
                     )}
                 </div>
             )}
+
+            <VocabularyList vocabulary={task.vocabulary} taskId={task.id} />
         </div>
     );
 };

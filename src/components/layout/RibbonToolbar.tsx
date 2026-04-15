@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Home,
     Save,
@@ -83,6 +84,7 @@ export function RibbonToolbar({
     onExportDocx,
     onOpenSources,
 }: RibbonToolbarProps) {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<RibbonTab>('Allgemein');
     const [showAiDropdown, setShowAiDropdown] = useState(false);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
@@ -210,13 +212,13 @@ export function RibbonToolbar({
             : 'left';
     const selectedToolbarImageAlign = isImageTaskSelected ? selectedTaskAlign : selectedImageAlign;
     const systemBlock = useMemo<ToolbarBlock>(() => ({
-        label: 'System',
+        label: t('ribbon.system'),
         hideLabel: true,
         className: 'ml-auto',
         content: (
             <div className="flex items-center gap-1">
                 <RibbonBtn
-                    title={themeMode === 'dark' ? 'Helles Design' : 'Dunkles Design'}
+                    title={themeMode === 'dark' ? t('editor.lightTheme') : t('editor.darkTheme')}
                     onClick={toggleThemeMode}
                     compact
                 >
@@ -227,18 +229,18 @@ export function RibbonToolbar({
                 </RibbonBtn>
             </div>
         ),
-    }), [themeMode, toggleThemeMode]);
+    }), [themeMode, toggleThemeMode, t]);
 
     const toolbarBlocks = useMemo<ToolbarBlock[]>(() => [
         {
-            label: 'DATEI',
+            label: t('ribbon.file'),
             content: (
                 <div className="flex items-center gap-2">
                     <RibbonBtn
                         title="Dashboard"
                         onClick={onBackToDashboard}
                         compact
-                        className="!h-10 !w-10"
+                        className="tour-home-button !h-10 !w-10"
                     >
                         <Home className={ICON_SIZES[16]} />
                     </RibbonBtn>
@@ -246,7 +248,7 @@ export function RibbonToolbar({
                         <div className="flex items-center bg-transparent hover:bg-slate-700 rounded">
                             <button
                                 type="button"
-                                title={isSaving ? 'Speichert…' : 'Speichern'}
+                                title={isSaving ? t('editor.saving') : t('editor.save')}
                                 onClick={handlePrimarySave}
                                 onMouseDown={(e) => e.preventDefault()}
                                 disabled={isSaving}
@@ -260,7 +262,7 @@ export function RibbonToolbar({
                             <div className="w-px h-4 bg-slate-600" />
                             <button
                                 type="button"
-                                title="Speichern unter"
+                                title={t('editor.saveAs')}
                                 onClick={() => setIsSaveMenuOpen((prev) => !prev)}
                                 onMouseDown={(e) => e.preventDefault()}
                                 className="inline-flex h-10 w-8 items-center justify-center text-slate-300"
@@ -276,13 +278,13 @@ export function RibbonToolbar({
                                     onMouseDown={(e) => e.preventDefault()}
                                     className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
                                 >
-                                    Speichern unter...
+                                    {t('ribbon.saveAs')}
                                 </button>
                             </div>
                         )}
                     </div>
                     <RibbonBtn
-                        title="Rückgängig (Ctrl+Z)"
+                        title={t('editor.undo')}
                         onClick={() => useWorksheetStore.temporal.getState().undo()}
                         disabled={!canUndo}
                         compact
@@ -291,7 +293,7 @@ export function RibbonToolbar({
                         <Undo2 className={ICON_SIZES[14]} />
                     </RibbonBtn>
                     <RibbonBtn
-                        title="Wiederholen (Ctrl+Y)"
+                        title={t('editor.redo')}
                         onClick={() => useWorksheetStore.temporal.getState().redo()}
                         disabled={!canRedo}
                         compact
@@ -303,7 +305,7 @@ export function RibbonToolbar({
             ),
         },
         {
-            label: 'Schriftart',
+            label: t('ribbon.fontSection'),
             disabled: editorDisabled,
             content: (
                 <div className="flex items-center gap-2">
@@ -321,13 +323,13 @@ export function RibbonToolbar({
                                 onMouseDown={(e) => e.stopPropagation()}
                                 disabled={editorDisabled}
                                 className="h-8 min-w-[130px] max-w-[170px] rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 text-xs text-slate-600 dark:text-slate-300 disabled:opacity-50"
-                                aria-label="Schriftart"
+                                aria-label={t('ribbon.fontFamily')}
                             >
-                                <optgroup label="Standard">
+                                <optgroup label={t('ribbon.standardGroup')}>
                                     {FONT_FAMILY_OPTIONS.map((o) => <option key={o.label} value={o.value}>{o.label}</option>)}
                                 </optgroup>
                                 {customFonts.length > 0 && (
-                                    <optgroup label="Eigene">
+                                    <optgroup label={t('ribbon.customGroup')}>
                                         {customFonts.map((f) => <option key={f.id} value={f.name}>{f.name}</option>)}
                                     </optgroup>
                                 )}
@@ -336,7 +338,7 @@ export function RibbonToolbar({
                         <div className="flex items-center">
                             <div className="flex border-r border-slate-700/60">
                                 <RibbonBtn
-                                    title="Fett (Ctrl+B)"
+                                    title={t('ribbon.bold')}
                                     active={activeEditor?.isActive('bold')}
                                     onClick={() => activeEditor?.chain().focus().toggleBold().run()}
                                     disabled={editorDisabled}
@@ -346,7 +348,7 @@ export function RibbonToolbar({
                                     <Bold className={ICON_SIZES[14]} />
                                 </RibbonBtn>
                                 <RibbonBtn
-                                    title="Kursiv (Ctrl+I)"
+                                    title={t('ribbon.italic')}
                                     active={activeEditor?.isActive('italic')}
                                     onClick={() => activeEditor?.chain().focus().toggleItalic().run()}
                                     disabled={editorDisabled}
@@ -356,7 +358,7 @@ export function RibbonToolbar({
                                     <Italic className={ICON_SIZES[14]} />
                                 </RibbonBtn>
                                 <RibbonBtn
-                                    title="Unterstrichen (Ctrl+U)"
+                                    title={t('ribbon.underline')}
                                     active={activeEditor?.isActive('underline')}
                                     onClick={() => activeEditor?.chain().focus().toggleUnderline().run()}
                                     disabled={editorDisabled}
@@ -366,7 +368,7 @@ export function RibbonToolbar({
                                     <Underline className={ICON_SIZES[14]} />
                                 </RibbonBtn>
                                 <RibbonBtn
-                                    title="Durchgestrichen"
+                                    title={t('ribbon.strikethrough')}
                                     active={activeEditor?.isActive('strike')}
                                     onClick={() => activeEditor?.chain().focus().toggleStrike().run()}
                                     disabled={editorDisabled}
@@ -377,7 +379,7 @@ export function RibbonToolbar({
                                 </RibbonBtn>
                             </div>
                             <RibbonBtn
-                                title="Überschrift"
+                                title={t('ribbon.heading')}
                                 active={activeEditor?.isActive('heading')}
                                 onClick={() => activeEditor?.chain().focus().toggleHeading({ level: 2 }).run()}
                                 disabled={editorDisabled}
@@ -403,15 +405,15 @@ export function RibbonToolbar({
                                 onMouseDown={(e) => e.stopPropagation()}
                                 disabled={editorDisabled}
                                 className="h-8 min-w-[78px] rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 text-xs text-slate-600 dark:text-slate-300 disabled:opacity-50"
-                                aria-label="Schriftgröße"
+                                aria-label={t('ribbon.fontSize')}
                             >
-                                <option value="">Std.</option>
+                                <option value="">{t('ribbon.standardAbbrev')}</option>
                                 {FONT_SIZE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
                         <div className="flex border-r border-slate-700/60">
                             <RibbonBtn
-                                title="Größer"
+                                title={t('ribbon.increaseFontSize')}
                                 onClick={() => {
                                     if (!activeEditor) return;
                                     const current = (activeEditor.getAttributes('textStyle') as { fontSize?: string }).fontSize ?? '12pt';
@@ -426,7 +428,7 @@ export function RibbonToolbar({
                                 <AArrowUp className="h-[18px] w-[18px]" />
                             </RibbonBtn>
                             <RibbonBtn
-                                title="Kleiner"
+                                title={t('ribbon.decreaseFontSize')}
                                 onClick={() => {
                                     if (!activeEditor) return;
                                     const current = (activeEditor.getAttributes('textStyle') as { fontSize?: string }).fontSize ?? '12pt';
@@ -452,13 +454,13 @@ export function RibbonToolbar({
             ),
         },
         {
-            label: 'Absatz',
+            label: t('ribbon.paragraph'),
             disabled: editorDisabled,
             content: (
                 <div className="flex items-center gap-2">
                     <div className="flex rounded-md shadow-sm border border-slate-700 overflow-hidden p-1">
                         <RibbonBtn
-                            title="Linksbündig"
+                            title={t('ribbon.alignLeft')}
                             active={activeEditor?.isActive({ textAlign: 'left' })}
                             onClick={() => activeEditor?.chain().focus().setTextAlign('left').run()}
                             disabled={editorDisabled}
@@ -468,7 +470,7 @@ export function RibbonToolbar({
                             <AlignLeft className={ICON_SIZES[14]} />
                         </RibbonBtn>
                         <RibbonBtn
-                            title="Zentriert"
+                            title={t('ribbon.alignCenter')}
                             active={activeEditor?.isActive({ textAlign: 'center' })}
                             onClick={() => activeEditor?.chain().focus().setTextAlign('center').run()}
                             disabled={editorDisabled}
@@ -478,7 +480,7 @@ export function RibbonToolbar({
                             <AlignCenter className={ICON_SIZES[14]} />
                         </RibbonBtn>
                         <RibbonBtn
-                            title="Rechtsbündig"
+                            title={t('ribbon.alignRight')}
                             active={activeEditor?.isActive({ textAlign: 'right' })}
                             onClick={() => activeEditor?.chain().focus().setTextAlign('right').run()}
                             disabled={editorDisabled}
@@ -488,7 +490,7 @@ export function RibbonToolbar({
                             <AlignRight className={ICON_SIZES[14]} />
                         </RibbonBtn>
                         <RibbonBtn
-                            title="Blocksatz"
+                            title={t('ribbon.justify')}
                             active={activeEditor?.isActive({ textAlign: 'justify' })}
                             onClick={() => activeEditor?.chain().focus().setTextAlign('justify').run()}
                             disabled={editorDisabled}
@@ -501,7 +503,7 @@ export function RibbonToolbar({
 
                     <div className="flex rounded-md shadow-sm border border-slate-700 overflow-hidden p-1">
                         <RibbonBtn
-                            title="Aufzählung"
+                            title={t('ribbon.bulletList')}
                             active={activeEditor?.isActive('bulletList')}
                             onClick={() => activeEditor?.chain().focus().toggleBulletList().run()}
                             disabled={editorDisabled}
@@ -511,7 +513,7 @@ export function RibbonToolbar({
                             <List className={ICON_SIZES[14]} />
                         </RibbonBtn>
                         <RibbonBtn
-                            title="Nummerierte Liste"
+                            title={t('ribbon.orderedList')}
                             active={activeEditor?.isActive('orderedList')}
                             onClick={() => activeEditor?.chain().focus().toggleOrderedList().run()}
                             disabled={editorDisabled}
@@ -521,7 +523,7 @@ export function RibbonToolbar({
                             <ListOrdered className={ICON_SIZES[14]} />
                         </RibbonBtn>
                         <RibbonBtn
-                            title="Einrücken"
+                            title={t('ribbon.indent')}
                             onClick={() => activeEditor?.chain().focus().sinkListItem('listItem').run()}
                             disabled={editorDisabled}
                             compact
@@ -530,7 +532,7 @@ export function RibbonToolbar({
                             <Indent className={ICON_SIZES[14]} />
                         </RibbonBtn>
                         <RibbonBtn
-                            title="Ausrücken"
+                            title={t('ribbon.outdent')}
                             onClick={() => activeEditor?.chain().focus().liftListItem('listItem').run()}
                             disabled={editorDisabled}
                             compact
@@ -543,7 +545,7 @@ export function RibbonToolbar({
             ),
         },
         {
-            label: 'AKTIONEN',
+            label: t('ribbon.actions'),
             content: (
                 <div className="flex items-center gap-2">
                     <div className="relative" ref={aiDropdownRef}>
@@ -552,17 +554,17 @@ export function RibbonToolbar({
                             onClick={() => setShowAiDropdown(!showAiDropdown)}
                             onMouseDown={(e) => e.preventDefault()}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-md transition-colors cursor-pointer bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-400 hover:to-purple-500 text-white shadow"
-                            title="KI-Assistent"
+                            title={t('ribbon.aiAssistant')}
                         >
                             <Sparkles className={ICON_SIZES[14]} />
                         </button>
                         {showAiDropdown && (
                             <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 py-1">
                                 <DropdownItem onClick={() => { setShowAiDropdown(false); }}>
-                                    Text vereinfachen
+                                    {t('ribbon.simplifyText')}
                                 </DropdownItem>
                                 <DropdownItem onClick={() => { setShowAiDropdown(false); }}>
-                                    Korrigieren
+                                    {t('ribbon.correct')}
                                 </DropdownItem>
                             </div>
                         )}
@@ -574,11 +576,11 @@ export function RibbonToolbar({
                             onMouseDown={(e) => e.preventDefault()}
                             disabled={!hasTasks}
                             className={clsx(
-                                'inline-flex h-10 w-10 items-center justify-center rounded-md transition-colors cursor-pointer',
+                                'tour-pdf-export inline-flex h-10 w-10 items-center justify-center rounded-md transition-colors cursor-pointer',
                                 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
                                 !hasTasks && 'opacity-30 cursor-not-allowed',
                             )}
-                            title="Exportieren"
+                            title={t('ribbon.export')}
                         >
                             <Download className={ICON_SIZES[14]} />
                         </button>
@@ -590,7 +592,7 @@ export function RibbonToolbar({
                                     onMouseDown={(e) => e.preventDefault()}
                                     className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
                                 >
-                                    Als PDF (Schülerversion)
+                                    {t('ribbon.pdfStudent')}
                                 </button>
                                 <button
                                     type="button"
@@ -598,7 +600,7 @@ export function RibbonToolbar({
                                     onMouseDown={(e) => e.preventDefault()}
                                     className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
                                 >
-                                    Als PDF (Lehrerversion)
+                                    {t('ribbon.pdfTeacher')}
                                 </button>
                                 <button
                                     type="button"
@@ -606,13 +608,13 @@ export function RibbonToolbar({
                                     onMouseDown={(e) => e.preventDefault()}
                                     className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
                                 >
-                                    Als Word (DOCX)
+                                    {t('ribbon.wordDocx')}
                                 </button>
                             </div>
                         )}
                     </div>
                     <RibbonBtn
-                        title="Quellen verwalten"
+                        title={t('ribbon.manageSources')}
                         onClick={onOpenSources}
                         compact
                         className="!h-10 !w-10"
@@ -648,13 +650,13 @@ export function RibbonToolbar({
 
     const imageToolbarBlocks = useMemo<ToolbarBlock[]>(() => [
         {
-            label: 'Anpassung',
+            label: t('ribbon.adjustment'),
             disabled: !isImageTaskSelected,
             content: (
                 <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex rounded-md shadow-sm border border-slate-700 overflow-hidden p-1">
                         <RibbonBtn
-                            title="Zuschneiden"
+                            title={t('ribbon.crop')}
                             onClick={() => {
                                 if (!activeTaskId) return;
                                 updateTask(
@@ -673,13 +675,13 @@ export function RibbonToolbar({
             ),
         },
         {
-            label: 'Ausrichtung',
+            label: t('ribbon.alignment'),
             disabled: (!isInlineImageSelected && !isImageTaskSelected) || (editorDisabled && !isImageTaskSelected),
             content: (
                 <div className="flex items-center gap-2">
                     <div className="flex rounded-md shadow-sm border border-slate-700 overflow-hidden p-1">
                         <RibbonBtn
-                            title="Bild links ausrichten"
+                            title={t('ribbon.imageAlignLeft')}
                             active={selectedToolbarImageAlign === 'left'}
                             onClick={() => {
                                 if (isImageTaskSelected && activeImageTask) {
@@ -695,7 +697,7 @@ export function RibbonToolbar({
                             <AlignLeft className={ICON_SIZES[14]} />
                         </RibbonBtn>
                         <RibbonBtn
-                            title="Bild zentrieren"
+                            title={t('ribbon.imageCenter')}
                             active={selectedToolbarImageAlign === 'center'}
                             onClick={() => {
                                 if (isImageTaskSelected && activeImageTask) {
@@ -711,7 +713,7 @@ export function RibbonToolbar({
                             <AlignCenter className={ICON_SIZES[14]} />
                         </RibbonBtn>
                         <RibbonBtn
-                            title="Bild rechts ausrichten"
+                            title={t('ribbon.imageAlignRight')}
                             active={selectedToolbarImageAlign === 'right'}
                             onClick={() => {
                                 if (isImageTaskSelected && activeImageTask) {
@@ -741,6 +743,7 @@ export function RibbonToolbar({
         updateTask,
         selectedToolbarImageAlign,
         systemBlock,
+        t,
     ]);
 
     const tabs = useMemo<RibbonTab[]>(() => {
@@ -750,6 +753,13 @@ export function RibbonToolbar({
         }
         return baseTabs;
     }, [isImageSelected]);
+
+    const tabLabelMap: Record<RibbonTab, string> = {
+        'Allgemein': t('ribbon.tabGeneral'),
+        'Tabellen': t('ribbon.tabTables'),
+        'Sonderzeich.': t('ribbon.tabSpecialChars'),
+        'Bildformat': t('ribbon.tabImageFormat'),
+    };
 
     const activeBlocks = activeTab === 'Bildformat' ? imageToolbarBlocks : toolbarBlocks;
 
@@ -780,7 +790,7 @@ export function RibbonToolbar({
                                     ),
                             )}
                         >
-                            {tab}
+                            {tabLabelMap[tab]}
                         </button>
                     ))}
                 </div>
@@ -813,14 +823,14 @@ export function RibbonToolbar({
                 {/* ── Tabellen Tab (Platzhalter) ── */}
                 {activeTab === 'Tabellen' && (
                     <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
-                        Tabellen-Werkzeuge – demnächst verfügbar
+                        {t('ribbon.tablesPlaceholder')}
                     </div>
                 )}
 
                 {/* ── Sonderzeichen Tab (Platzhalter) ── */}
                 {activeTab === 'Sonderzeich.' && (
                     <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
-                        Sonderzeichen – demnächst verfügbar
+                        {t('ribbon.specialCharsPlaceholder')}
                     </div>
                 )}
             </div>

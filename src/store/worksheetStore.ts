@@ -13,6 +13,7 @@ import type {
     ImagePlaceholderTask,
     LineaturTask,
     MultipleChoiceOption,
+    VocabularyItem,
     ClozeGapStyle,
     ClozeWordBankMode,
     ImageAlignment,
@@ -132,7 +133,7 @@ const DEFAULT_INFORMATION_TEXT_WIDTH_RATIO = 60;
  */
 function createNewTask(type: TaskType): Task {
     const id = crypto.randomUUID();
-    const base = { id, type, title: `Neue Aufgabe (${type})` };
+    const base = { id, type, title: `Neue Aufgabe (${type})`, vocabulary: [] };
 
     switch (type) {
         case 'multiple-choice':
@@ -212,9 +213,10 @@ function createNewTask(type: TaskType): Task {
                 content: '',
                 hasNotesColumn: false,
                 textWidthRatio: DEFAULT_INFORMATION_TEXT_WIDTH_RATIO,
-                vocabulary: [],
                 highlightVocabulary: false,
                 showNumber: false,
+                isChunked: false,
+                chunks: [],
             };
         default:
             throw new Error(`Unsupported task type: ${type}`);
@@ -266,8 +268,8 @@ function normalizeMultipleChoiceOptionsForStore(
 }
 
 function cloneVocabularyItems(
-    items: TaskByType<'information'>['vocabulary'],
-): TaskByType<'information'>['vocabulary'] {
+    items: VocabularyItem[],
+): VocabularyItem[] {
     return items.map((item) => ({
         id: typeof item.id === 'string' && item.id.trim() ? item.id : crypto.randomUUID(),
         word: typeof item.word === 'string' ? item.word : '',
@@ -278,8 +280,8 @@ function cloneVocabularyItems(
 
 function normalizeVocabularyForStore(
     rawVocabulary: unknown,
-    fallbackVocabulary: TaskByType<'information'>['vocabulary'],
-): TaskByType<'information'>['vocabulary'] {
+    fallbackVocabulary: VocabularyItem[],
+): VocabularyItem[] {
     if (!Array.isArray(rawVocabulary)) {
         return cloneVocabularyItems(fallbackVocabulary);
     }
@@ -307,17 +309,29 @@ function clampInformationTextWidthRatio(value: unknown): number {
 }
 
 function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: boolean): Task {
-    switch (task.type) {
+    const fallbackVocabulary = normalizeVocabularyForStore(
+        (fallbackTask as { vocabulary?: unknown }).vocabulary,
+        [],
+    );
+    const safeTask = {
+        ...task,
+        vocabulary: normalizeVocabularyForStore(
+            (task as { vocabulary?: unknown }).vocabulary,
+            fallbackVocabulary,
+        ),
+    } as Task;
+
+    switch (safeTask.type) {
         case 'multiple-choice': {
             const fallback: TaskByType<'multiple-choice'> = fallbackTask.type === 'multiple-choice'
                 ? fallbackTask
                 : createDefaultTaskOfType('multiple-choice');
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
-                question: typeof task.question === 'string' ? task.question : fallback.question,
-                options: normalizeMultipleChoiceOptionsForStore(task.options, fallback.options, isTypeSwitch),
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                question: typeof safeTask.question === 'string' ? safeTask.question : fallback.question,
+                options: normalizeMultipleChoiceOptionsForStore(safeTask.options, fallback.options, isTypeSwitch),
             };
         }
 
@@ -326,30 +340,30 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 ? fallbackTask
                 : createDefaultTaskOfType('lineatur');
 
-            const lineStyle = VALID_LINE_STYLES.includes(task.lineStyle as LineStyle)
-                ? (task.lineStyle as LineStyle)
+            const lineStyle = VALID_LINE_STYLES.includes(safeTask.lineStyle as LineStyle)
+                ? (safeTask.lineStyle as LineStyle)
                 : fallback.lineStyle;
 
-            const rawRowCount = typeof task.rowCount === 'number' && Number.isFinite(task.rowCount)
-                ? task.rowCount
-                : task.lineRows;
+            const rawRowCount = typeof safeTask.rowCount === 'number' && Number.isFinite(safeTask.rowCount)
+                ? safeTask.rowCount
+                : safeTask.lineRows;
             const lineRows =
                 typeof rawRowCount === 'number' && Number.isFinite(rawRowCount)
                     ? Math.max(1, Math.min(20, Math.round(rawRowCount)))
                     : fallback.lineRows;
             const lineHeight =
-                typeof task.lineHeight === 'number' && Number.isFinite(task.lineHeight)
-                    ? Math.max(4, Math.min(20, task.lineHeight))
+                typeof safeTask.lineHeight === 'number' && Number.isFinite(safeTask.lineHeight)
+                    ? Math.max(4, Math.min(20, safeTask.lineHeight))
                     : (typeof fallback.lineHeight === 'number' ? Math.max(4, Math.min(20, fallback.lineHeight)) : 12);
             const gapColor =
-                typeof task.gapColor === 'string' && task.gapColor.trim().length > 0
-                    ? task.gapColor.trim()
+                typeof safeTask.gapColor === 'string' && safeTask.gapColor.trim().length > 0
+                    ? safeTask.gapColor.trim()
                     : (typeof fallback.gapColor === 'string' && fallback.gapColor.trim().length > 0 ? fallback.gapColor.trim() : '#eaf4e8');
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
-                promptHtml: typeof task.promptHtml === 'string' ? task.promptHtml : fallback.promptHtml,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                promptHtml: typeof safeTask.promptHtml === 'string' ? safeTask.promptHtml : fallback.promptHtml,
                 lineStyle,
                 lineRows,
                 rowCount: lineRows,
@@ -364,27 +378,27 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 ? fallbackTask
                 : createDefaultTaskOfType('cloze');
 
-            const gapStyle = VALID_CLOZE_GAP_STYLES.includes(task.gapStyle as ClozeGapStyle)
-                ? (task.gapStyle as ClozeGapStyle)
+            const gapStyle = VALID_CLOZE_GAP_STYLES.includes(safeTask.gapStyle as ClozeGapStyle)
+                ? (safeTask.gapStyle as ClozeGapStyle)
                 : fallback.gapStyle;
 
             const gapMultiplier =
-                typeof task.gapMultiplier === 'number' && Number.isFinite(task.gapMultiplier)
-                    ? task.gapMultiplier
+                typeof safeTask.gapMultiplier === 'number' && Number.isFinite(safeTask.gapMultiplier)
+                    ? safeTask.gapMultiplier
                     : fallback.gapMultiplier;
 
-            const wordBankMode = VALID_CLOZE_WORD_BANK_MODES.includes(task.wordBankMode as ClozeWordBankMode)
-                ? (task.wordBankMode as ClozeWordBankMode)
+            const wordBankMode = VALID_CLOZE_WORD_BANK_MODES.includes(safeTask.wordBankMode as ClozeWordBankMode)
+                ? (safeTask.wordBankMode as ClozeWordBankMode)
                 : (fallback.wordBankMode ?? 'hidden');
 
-            const distractors = typeof task.distractors === 'string'
-                ? task.distractors
+            const distractors = typeof safeTask.distractors === 'string'
+                ? safeTask.distractors
                 : (fallback.distractors ?? '');
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
-                content: typeof task.content === 'string' ? task.content : fallback.content,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                content: typeof safeTask.content === 'string' ? safeTask.content : fallback.content,
                 gapStyle,
                 gapMultiplier,
                 wordBankMode,
@@ -398,30 +412,30 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 : createDefaultTaskOfType('image-placeholder');
 
             const imageId =
-                typeof task.imageId === 'number' && Number.isFinite(task.imageId)
-                    ? task.imageId
+                typeof safeTask.imageId === 'number' && Number.isFinite(safeTask.imageId)
+                    ? safeTask.imageId
                     : fallback.imageId;
-            const imageAlign = VALID_IMAGE_ALIGNMENTS.includes(task.imageAlign as ImageAlignment)
-                ? (task.imageAlign as ImageAlignment)
+            const imageAlign = VALID_IMAGE_ALIGNMENTS.includes(safeTask.imageAlign as ImageAlignment)
+                ? (safeTask.imageAlign as ImageAlignment)
                 : (fallback.imageAlign ?? 'left');
-            const align = VALID_IMAGE_ALIGNMENTS.includes(task.align as ImageAlignment)
-                ? (task.align as ImageAlignment)
+            const align = VALID_IMAGE_ALIGNMENTS.includes(safeTask.align as ImageAlignment)
+                ? (safeTask.align as ImageAlignment)
                 : (imageAlign ?? fallback.align ?? 'left');
             const opacity =
-                typeof task.opacity === 'number' && Number.isFinite(task.opacity)
-                    ? Math.max(0, Math.min(1, task.opacity))
+                typeof safeTask.opacity === 'number' && Number.isFinite(safeTask.opacity)
+                    ? Math.max(0, Math.min(1, safeTask.opacity))
                     : (typeof fallback.opacity === 'number' ? Math.max(0, Math.min(1, fallback.opacity)) : 1);
-            const width = typeof task.width === 'string' && task.width.trim().length > 0
-                ? task.width
+            const width = typeof safeTask.width === 'string' && safeTask.width.trim().length > 0
+                ? safeTask.width
                 : fallback.width;
-            const height = typeof task.height === 'string' && task.height.trim().length > 0
-                ? task.height
+            const height = typeof safeTask.height === 'string' && safeTask.height.trim().length > 0
+                ? safeTask.height
                 : fallback.height;
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
-                caption: typeof task.caption === 'string' ? task.caption : fallback.caption,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                caption: typeof safeTask.caption === 'string' ? safeTask.caption : fallback.caption,
                 imageId,
                 imageAlign,
                 align,
@@ -429,12 +443,12 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 width,
                 height,
                 widthMm:
-                    typeof task.widthMm === 'number' && Number.isFinite(task.widthMm)
-                        ? Math.max(10, Math.round(task.widthMm))
+                    typeof safeTask.widthMm === 'number' && Number.isFinite(safeTask.widthMm)
+                        ? Math.max(10, Math.round(safeTask.widthMm))
                         : fallback.widthMm,
                 heightMm:
-                    typeof task.heightMm === 'number' && Number.isFinite(task.heightMm)
-                        ? Math.max(10, Math.round(task.heightMm))
+                    typeof safeTask.heightMm === 'number' && Number.isFinite(safeTask.heightMm)
+                        ? Math.max(10, Math.round(safeTask.heightMm))
                         : fallback.heightMm,
             };
         }
@@ -445,9 +459,9 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 : createDefaultTaskOfType('math');
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
-                content: typeof task.content === 'string' ? task.content : fallback.content,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                content: typeof safeTask.content === 'string' ? safeTask.content : fallback.content,
             };
         }
 
@@ -456,24 +470,24 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 ? fallbackTask
                 : createDefaultTaskOfType('columns');
 
-            const children: [string | null, string | null] = Array.isArray(task.children)
+            const children: [string | null, string | null] = Array.isArray(safeTask.children)
                 ? [
-                    typeof task.children[0] === 'string' ? task.children[0] : null,
-                    typeof task.children[1] === 'string' ? task.children[1] : null,
+                    typeof safeTask.children[0] === 'string' ? safeTask.children[0] : null,
+                    typeof safeTask.children[1] === 'string' ? safeTask.children[1] : null,
                 ]
                 : [fallback.children[0], fallback.children[1]];
 
-            const layout = VALID_COLUMNS_LAYOUTS.includes(task.layout as ColumnsLayout)
-                ? (task.layout as ColumnsLayout)
+            const layout = VALID_COLUMNS_LAYOUTS.includes(safeTask.layout as ColumnsLayout)
+                ? (safeTask.layout as ColumnsLayout)
                 : fallback.layout;
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
                 layout,
                 gapMm:
-                    typeof task.gapMm === 'number' && Number.isFinite(task.gapMm)
-                        ? Math.max(0, Math.round(task.gapMm))
+                    typeof safeTask.gapMm === 'number' && Number.isFinite(safeTask.gapMm)
+                        ? Math.max(0, Math.round(safeTask.gapMm))
                         : fallback.gapMm,
                 children,
             };
@@ -485,9 +499,9 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 : createDefaultTaskOfType('instruction');
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
-                text: typeof task.text === 'string' ? task.text : fallback.text,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                text: typeof safeTask.text === 'string' ? safeTask.text : fallback.text,
             };
         }
 
@@ -497,9 +511,9 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 : createDefaultTaskOfType('heading');
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
-                text: typeof task.text === 'string' ? task.text : fallback.text,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                text: typeof safeTask.text === 'string' ? safeTask.text : fallback.text,
             };
         }
 
@@ -509,19 +523,19 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 : createDefaultTaskOfType('table');
 
             const rows =
-                typeof task.rows === 'number' && Number.isFinite(task.rows)
-                    ? Math.max(1, Math.min(20, Math.round(task.rows)))
+                typeof safeTask.rows === 'number' && Number.isFinite(safeTask.rows)
+                    ? Math.max(1, Math.min(20, Math.round(safeTask.rows)))
                     : fallback.rows;
 
             const cols =
-                typeof task.cols === 'number' && Number.isFinite(task.cols)
-                    ? Math.max(1, Math.min(10, Math.round(task.cols)))
+                typeof safeTask.cols === 'number' && Number.isFinite(safeTask.cols)
+                    ? Math.max(1, Math.min(10, Math.round(safeTask.cols)))
                     : fallback.cols;
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
-                content: typeof task.content === 'string' ? task.content : fallback.content,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                content: typeof safeTask.content === 'string' ? safeTask.content : fallback.content,
                 rows,
                 cols,
             };
@@ -533,8 +547,8 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 : createDefaultTaskOfType('page-break');
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
             };
         }
 
@@ -542,32 +556,36 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
             const fallback: TaskByType<'information'> = fallbackTask.type === 'information'
                 ? fallbackTask
                 : createDefaultTaskOfType('information');
-            const legacyText = (task as { text?: unknown }).text;
+            const legacyText = (safeTask as { text?: unknown }).text;
 
             return {
-                ...task,
-                title: typeof task.title === 'string' ? task.title : fallback.title,
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
                 content:
-                    typeof task.content === 'string'
-                        ? task.content
+                    typeof safeTask.content === 'string'
+                        ? safeTask.content
                         : typeof legacyText === 'string'
                             ? legacyText
                             : fallback.content,
                 hasNotesColumn:
-                    typeof task.hasNotesColumn === 'boolean'
-                        ? task.hasNotesColumn
+                    typeof safeTask.hasNotesColumn === 'boolean'
+                        ? safeTask.hasNotesColumn
                         : fallback.hasNotesColumn,
-                textWidthRatio: clampInformationTextWidthRatio(task.textWidthRatio ?? fallback.textWidthRatio),
-                vocabulary: normalizeVocabularyForStore(task.vocabulary, fallback.vocabulary),
+                textWidthRatio: clampInformationTextWidthRatio(safeTask.textWidthRatio ?? fallback.textWidthRatio),
                 highlightVocabulary:
-                    typeof task.highlightVocabulary === 'boolean'
-                        ? task.highlightVocabulary
+                    typeof safeTask.highlightVocabulary === 'boolean'
+                        ? safeTask.highlightVocabulary
                         : fallback.highlightVocabulary,
+                isChunked:
+                    typeof safeTask.isChunked === 'boolean'
+                        ? safeTask.isChunked
+                        : false,
+                chunks: Array.isArray(safeTask.chunks) ? safeTask.chunks : [],
             };
         }
 
         default:
-            return task;
+            return safeTask;
     }
 }
 
@@ -584,8 +602,17 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
     const normalized: Record<string, Task> = {};
 
     for (const [id, task] of Object.entries(tasksById)) {
-        if (task.type === 'image-placeholder') {
-            const imageTask = task as ImagePlaceholderTask & { imageId?: unknown; imageAlign?: unknown };
+        const fallbackTask = createDefaultTaskOfType(task.type);
+        const normalizedTask = {
+            ...task,
+            vocabulary: normalizeVocabularyForStore(
+                (task as { vocabulary?: unknown }).vocabulary,
+                fallbackTask.vocabulary,
+            ),
+        } as Task;
+
+        if (normalizedTask.type === 'image-placeholder') {
+            const imageTask = normalizedTask as ImagePlaceholderTask & { imageId?: unknown; imageAlign?: unknown };
             const rawImageId = imageTask.imageId;
             const numericImageId =
                 typeof rawImageId === 'number'
@@ -598,7 +625,7 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
                 : 'left';
 
             normalized[id] = {
-                ...task,
+                ...normalizedTask,
                 imageId: typeof numericImageId === 'number' && Number.isFinite(numericImageId)
                     ? numericImageId
                     : undefined,
@@ -607,8 +634,8 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
             continue;
         }
 
-        if (task.type === 'lineatur') {
-            const lineTask = task as LineaturTask & {
+        if (normalizedTask.type === 'lineatur') {
+            const lineTask = normalizedTask as LineaturTask & {
                 promptHtml?: unknown;
                 lineRows?: unknown;
                 rowCount?: unknown;
@@ -638,7 +665,7 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
                     : '#eaf4e8';
 
             normalized[id] = {
-                ...task,
+                ...normalizedTask,
                 promptHtml: typeof lineTask.promptHtml === 'string' ? lineTask.promptHtml : '',
                 lineRows: normalizedRowCount,
                 rowCount: normalizedRowCount,
@@ -653,26 +680,26 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
             continue;
         }
 
-        if (task.type === 'cloze') {
-            const clozeTask = task as TaskByType<'cloze'>;
+        if (normalizedTask.type === 'cloze') {
+            const clozeTask = normalizedTask as TaskByType<'cloze'>;
             const normalizedWordBankMode = VALID_CLOZE_WORD_BANK_MODES.includes(clozeTask.wordBankMode as ClozeWordBankMode)
                 ? (clozeTask.wordBankMode as ClozeWordBankMode)
                 : 'hidden';
 
             normalized[id] = {
-                ...task,
+                ...normalizedTask,
                 wordBankMode: normalizedWordBankMode,
                 distractors: typeof clozeTask.distractors === 'string' ? clozeTask.distractors : '',
             };
             continue;
         }
 
-        if (task.type === 'information') {
-            const informationTask = task as TaskByType<'information'> & { text?: unknown };
+        if (normalizedTask.type === 'information') {
+            const informationTask = normalizedTask as TaskByType<'information'> & { text?: unknown };
             const fallback = createDefaultTaskOfType('information');
 
             normalized[id] = {
-                ...task,
+                ...normalizedTask,
                 content:
                     typeof informationTask.content === 'string'
                         ? informationTask.content
@@ -684,7 +711,6 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
                         ? informationTask.hasNotesColumn
                         : fallback.hasNotesColumn,
                 textWidthRatio: clampInformationTextWidthRatio(informationTask.textWidthRatio),
-                vocabulary: normalizeVocabularyForStore(informationTask.vocabulary, fallback.vocabulary),
                 highlightVocabulary:
                     typeof informationTask.highlightVocabulary === 'boolean'
                         ? informationTask.highlightVocabulary
@@ -693,7 +719,7 @@ function normalizeLegacyTaskData(tasksById: Record<string, Task>): Record<string
             continue;
         }
 
-        normalized[id] = task;
+        normalized[id] = normalizedTask;
     }
 
     return normalized;
@@ -1002,6 +1028,7 @@ export const useWorksheetStore = create<WorksheetStore>()(
                 title: task.title,
                 showNumber: task.showNumber,
                 accentColor: task.accentColor,
+                vocabulary: task.vocabulary,
             } as Task)
             : task;
 

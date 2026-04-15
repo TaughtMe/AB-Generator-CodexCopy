@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Sparkles, Palette, FolderOpen, RotateCcw } from 'lucide-react';
 
 /* ══════════════════════════════════════════════════
@@ -23,6 +24,7 @@ export const ActionHub: React.FC<ActionHubProps> = ({
     onResumeLastWorksheet,
     hasRecentWorksheet = false,
 }) => {
+    const { t } = useTranslation();
     return (
         <section className="mb-8">
             {/* ── Große Gradient-Karten ── */}
@@ -41,8 +43,8 @@ export const ActionHub: React.FC<ActionHubProps> = ({
                         <Plus size={28} className="text-white" strokeWidth={2.5} />
                     </div>
                     <div className="relative">
-                        <h3 className="text-lg font-bold text-white leading-tight">Neues Arbeitsblatt erstellen</h3>
-                        <p className="text-xs text-white/70 mt-1">Manuell oder mit Vorlage beginnen.</p>
+                        <h3 className="text-lg font-bold text-white leading-tight">{t('actionHub.newWorksheet')}</h3>
+                        <p className="text-xs text-white/70 mt-1">{t('actionHub.newWorksheetDesc')}</p>
                     </div>
                 </button>
 
@@ -60,8 +62,8 @@ export const ActionHub: React.FC<ActionHubProps> = ({
                         <Sparkles size={28} className="text-white" />
                     </div>
                     <div className="relative">
-                        <h3 className="text-lg font-bold text-white leading-tight">KI-Assistent starten</h3>
-                        <p className="text-xs text-white/70 mt-1">Automatische Erstellung & Vorschläge.</p>
+                        <h3 className="text-lg font-bold text-white leading-tight">{t('actionHub.startAI')}</h3>
+                        <p className="text-xs text-white/70 mt-1">{t('actionHub.startAIDesc')}</p>
                     </div>
                 </button>
             </div>
@@ -76,7 +78,7 @@ export const ActionHub: React.FC<ActionHubProps> = ({
                     <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                         <FolderOpen size={17} className="text-amber-600 dark:text-amber-400" />
                     </div>
-                    <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">Vorlagen durchsuchen</span>
+                    <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">{t('actionHub.browseTemplates')}</span>
                 </button>
 
                 {/* Kopfzeilen-Editor öffnen */}
@@ -87,7 +89,7 @@ export const ActionHub: React.FC<ActionHubProps> = ({
                     <div className="shrink-0 w-9 h-9 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
                         <Palette size={17} className="text-rose-600 dark:text-rose-400" />
                     </div>
-                    <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">Kopfzeilen-Editor öffnen</span>
+                    <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">{t('actionHub.openHeaderEditor')}</span>
                 </button>
 
                 {/* Letztes Blatt fortsetzen */}
@@ -99,7 +101,7 @@ export const ActionHub: React.FC<ActionHubProps> = ({
                     <div className="shrink-0 w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                         <RotateCcw size={17} className="text-purple-600 dark:text-purple-400" />
                     </div>
-                    <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">Letztes Blatt fortsetzen</span>
+                    <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">{t('actionHub.resumeLast')}</span>
                 </button>
             </div>
         </section>

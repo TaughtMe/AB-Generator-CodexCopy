@@ -5,10 +5,20 @@ export type ColumnsLayout = '50-50' | '60-40' | '40-60';
 
 export type LineStyle = 'grid-5mm' | 'grid-10mm' | 'lines-8mm' | 'primary-4-lines';
 
+/** Reiner Informationsblock ohne Punktevergabe / Antwortfelder */
+export interface VocabularyItem {
+    id: string;
+    word: string;
+    pos: string; // Wortart (Part of Speech)
+    definition: string;
+}
+
 export interface BaseTask {
     id: string;
     type: TaskType;
     title: string;
+    /** Globale Vokabelliste für markierte Wörter in dieser Aufgabe. */
+    vocabulary: VocabularyItem[];
     /** When false the task is unnumbered and does not count towards the running index. Defaults to true. */
     showNumber?: boolean;
     /** Per-Task Akzentfarbe – überschreibt die globale brandColor wenn gesetzt (hex). */
@@ -108,11 +118,12 @@ export interface TableTask extends BaseTask {
 }
 
 /** Reiner Informationsblock ohne Punktevergabe / Antwortfelder */
-export interface VocabularyItem {
+/** Ein einzelner Textabschnitt im Abschnitts-Modus (Chunked Reading). */
+export interface TextChunk {
     id: string;
-    word: string;
-    pos: string; // Wortart (Part of Speech)
-    definition: string;
+    heading: string;
+    content: string;
+    notesHeading: string;
 }
 
 /** Reiner Informationsblock ohne Punktevergabe / Antwortfelder */
@@ -121,8 +132,11 @@ export interface InformationTextTask extends BaseTask {
     content: string;
     hasNotesColumn: boolean;
     textWidthRatio: number; // z.B. 50 bis 100 (%)
-    vocabulary: VocabularyItem[];
     highlightVocabulary: boolean;
+    /** Abschnitts-Modus (Chunked Reading) aktiv */
+    isChunked?: boolean;
+    /** Textabschnitte im Chunked-Modus */
+    chunks?: TextChunk[];
 }
 
 export type InformationTask = InformationTextTask;

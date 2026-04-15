@@ -34,7 +34,7 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ task, isActive = t
                 </div>
             )}
 
-            <div className="mt-2 mb-2 pt-4 border-b border-worksheet-border pb-1 print:mt-0 print:mb-2 print:pt-0">
+            <div className={`mt-2 mb-2 pt-4 border-b border-worksheet-border pb-1 print:mt-0 print:mb-2 print:pt-0${!task.text?.trim() ? ' print:hidden' : ''}`}>
                 <h3 className="text-xl font-bold leading-tight text-worksheet-ink">
                     {text}
                 </h3>

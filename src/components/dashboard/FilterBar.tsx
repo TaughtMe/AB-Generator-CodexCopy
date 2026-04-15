@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { WorksheetFilter } from '../../store/dexieStore';
@@ -26,6 +27,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     filter,
     onFilterChange,
 }) => {
+    const { t } = useTranslation();
     const subjects = useProfileStore((s) => s.subjects);
     const classes = useWorkspaceStore((s) => s.classProfiles);
 
@@ -37,45 +39,45 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         <div className="flex items-center gap-2">
             {/* Fach */}
             <label className="relative">
-                <span className="sr-only">Fach</span>
+                <span className="sr-only">{t('filter.subject')}</span>
                 <select
                     value={filter.subjectId ?? ''}
                     onChange={(e) => handleChange('subjectId', e.target.value)}
                     className={pillClass}
                 >
-                    <option value="">Fach: Alle</option>
+                    <option value="">{t('filter.subjectAll')}</option>
                     {subjects.map((s) => (
-                        <option key={s.id} value={s.id}>Fach: {s.name}</option>
+                        <option key={s.id} value={s.id}>{t('filter.subjectPrefix')} {s.name}</option>
                     ))}
                 </select>
             </label>
 
             {/* Klasse */}
             <label className="relative">
-                <span className="sr-only">Klasse</span>
+                <span className="sr-only">{t('filter.class')}</span>
                 <select
                     value={filter.classId ?? ''}
                     onChange={(e) => handleChange('classId', e.target.value)}
                     className={pillClass}
                 >
-                    <option value="">Klasse: Alle</option>
+                    <option value="">{t('filter.classAll')}</option>
                     {classes.map((c) => (
-                        <option key={c.id} value={c.id}>Klasse: {c.name}</option>
+                        <option key={c.id} value={c.id}>{t('filter.classPrefix')} {c.name}</option>
                     ))}
                 </select>
             </label>
 
             {/* Sortierung */}
             <label className="relative">
-                <span className="sr-only">Sortierung</span>
+                <span className="sr-only">{t('filter.sort')}</span>
                 <select
                     value={filter.sortBy ?? 'updatedAt'}
                     onChange={(e) => handleChange('sortBy', e.target.value)}
                     className={pillClass}
                 >
-                    <option value="updatedAt">Sortierung: Neueste zuerst</option>
-                    <option value="createdAt">Sortierung: Erstellt am</option>
-                    <option value="title">Sortierung: Alphabetisch</option>
+                    <option value="updatedAt">{t('filter.sortNewest')}</option>
+                    <option value="createdAt">{t('filter.sortCreated')}</option>
+                    <option value="title">{t('filter.sortAlphabetical')}</option>
                 </select>
             </label>
         </div>

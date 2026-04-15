@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BookOpen, Users, Plus, X } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
 import { IconButton } from '../ui/IconButton';
@@ -10,6 +11,7 @@ import { ICON_SIZES } from '../ui/iconSizes';
    ══════════════════════════════════════════════════ */
 
 export const ProfileManager: React.FC = () => {
+    const { t } = useTranslation();
     const { subjects, classes, addSubject, addClassProfile, removeSubject, removeClassProfile } = useProfileStore();
 
     // Subject form
@@ -42,10 +44,10 @@ export const ProfileManager: React.FC = () => {
         <div className="max-w-3xl mx-auto px-6 py-8 md:py-10">
             <div className="mb-8">
                 <h2 className="text-xl font-extrabold tracking-tight text-slate-800 dark:text-white">
-                    Klassen & Fächer
+                    {t('profiles.title')}
                 </h2>
                 <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
-                    Verwalte deine Fächer und Klassen-Profile für die Zuordnung zu Arbeitsblättern.
+                    {t('profiles.subtitle')}
                 </p>
             </div>
 
@@ -56,14 +58,14 @@ export const ProfileManager: React.FC = () => {
                         <div className="flex items-center gap-2">
                             <BookOpen className={`${ICON_SIZES[16]} text-blue-500`} />
                             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                Fächer ({subjects.length})
+                                {t('profiles.subjects', { count: subjects.length })}
                             </h3>
                         </div>
                         <IconButton
                             onClick={() => setShowSubjectForm(!showSubjectForm)}
                             size="md"
                             className="rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-500"
-                            title="Fach hinzufügen"
+                            title={t('profiles.addSubject')}
                         >
                             {showSubjectForm ? <X className={ICON_SIZES[15]} /> : <Plus className={ICON_SIZES[15]} />}
                         </IconButton>
@@ -71,7 +73,7 @@ export const ProfileManager: React.FC = () => {
 
                     {/* Subject chips */}
                     {subjects.length === 0 && !showSubjectForm ? (
-                        <p className="text-xs text-slate-400">Noch keine Fächer angelegt.</p>
+                        <p className="text-xs text-slate-400">{t('profiles.noSubjects')}</p>
                     ) : (
                         <div className="flex flex-wrap gap-2 mb-3">
                             {subjects.map((s) => (
@@ -81,7 +83,7 @@ export const ProfileManager: React.FC = () => {
                                         onClick={() => removeSubject(s.id)}
                                         size="sm"
                                         className="opacity-0 group-hover/chip:opacity-100 hover:text-red-500 transition-opacity"
-                                        title="Entfernen"
+                                        title={t('common.remove')}
                                     >
                                         <X className={ICON_SIZES[11]} />
                                     </IconButton>
@@ -97,14 +99,14 @@ export const ProfileManager: React.FC = () => {
                                 type="text"
                                 value={newSubjectName}
                                 onChange={(e) => setNewSubjectName(e.target.value)}
-                                placeholder="Fachname (z.B. Mathematik)"
+                                placeholder={t('profiles.subjectPlaceholder')}
                                 className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
                                 onKeyDown={(e) => e.key === 'Enter' && handleAddSubject()}
                             />
                             <textarea
                                 value={newSubjectCurriculum}
                                 onChange={(e) => setNewSubjectCurriculum(e.target.value)}
-                                placeholder="Lehrplan-Kontext (optional)"
+                                placeholder={t('profiles.curriculumPlaceholder')}
                                 rows={2}
                                 className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 resize-none"
                             />
@@ -113,7 +115,7 @@ export const ProfileManager: React.FC = () => {
                                 disabled={!newSubjectName.trim()}
                                 className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                Fach hinzufügen
+                                {t('profiles.addSubject')}
                             </button>
                         </div>
                     )}
@@ -125,14 +127,14 @@ export const ProfileManager: React.FC = () => {
                         <div className="flex items-center gap-2">
                             <Users className={`${ICON_SIZES[16]} text-emerald-500`} />
                             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                Klassen ({classes.length})
+                                {t('profiles.classes', { count: classes.length })}
                             </h3>
                         </div>
                         <IconButton
                             onClick={() => setShowClassForm(!showClassForm)}
                             size="md"
                             className="rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-emerald-500"
-                            title="Klasse hinzufügen"
+                            title={t('profiles.addClass')}
                         >
                             {showClassForm ? <X className={ICON_SIZES[15]} /> : <Plus className={ICON_SIZES[15]} />}
                         </IconButton>
@@ -140,7 +142,7 @@ export const ProfileManager: React.FC = () => {
 
                     {/* Class chips */}
                     {classes.length === 0 && !showClassForm ? (
-                        <p className="text-xs text-slate-400">Noch keine Klassen angelegt.</p>
+                        <p className="text-xs text-slate-400">{t('profiles.noClasses')}</p>
                     ) : (
                         <div className="flex flex-wrap gap-2 mb-3">
                             {classes.map((c) => (
@@ -150,7 +152,7 @@ export const ProfileManager: React.FC = () => {
                                         onClick={() => removeClassProfile(c.id)}
                                         size="sm"
                                         className="opacity-0 group-hover/chip:opacity-100 hover:text-red-500 transition-opacity"
-                                        title="Entfernen"
+                                        title={t('common.remove')}
                                     >
                                         <X className={ICON_SIZES[11]} />
                                     </IconButton>
@@ -166,7 +168,7 @@ export const ProfileManager: React.FC = () => {
                                 type="text"
                                 value={newClassName}
                                 onChange={(e) => setNewClassName(e.target.value)}
-                                placeholder="Klassenname (z.B. 3a)"
+                                placeholder={t('profiles.classPlaceholder')}
                                 className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500/40 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
                                 onKeyDown={(e) => e.key === 'Enter' && handleAddClass()}
                             />
@@ -174,7 +176,7 @@ export const ProfileManager: React.FC = () => {
                                 type="text"
                                 value={newClassChar}
                                 onChange={(e) => setNewClassChar(e.target.value)}
-                                placeholder="Besonderheit (z.B. Inklusion, DaZ-Anteil)"
+                                placeholder={t('profiles.characteristicPlaceholder')}
                                 className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500/40 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
                             />
                             <button
@@ -182,7 +184,7 @@ export const ProfileManager: React.FC = () => {
                                 disabled={!newClassName.trim()}
                                 className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                Klasse hinzufügen
+                                {t('profiles.addClass')}
                             </button>
                         </div>
                     )}

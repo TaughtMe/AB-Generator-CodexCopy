@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,21 +22,22 @@ interface SidebarProps {
   onOpenLegalModal?: (modal: 'impressum' | 'datenschutz') => void;
 }
 
-const NAV_ITEMS: { id: SidebarView; label: string; icon: React.ElementType }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'profiles', label: 'Meine Fächer', icon: BookOpenText },
-  { id: 'trash', label: 'Papierkorb', icon: Trash2 },
-  { id: 'settings', label: 'Einstellungen', icon: Settings },
+const NAV_ITEMS: { id: SidebarView; labelKey: string; icon: React.ElementType }[] = [
+  { id: 'dashboard', labelKey: 'sidebar.dashboard', icon: LayoutDashboard },
+  { id: 'profiles', labelKey: 'sidebar.subjects', icon: BookOpenText },
+  { id: 'trash', labelKey: 'sidebar.trash', icon: Trash2 },
+  { id: 'settings', labelKey: 'sidebar.settings', icon: Settings },
 ];
 
 const LEGAL_LINKS = [
-  { key: 'impressum' as const, label: 'Impressum' },
-  { key: 'datenschutz' as const, label: 'Datenschutz' },
+  { key: 'impressum' as const, labelKey: 'sidebar.impressum' },
+  { key: 'datenschutz' as const, labelKey: 'sidebar.datenschutz' },
 ];
 
 const formatModelName = (rawId: string) => rawId.split('/').pop() || rawId;
 
 export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalModal }: SidebarProps) {
+  const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { quickAccessModels, activeModel, setActiveModel } = useWorkspaceStore(
     useShallow((state) => ({
@@ -47,8 +49,8 @@ export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalM
   const [isAiMenuOpen, setIsAiMenuOpen] = useState(false);
   const isAiActive = quickAccessModels.length > 0;
   const activeModelLabel = useMemo(
-    () => (isAiActive ? formatModelName(activeModel || quickAccessModels[0]) : 'Keine Modelle konfiguriert'),
-    [activeModel, isAiActive, quickAccessModels],
+    () => (isAiActive ? formatModelName(activeModel || quickAccessModels[0]) : t('sidebar.noModels')),
+    [activeModel, isAiActive, quickAccessModels, t],
   );
 
   return (
@@ -85,7 +87,7 @@ export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalM
               } ${
                 !isAiActive ? 'cursor-not-allowed opacity-80 hover:bg-slate-50 dark:hover:bg-slate-900/50' : ''
               }`}
-              title={isCollapsed ? `KI-Assistent: ${activeModelLabel}` : undefined}
+              title={isCollapsed ? `${t('sidebar.aiAssistant')}: ${activeModelLabel}` : undefined}
             >
               <Sparkles
                 className={`shrink-0 w-5 h-5 ${
@@ -96,14 +98,14 @@ export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalM
               {!isCollapsed && (
                 <div className="flex flex-col items-start">
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
-                    KI-Assistent
+                    {t('sidebar.aiAssistant')}
                   </span>
                   <span
                     className={`text-sm font-medium ${
                       isAiActive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
                     }`}
                   >
-                    {isAiActive ? activeModelLabel : 'Keine Modelle konfiguriert'}
+                    {isAiActive ? activeModelLabel : t('sidebar.noModels')}
                   </span>
                 </div>
               )}
@@ -161,14 +163,16 @@ export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalM
                       onChangeView(item.id);
                     }}
                     className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition cursor-pointer ${
+                      item.id === 'settings' ? 'tour-cloud-sync' : ''
+                    } ${
                       isActive
                         ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/70 dark:hover:text-white'
                     } ${isCollapsed ? 'justify-center px-0' : ''}`}
-                    title={isCollapsed ? item.label : undefined}
+                    title={isCollapsed ? t(item.labelKey) : undefined}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    {!isCollapsed && item.label}
+                    {!isCollapsed && t(item.labelKey)}
                   </button>
                 </li>
               );
@@ -187,9 +191,9 @@ export function Sidebar({ activeView, onChangeView, onOpenSettings, onOpenLegalM
             className={`block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-500 dark:text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer ${
               isCollapsed ? 'text-center px-0' : ''
             }`}
-            title={isCollapsed ? link.label : undefined}
+            title={isCollapsed ? t(link.labelKey) : undefined}
           >
-            {isCollapsed ? link.label.charAt(0) : link.label}
+            {isCollapsed ? t(link.labelKey).charAt(0) : t(link.labelKey)}
           </button>
         ))}
       </div>

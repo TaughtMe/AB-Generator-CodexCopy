@@ -1,0 +1,371 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "loading": "Loading...",
+    "retry": "Retry",
+    "confirm": "Confirm",
+    "search": "Search",
+    "actions": "Actions",
+    "duplicate": "Duplicate",
+    "duplicating": "Duplicating...",
+    "export": "Export",
+    "exporting": "Exporting...",
+    "share": "Share",
+    "sharing": "Sharing...",
+    "restore": "Restore",
+    "remove": "Remove",
+    "add": "Add",
+    "empty": "Empty",
+    "unknown": "Unknown",
+    "active": "Active",
+    "version": "Version",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}} min. ago",
+    "hoursAgo": "{{count}} hrs. ago",
+    "yesterday": "Yesterday",
+    "daysAgo": "{{count}} days ago",
+    "moreItems": "+ {{count}} more …",
+    "levels": "{{count}} levels",
+    "tasks": "{{count}} tasks",
+    "noClass": "No class",
+    "noSubject": "No subject",
+    "deletedProfile": "Deleted profile",
+    "subject": "Subject",
+    "class": "Class"
+  },
+  "settings": {
+    "title": "Global Settings",
+    "subtitle": "Central hub for Dashboard, Editor, and AI features.",
+    "language": "Language",
+    "tabs": {
+      "display": "Display",
+      "fonts": "Fonts",
+      "ai": "AI",
+      "chat": "AI Chat",
+      "data": "Data Management",
+      "legal": "Legal & Contact",
+      "language": "Language"
+    },
+    "display": {
+      "title": "Display",
+      "subtitle": "Customize the appearance of the app.",
+      "lightMode": "Light Mode",
+      "lightModeDesc": "Light background",
+      "darkMode": "Dark Mode",
+      "darkModeDesc": "Dark background",
+      "onboarding": "Onboarding & Help",
+      "onboardingDesc": "Restart the tour to revisit the main areas of the app.",
+      "restartTour": "Restart tour"
+    },
+    "ai": {
+      "title": "AI",
+      "subtitle": "API keys remain in your browser (LocalStorage) and are not transmitted automatically.",
+      "activeProvider": "Active Provider",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter API key",
+      "apiKeyOptional": "Optional for local server",
+      "apiActive": "API active",
+      "apiInactive": "API inactive",
+      "testingApi": "Testing API...",
+      "baseUrl": "Base URL",
+      "defaultModel": "Default Model",
+      "refreshModels": "Refresh local models"
+    },
+    "chat": {
+      "title": "AI Chat",
+      "subtitle": "Choose which model the chat prefers. \"Auto\" uses the default model from the AI tab.",
+      "preferredModel": "Preferred Chat Model",
+      "autoModel": "Auto (uses default model)",
+      "activeForChat": "Active for chat:",
+      "submitOnEnter": "Enter sends message",
+      "submitOnEnterDesc": "When active: <strong>Enter</strong> sends, <strong>Shift+Enter</strong> makes a line break."
+    },
+    "data": {
+      "title": "Data Management",
+      "description": "All data is stored locally in the browser (LocalStorage + IndexedDB).",
+      "backupInfo": "Backups include worksheets, settings, and templates. Image data is not exported in this version.",
+      "included": "Included",
+      "includedItems": {
+        "worksheets": "Worksheets",
+        "settings": "Global Settings",
+        "templates": "Design Templates (without images)"
+      },
+      "excluded": "Not included",
+      "excludedItems": {
+        "images": "Image data (Blob/Base64)",
+        "cloud": "External services/cloud data"
+      },
+      "downloadBackup": "Download Backup",
+      "restoreBackup": "Restore Backup",
+      "deleteAllData": "Delete all local data",
+      "confirmDelete": "Really delete?",
+      "clearCache": "Clear store cache",
+      "backupSuccess": "Backup downloaded as JSON file. Image data is deliberately excluded.",
+      "backupError": "Could not create backup.",
+      "restoreInfo": "Restoring backup. The page will reload afterwards.",
+      "restoreError": "Could not import backup.",
+      "deleteInfo": "Deleting local data. The page will reload afterwards.",
+      "deleteError": "Could not delete local data.",
+      "confirmDeleteInfo": "Click again to permanently delete all local data.",
+      "cacheCleared": "LocalStorage cache cleared. Please reload the page."
+    },
+    "legal": {
+      "title": "Legal & Contact",
+      "contact": "Contact",
+      "contactInfo": "Support and inquiries: Toby.Bryson@schule.bayern.de",
+      "impressum": "Legal Notice",
+      "impressumInfo": "Full details are available via the footer link \"Legal Notice\".",
+      "privacy": "Privacy Policy",
+      "privacyInfo": "Information about local storage, optional AI usage, and external services is available under \"Privacy\" in the footer."
+    }
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "subjects": "My Subjects",
+    "trash": "Trash",
+    "settings": "Settings",
+    "aiAssistant": "AI Assistant",
+    "noModels": "No models configured",
+    "impressum": "Legal Notice",
+    "datenschutz": "Privacy Policy"
+  },
+  "dashboard": {
+    "greetings": {
+      "hello": "Hello! 👋",
+      "welcomeBack": "Welcome back!",
+      "readyForClass": "Ready for class?",
+      "niceToSeeYou": "Nice to see you again!"
+    },
+    "subtitle": "What would you like to create today?",
+    "recentlyEdited": "Recently edited",
+    "searchPlaceholder": "Search all documents",
+    "sort": {
+      "created": "Created",
+      "alphabetical": "Alphabetical",
+      "newest": "Newest first"
+    },
+    "renamePrompt": "Rename worksheet",
+    "deleteConfirm": "Move worksheet to trash?",
+    "emptyWorksheet": "Empty worksheet"
+  },
+  "actionHub": {
+    "newWorksheet": "Create new worksheet",
+    "newWorksheetDesc": "Start manually or with a template.",
+    "startAI": "Start AI Assistant",
+    "startAIDesc": "Automatic creation & suggestions.",
+    "browseTemplates": "Browse templates",
+    "openHeaderEditor": "Open header editor",
+    "resumeLast": "Resume last sheet"
+  },
+  "quickActions": {
+    "welcomeBack": "Welcome back!",
+    "newWorksheet": "New Worksheet",
+    "newWorksheetDesc": "Quickly start a new sheet.",
+    "aiAssistant": "AI Assistant",
+    "aiAssistantDesc": "Refine last sheet with AI."
+  },
+  "filter": {
+    "subjectAll": "Subject: All",
+    "subjectPrefix": "Subject:",
+    "classAll": "Class: All",
+    "classPrefix": "Class:",
+    "sortNewest": "Sort: Newest first",
+    "sortCreated": "Sort: Created",
+    "sortAlphabetical": "Sort: Alphabetical",
+    "subject": "Subject",
+    "class": "Class",
+    "sort": "Sort"
+  },
+  "worksheetCard": {
+    "exportAbgen": "Export (.abgen)",
+    "emptyPreview": "Empty worksheet"
+  },
+  "trash": {
+    "title": "Trash",
+    "description": "Deleted worksheets are automatically permanently deleted after 30 days.",
+    "emptyTrash": "Empty Trash",
+    "emptying": "Emptying...",
+    "emptyState": "The trash is empty.",
+    "emptyStateDesc": "Deleted worksheets appear here for 30 days.",
+    "deletedToday": "Will be deleted today",
+    "deletedTomorrow": "Will be deleted in 1 day",
+    "deletedInDays": "Will be deleted in {{count}} days",
+    "deletedOn": "Deleted on {{date}}",
+    "permanentDelete": "Delete permanently",
+    "confirmDelete": "Permanently delete \"{{title}}\"?",
+    "confirmEmptyTrash": "Really permanently empty trash?"
+  },
+  "profiles": {
+    "title": "Classes & Subjects",
+    "subtitle": "Manage your subjects and class profiles for assigning to worksheets.",
+    "subjects": "Subjects ({{count}})",
+    "addSubject": "Add subject",
+    "noSubjects": "No subjects created yet.",
+    "subjectPlaceholder": "Subject name (e.g. Mathematics)",
+    "curriculumPlaceholder": "Curriculum context (optional)",
+    "classes": "Classes ({{count}})",
+    "addClass": "Add class",
+    "noClasses": "No classes created yet.",
+    "classPlaceholder": "Class name (e.g. 3a)",
+    "characteristicPlaceholder": "Characteristic (e.g. Inclusion, ESL share)"
+  },
+  "templates": {
+    "title": "Template Gallery",
+    "subtitle": "Manage saved design templates",
+    "loadError": "Could not load templates.",
+    "empty": "No templates saved yet.",
+    "confirmDelete": "Really delete \"{{name}}\"?",
+    "deleteError": "Could not delete template.",
+    "loadSingleError": "Could not load template.",
+    "editButton": "Edit",
+    "deleteButton": "Delete template",
+    "updatedAt": "Updated: {{date}}"
+  },
+  "editor": {
+    "lightTheme": "Light theme",
+    "darkTheme": "Dark theme",
+    "backToDashboard": "Back to Dashboard",
+    "dashboard": "Dashboard",
+    "worksheetNamePlaceholder": "Worksheet name...",
+    "undo": "Undo (Ctrl+Z)",
+    "redo": "Redo (Ctrl+Y)",
+    "showOutline": "Show outline",
+    "hideOutline": "Hide outline",
+    "saving": "Saving...",
+    "save": "Save",
+    "saveAs": "Save as…",
+    "unsavedChanges": "Unsaved changes",
+    "saveError": "Save error",
+    "saved": "Saved",
+    "saveAsLabel": "Save as",
+    "newClassPlaceholder": "New class (e.g. 4a)",
+    "newSubjectPlaceholder": "New subject (e.g. Mathematics)",
+    "createNewClass": "Create new class",
+    "createNewSubject": "Create new subject",
+    "sourcesManager": "Manage sources",
+    "sources": "Sources",
+    "shareAsAbgen": "Share as .abgen file",
+    "noTasks": "No tasks yet.\nClick the \"+\" below or use the AI chat.",
+    "defaultVariant": "Level {{index}}"
+  },
+  "export": {
+    "abgenFormat": ".abgen (Data)",
+    "pdfFormat": "PDF",
+    "docxFormat": "Word (.docx)",
+    "studentVersion": "Student version",
+    "teacherVersion": "Teacher version (with solutions)",
+    "openMenu": "Open export menu",
+    "exportButton": "Export",
+    "selectFormat": "Select format",
+    "selectVersion": "Version",
+    "minOneVersion": "Select at least one version",
+    "inProgress": "ABGEN export in progress",
+    "startExport": "Start export"
+  },
+  "ribbon": {
+    "system": "System",
+    "file": "FILE",
+    "fontSection": "Font",
+    "bold": "Bold (Ctrl+B)",
+    "italic": "Italic (Ctrl+I)",
+    "underline": "Underline (Ctrl+U)",
+    "strikethrough": "Strikethrough",
+    "heading": "Heading",
+    "increaseFontSize": "Larger",
+    "decreaseFontSize": "Smaller",
+    "paragraph": "Paragraph",
+    "alignLeft": "Align left",
+    "alignCenter": "Center",
+    "alignRight": "Align right",
+    "justify": "Justify",
+    "standardAbbrev": "Std.",
+    "standardGroup": "Standard",
+    "customGroup": "Custom",
+    "fontFamily": "Font family",
+    "fontSize": "Font size",
+    "saveAs": "Save as...",
+    "bulletList": "Bullet list",
+    "orderedList": "Numbered list",
+    "indent": "Indent",
+    "outdent": "Outdent",
+    "aiAssistant": "AI Assistant",
+    "simplifyText": "Simplify text",
+    "correct": "Correct",
+    "export": "Export",
+    "pdfStudent": "As PDF (Student version)",
+    "pdfTeacher": "As PDF (Teacher version)",
+    "wordDocx": "As Word (DOCX)",
+    "manageSources": "Manage sources",
+    "actions": "ACTIONS",
+    "tabGeneral": "General",
+    "tabTables": "Tables",
+    "tabSpecialChars": "Special char.",
+    "tabImageFormat": "Image format",
+    "tablesPlaceholder": "Table tools – coming soon",
+    "specialCharsPlaceholder": "Special characters – coming soon",
+    "adjustment": "Adjustment",
+    "crop": "Crop",
+    "alignment": "Alignment",
+    "imageAlignLeft": "Align image left",
+    "imageCenter": "Center image",
+    "imageAlignRight": "Align image right"
+  },
+  "footer": {
+    "impressum": "Legal Notice",
+    "datenschutz": "Privacy Policy",
+    "licenses": "Licenses",
+    "copyright": "© {{year}} AB Generator",
+    "version": "Version {{version}}",
+    "legalLinks": "Legal links"
+  },
+  "app": {
+    "openMenu": "Open menu",
+    "closeAIChat": "Close AI chat",
+    "openAIChat": "Open AI chat",
+    "hideAIChat": "Hide AI chat",
+    "showAIChat": "Show AI chat"
+  },
+  "tour": {
+    "dashboard": {
+      "aiAssistant": {
+        "title": "AI Assistant",
+        "content": "Let AI suggest tasks and texts – saves time on lesson prep."
+      },
+      "cloudSync": {
+        "title": "Cloud Sync",
+        "content": "Go to Settings to back up your worksheets in the cloud (OneDrive, Google Drive or WebDAV)."
+      },
+      "newWorksheet": {
+        "title": "New Worksheet",
+        "content": "Click here to create your first worksheet! We'll show you around the editor."
+      }
+    },
+    "editor": {
+      "addTask": {
+        "title": "Add Task",
+        "content": "Click here to add a new task. Then choose where to place it in the editor."
+      },
+      "pdfExport": {
+        "title": "PDF Export",
+        "content": "Export your worksheet as a PDF – separate student and teacher versions available."
+      },
+      "homeButton": {
+        "title": "Back to Dashboard",
+        "content": "Click the home icon to return to the dashboard. Your worksheet is saved automatically."
+      }
+    },
+    "farewell": "Have fun building your worksheets! 🎉",
+    "locale": {
+      "back": "Back",
+      "close": "Close",
+      "last": "Finish",
+      "next": "Next",
+      "skip": "Skip"
+    }
+  }
+}

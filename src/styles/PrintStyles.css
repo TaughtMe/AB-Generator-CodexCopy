@@ -14,10 +14,12 @@
     }
 
 
-    /* ── Page setup (physical margins – browser controls whitespace) ── */
+    /* ── Page setup – margin:0 removes browser-generated header/footer
+       (URL, title, date, page number). The A4 container handles visual
+       inset so body padding is not needed. ── */
     @page {
         size: A4 portrait;
-        margin: 20mm; /* Synced with .editor-a4-page inset */
+        margin: 0;
     }
 
     /* ── Force backgrounds & colors to print (lineatur grids, header) ── */
@@ -27,7 +29,7 @@
     }
 
     /* ── Hard-reset: body → A4 page fills the printable area entirely ── */
-    html, body, #root {
+    html, #root {
         width: 100% !important;
         height: auto !important;
         margin: 0 !important;
@@ -36,6 +38,19 @@
         background-image: none !important;
         box-shadow: none !important;
         overflow: visible !important; /* Critical for multi-page printing */
+    }
+
+    /* Body gets padding to replace the removed @page margin */
+    body {
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 1.5cm 2cm !important;
+        box-sizing: border-box !important;
+        background: white !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        overflow: visible !important;
     }
 
     /* ── Kill all gray/slate workspace backgrounds ── */

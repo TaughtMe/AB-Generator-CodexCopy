@@ -1,4 +1,5 @@
 import React, { useEffect, useState, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { ICON_SIZES } from '../ui/iconSizes';
@@ -31,6 +32,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     onOpenSettings,
     children,
 }) => {
+    const { t } = useTranslation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [activeLegalModal, setActiveLegalModal] = useState<LegalModalType | null>(null);
     const [isOnboardingRunning, setIsOnboardingRunning] = useState(false);
@@ -97,7 +99,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <button
                     onClick={() => setSidebarOpen(true)}
                     className="md:hidden print:hidden fixed top-4 left-4 z-20 p-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-lg cursor-pointer"
-                    aria-label="Menü öffnen"
+                    aria-label={t('app.openMenu')}
                 >
                     <Menu className={`${ICON_SIZES[20]} text-slate-600 dark:text-slate-300`} />
                 </button>

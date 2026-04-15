@@ -1,0 +1,371 @@
+{
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "loading": "Cargando...",
+    "retry": "Reintentar",
+    "confirm": "Confirmar",
+    "search": "Buscar",
+    "actions": "Acciones",
+    "duplicate": "Duplicar",
+    "duplicating": "Duplicando...",
+    "export": "Exportar",
+    "exporting": "Exportando...",
+    "share": "Compartir",
+    "sharing": "Compartiendo...",
+    "restore": "Restaurar",
+    "remove": "Eliminar",
+    "add": "Añadir",
+    "empty": "Vacío",
+    "unknown": "Desconocido",
+    "active": "Activo",
+    "version": "Versión",
+    "justNow": "Ahora mismo",
+    "minutesAgo": "hace {{count}} min.",
+    "hoursAgo": "hace {{count}} h.",
+    "yesterday": "Ayer",
+    "daysAgo": "hace {{count}} días",
+    "moreItems": "+ {{count}} más …",
+    "levels": "{{count}} niveles",
+    "tasks": "{{count}} tareas",
+    "noClass": "Sin clase",
+    "noSubject": "Sin asignatura",
+    "deletedProfile": "Perfil eliminado",
+    "subject": "Asignatura",
+    "class": "Clase"
+  },
+  "settings": {
+    "title": "Ajustes globales",
+    "subtitle": "Centro para Dashboard, Editor y funciones de IA.",
+    "language": "Idioma",
+    "tabs": {
+      "display": "Pantalla",
+      "fonts": "Fuentes",
+      "ai": "IA",
+      "chat": "Chat IA",
+      "data": "Gestión de datos",
+      "legal": "Legal y contacto",
+      "language": "Idioma"
+    },
+    "display": {
+      "title": "Pantalla",
+      "subtitle": "Personaliza la apariencia de la aplicación.",
+      "lightMode": "Modo claro",
+      "lightModeDesc": "Fondo claro",
+      "darkMode": "Modo oscuro",
+      "darkModeDesc": "Fondo oscuro",
+      "onboarding": "Introducción y ayuda",
+      "onboardingDesc": "Reinicia el recorrido para volver a ver las áreas principales de la app.",
+      "restartTour": "Reiniciar recorrido"
+    },
+    "ai": {
+      "title": "IA",
+      "subtitle": "Las claves API permanecen en tu navegador (LocalStorage) y no se transmiten automáticamente.",
+      "activeProvider": "Proveedor activo",
+      "apiKey": "Clave API",
+      "apiKeyPlaceholder": "Introducir clave API",
+      "apiKeyOptional": "Opcional para servidor local",
+      "apiActive": "API activa",
+      "apiInactive": "API inactiva",
+      "testingApi": "Probando API...",
+      "baseUrl": "URL base",
+      "defaultModel": "Modelo predeterminado",
+      "refreshModels": "Actualizar modelos locales"
+    },
+    "chat": {
+      "title": "Chat IA",
+      "subtitle": "Elige qué modelo prefiere el chat. \"Auto\" usa el modelo predeterminado de la pestaña IA.",
+      "preferredModel": "Modelo de chat preferido",
+      "autoModel": "Auto (usa modelo predeterminado)",
+      "activeForChat": "Activo para el chat:",
+      "submitOnEnter": "Enter envía mensaje",
+      "submitOnEnterDesc": "Cuando está activo: <strong>Enter</strong> envía, <strong>Shift+Enter</strong> hace salto de línea."
+    },
+    "data": {
+      "title": "Gestión de datos",
+      "description": "Todos los datos se almacenan localmente en el navegador (LocalStorage + IndexedDB).",
+      "backupInfo": "Las copias incluyen hojas de trabajo, ajustes y plantillas. Los datos de imagen no se exportan en esta versión.",
+      "included": "Incluido",
+      "includedItems": {
+        "worksheets": "Hojas de trabajo",
+        "settings": "Ajustes globales",
+        "templates": "Plantillas de diseño (sin imágenes)"
+      },
+      "excluded": "No incluido",
+      "excludedItems": {
+        "images": "Datos de imagen (Blob/Base64)",
+        "cloud": "Servicios externos/datos en la nube"
+      },
+      "downloadBackup": "Descargar copia",
+      "restoreBackup": "Restaurar copia",
+      "deleteAllData": "Eliminar todos los datos locales",
+      "confirmDelete": "¿Eliminar de verdad?",
+      "clearCache": "Vaciar caché de almacenamiento",
+      "backupSuccess": "Copia descargada como archivo JSON. Los datos de imagen se excluyen deliberadamente.",
+      "backupError": "No se pudo crear la copia.",
+      "restoreInfo": "Restaurando copia. La página se recargará después.",
+      "restoreError": "No se pudo importar la copia.",
+      "deleteInfo": "Eliminando datos locales. La página se recargará después.",
+      "deleteError": "No se pudieron eliminar los datos locales.",
+      "confirmDeleteInfo": "Haz clic de nuevo para eliminar permanentemente todos los datos locales.",
+      "cacheCleared": "Caché de LocalStorage vaciado. Por favor, recarga la página."
+    },
+    "legal": {
+      "title": "Legal y contacto",
+      "contact": "Contacto",
+      "contactInfo": "Soporte y consultas: Toby.Bryson@schule.bayern.de",
+      "impressum": "Aviso legal",
+      "impressumInfo": "Los datos completos están disponibles a través del enlace \"Aviso legal\" en el pie de página.",
+      "privacy": "Política de privacidad",
+      "privacyInfo": "La información sobre el almacenamiento local, el uso opcional de IA y los servicios externos está disponible en \"Privacidad\" en el pie de página."
+    }
+  },
+  "sidebar": {
+    "dashboard": "Panel",
+    "subjects": "Mis asignaturas",
+    "trash": "Papelera",
+    "settings": "Ajustes",
+    "aiAssistant": "Asistente IA",
+    "noModels": "No hay modelos configurados",
+    "impressum": "Aviso legal",
+    "datenschutz": "Política de privacidad"
+  },
+  "dashboard": {
+    "greetings": {
+      "hello": "¡Hola! 👋",
+      "welcomeBack": "¡Bienvenido de vuelta!",
+      "readyForClass": "¿Listo para la clase?",
+      "niceToSeeYou": "¡Qué bueno verte de nuevo!"
+    },
+    "subtitle": "¿Qué te gustaría crear hoy?",
+    "recentlyEdited": "Editados recientemente",
+    "searchPlaceholder": "Buscar en todos los documentos",
+    "sort": {
+      "created": "Creados",
+      "alphabetical": "Alfabético",
+      "newest": "Más recientes"
+    },
+    "renamePrompt": "Renombrar hoja de trabajo",
+    "deleteConfirm": "¿Mover hoja de trabajo a la papelera?",
+    "emptyWorksheet": "Hoja de trabajo vacía"
+  },
+  "actionHub": {
+    "newWorksheet": "Crear nueva hoja de trabajo",
+    "newWorksheetDesc": "Comenzar manualmente o con una plantilla.",
+    "startAI": "Iniciar asistente IA",
+    "startAIDesc": "Creación automática y sugerencias.",
+    "browseTemplates": "Explorar plantillas",
+    "openHeaderEditor": "Abrir editor de encabezado",
+    "resumeLast": "Continuar última hoja"
+  },
+  "quickActions": {
+    "welcomeBack": "¡Bienvenido de vuelta!",
+    "newWorksheet": "Nueva hoja de trabajo",
+    "newWorksheetDesc": "Inicia rápidamente una nueva hoja.",
+    "aiAssistant": "Asistente IA",
+    "aiAssistantDesc": "Refinar última hoja con IA."
+  },
+  "filter": {
+    "subjectAll": "Asignatura: Todas",
+    "subjectPrefix": "Asignatura:",
+    "classAll": "Clase: Todas",
+    "classPrefix": "Clase:",
+    "sortNewest": "Orden: Más recientes",
+    "sortCreated": "Orden: Fecha de creación",
+    "sortAlphabetical": "Orden: Alfabético",
+    "subject": "Asignatura",
+    "class": "Clase",
+    "sort": "Orden"
+  },
+  "worksheetCard": {
+    "exportAbgen": "Exportar (.abgen)",
+    "emptyPreview": "Hoja de trabajo vacía"
+  },
+  "trash": {
+    "title": "Papelera",
+    "description": "Las hojas eliminadas se borran automáticamente de forma permanente después de 30 días.",
+    "emptyTrash": "Vaciar papelera",
+    "emptying": "Vaciando...",
+    "emptyState": "La papelera está vacía.",
+    "emptyStateDesc": "Las hojas eliminadas aparecen aquí durante 30 días.",
+    "deletedToday": "Se eliminará hoy",
+    "deletedTomorrow": "Se eliminará en 1 día",
+    "deletedInDays": "Se eliminará en {{count}} días",
+    "deletedOn": "Eliminado el {{date}}",
+    "permanentDelete": "Eliminar permanentemente",
+    "confirmDelete": "¿Eliminar permanentemente \"{{title}}\"?",
+    "confirmEmptyTrash": "¿Vaciar la papelera permanentemente?"
+  },
+  "profiles": {
+    "title": "Clases y asignaturas",
+    "subtitle": "Gestiona tus asignaturas y perfiles de clase para asignarlos a hojas de trabajo.",
+    "subjects": "Asignaturas ({{count}})",
+    "addSubject": "Añadir asignatura",
+    "noSubjects": "Aún no se han creado asignaturas.",
+    "subjectPlaceholder": "Nombre de asignatura (p. ej. Matemáticas)",
+    "curriculumPlaceholder": "Contexto curricular (opcional)",
+    "classes": "Clases ({{count}})",
+    "addClass": "Añadir clase",
+    "noClasses": "Aún no se han creado clases.",
+    "classPlaceholder": "Nombre de clase (p. ej. 3a)",
+    "characteristicPlaceholder": "Característica (p. ej. Inclusión, alumnado ELE)"
+  },
+  "templates": {
+    "title": "Galería de plantillas",
+    "subtitle": "Gestionar plantillas de diseño guardadas",
+    "loadError": "No se pudieron cargar las plantillas.",
+    "empty": "Aún no hay plantillas guardadas.",
+    "confirmDelete": "¿Eliminar \"{{name}}\" de verdad?",
+    "deleteError": "No se pudo eliminar la plantilla.",
+    "loadSingleError": "No se pudo cargar la plantilla.",
+    "editButton": "Editar",
+    "deleteButton": "Eliminar plantilla",
+    "updatedAt": "Actualizado: {{date}}"
+  },
+  "editor": {
+    "lightTheme": "Tema claro",
+    "darkTheme": "Tema oscuro",
+    "backToDashboard": "Volver al panel",
+    "dashboard": "Panel",
+    "worksheetNamePlaceholder": "Nombre de la hoja...",
+    "undo": "Deshacer (Ctrl+Z)",
+    "redo": "Rehacer (Ctrl+Y)",
+    "showOutline": "Mostrar esquema",
+    "hideOutline": "Ocultar esquema",
+    "saving": "Guardando...",
+    "save": "Guardar",
+    "saveAs": "Guardar como…",
+    "unsavedChanges": "Cambios sin guardar",
+    "saveError": "Error al guardar",
+    "saved": "Guardado",
+    "saveAsLabel": "Guardar como",
+    "newClassPlaceholder": "Nueva clase (p. ej. 4a)",
+    "newSubjectPlaceholder": "Nueva asignatura (p. ej. Matemáticas)",
+    "createNewClass": "Crear nueva clase",
+    "createNewSubject": "Crear nueva asignatura",
+    "sourcesManager": "Gestionar fuentes",
+    "sources": "Fuentes",
+    "shareAsAbgen": "Compartir como archivo .abgen",
+    "noTasks": "Aún no hay tareas.\nHaz clic en \"+\" abajo o usa el chat IA.",
+    "defaultVariant": "Nivel {{index}}"
+  },
+  "export": {
+    "abgenFormat": ".abgen (Datos)",
+    "pdfFormat": "PDF",
+    "docxFormat": "Word (.docx)",
+    "studentVersion": "Versión alumno",
+    "teacherVersion": "Versión profesor (con soluciones)",
+    "openMenu": "Abrir menú de exportación",
+    "exportButton": "Exportar",
+    "selectFormat": "Seleccionar formato",
+    "selectVersion": "Versión",
+    "minOneVersion": "Selecciona al menos una versión",
+    "inProgress": "Exportación ABGEN en curso",
+    "startExport": "Iniciar exportación"
+  },
+  "ribbon": {
+    "system": "Sistema",
+    "file": "ARCHIVO",
+    "fontSection": "Fuente",
+    "bold": "Negrita (Ctrl+B)",
+    "italic": "Cursiva (Ctrl+I)",
+    "underline": "Subrayado (Ctrl+U)",
+    "strikethrough": "Tachado",
+    "heading": "Encabezado",
+    "increaseFontSize": "Más grande",
+    "decreaseFontSize": "Más pequeño",
+    "paragraph": "Párrafo",
+    "alignLeft": "Alinear izquierda",
+    "alignCenter": "Centrar",
+    "alignRight": "Alinear derecha",
+    "justify": "Justificar",
+    "standardAbbrev": "Est.",
+    "standardGroup": "Estándar",
+    "customGroup": "Personalizadas",
+    "fontFamily": "Familia de fuente",
+    "fontSize": "Tamaño de fuente",
+    "saveAs": "Guardar como...",
+    "bulletList": "Lista con viñetas",
+    "orderedList": "Lista numerada",
+    "indent": "Aumentar sangría",
+    "outdent": "Reducir sangría",
+    "aiAssistant": "Asistente IA",
+    "simplifyText": "Simplificar texto",
+    "correct": "Corregir",
+    "export": "Exportar",
+    "pdfStudent": "Como PDF (Versión alumno)",
+    "pdfTeacher": "Como PDF (Versión profesor)",
+    "wordDocx": "Como Word (DOCX)",
+    "manageSources": "Gestionar fuentes",
+    "actions": "ACCIONES",
+    "tabGeneral": "General",
+    "tabTables": "Tablas",
+    "tabSpecialChars": "Caract. esp.",
+    "tabImageFormat": "Formato imagen",
+    "tablesPlaceholder": "Herramientas de tablas – próximamente",
+    "specialCharsPlaceholder": "Caracteres especiales – próximamente",
+    "adjustment": "Ajuste",
+    "crop": "Recortar",
+    "alignment": "Alineación",
+    "imageAlignLeft": "Alinear imagen a la izquierda",
+    "imageCenter": "Centrar imagen",
+    "imageAlignRight": "Alinear imagen a la derecha"
+  },
+  "footer": {
+    "impressum": "Aviso legal",
+    "datenschutz": "Política de privacidad",
+    "licenses": "Licencias",
+    "copyright": "© {{year}} AB Generator",
+    "version": "Versión {{version}}",
+    "legalLinks": "Enlaces legales"
+  },
+  "app": {
+    "openMenu": "Abrir menú",
+    "closeAIChat": "Cerrar chat IA",
+    "openAIChat": "Abrir chat IA",
+    "hideAIChat": "Ocultar chat IA",
+    "showAIChat": "Mostrar chat IA"
+  },
+  "tour": {
+    "dashboard": {
+      "aiAssistant": {
+        "title": "Asistente IA",
+        "content": "Deja que la IA te sugiera tareas y textos – ahorra tiempo en la preparación."
+      },
+      "cloudSync": {
+        "title": "Sincronización en la nube",
+        "content": "En Configuración puedes guardar tus hojas de trabajo en la nube (OneDrive, Google Drive o WebDAV)."
+      },
+      "newWorksheet": {
+        "title": "Nueva hoja de trabajo",
+        "content": "¡Haz clic aquí para crear tu primera hoja de trabajo! Te mostraremos el editor."
+      }
+    },
+    "editor": {
+      "addTask": {
+        "title": "Añadir tarea",
+        "content": "Haz clic aquí para añadir una tarea nueva. Luego elige dónde colocarla en el editor."
+      },
+      "pdfExport": {
+        "title": "Exportar PDF",
+        "content": "Exporta tu hoja de trabajo como PDF – versiones separadas para alumnos y profesores."
+      },
+      "homeButton": {
+        "title": "Volver al panel",
+        "content": "Haz clic en el icono de inicio para volver al panel. Tu hoja de trabajo se guarda automáticamente."
+      }
+    },
+    "farewell": "¡Diviértete creando tus hojas de trabajo! 🎉",
+    "locale": {
+      "back": "Atrás",
+      "close": "Cerrar",
+      "last": "Terminar",
+      "next": "Siguiente",
+      "skip": "Omitir"
+    }
+  }
+}

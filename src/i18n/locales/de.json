@@ -1,0 +1,371 @@
+{
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "back": "Zurück",
+    "loading": "Lädt...",
+    "retry": "Erneut versuchen",
+    "confirm": "Bestätigen",
+    "search": "Suchen",
+    "actions": "Aktionen",
+    "duplicate": "Duplizieren",
+    "duplicating": "Dupliziere...",
+    "export": "Exportieren",
+    "exporting": "Exportiere...",
+    "share": "Teilen",
+    "sharing": "Teile...",
+    "restore": "Wiederherstellen",
+    "remove": "Entfernen",
+    "add": "Hinzufügen",
+    "empty": "Leer",
+    "unknown": "Unbekannt",
+    "active": "Aktiv",
+    "version": "Version",
+    "justNow": "Gerade eben",
+    "minutesAgo": "vor {{count}} Min.",
+    "hoursAgo": "vor {{count}} Std.",
+    "yesterday": "Gestern",
+    "daysAgo": "vor {{count}} Tagen",
+    "moreItems": "+ {{count}} weitere …",
+    "levels": "{{count}} Niveaus",
+    "tasks": "{{count}} Aufgaben",
+    "noClass": "Keine Klasse",
+    "noSubject": "Kein Fach",
+    "deletedProfile": "Gelöschtes Profil",
+    "subject": "Fach",
+    "class": "Klasse"
+  },
+  "settings": {
+    "title": "Globale Einstellungen",
+    "subtitle": "Zentral für Dashboard, Editor und KI-Funktionen.",
+    "language": "Sprache",
+    "tabs": {
+      "display": "Anzeige",
+      "fonts": "Schriftarten",
+      "ai": "KI",
+      "chat": "KI-Chat",
+      "data": "Datenverwaltung",
+      "legal": "Rechtliches & Kontakt",
+      "language": "Sprache"
+    },
+    "display": {
+      "title": "Anzeige",
+      "subtitle": "Hier stellst du das Erscheinungsbild der App ein.",
+      "lightMode": "Light Mode",
+      "lightModeDesc": "Heller Hintergrund",
+      "darkMode": "Dark Mode",
+      "darkModeDesc": "Dunkler Hintergrund",
+      "onboarding": "Onboarding & Hilfe",
+      "onboardingDesc": "Starte die Einführung erneut, wenn du die wichtigsten Bereiche der App noch einmal sehen möchtest.",
+      "restartTour": "Tour erneut starten"
+    },
+    "ai": {
+      "title": "KI",
+      "subtitle": "API-Keys bleiben im Browser (LocalStorage) und werden nicht automatisch übertragen.",
+      "activeProvider": "Aktiver Anbieter",
+      "apiKey": "API-Key",
+      "apiKeyPlaceholder": "API-Key eingeben",
+      "apiKeyOptional": "Optional für lokalen Server",
+      "apiActive": "API aktiv",
+      "apiInactive": "API nicht aktiv",
+      "testingApi": "Prüfe API...",
+      "baseUrl": "Base URL",
+      "defaultModel": "Standardmodell",
+      "refreshModels": "Lokale Modelle aktualisieren"
+    },
+    "chat": {
+      "title": "KI-Chat",
+      "subtitle": "Lege fest, welches Modell der Chat bevorzugt nutzt. \"Auto\" nimmt das Standardmodell aus dem KI-Tab.",
+      "preferredModel": "Bevorzugtes Chat-Modell",
+      "autoModel": "Auto (nutzt Standardmodell)",
+      "activeForChat": "Aktiv für den Chat:",
+      "submitOnEnter": "Enter sendet Nachricht",
+      "submitOnEnterDesc": "Wenn aktiv: <strong>Enter</strong> sendet, <strong>Shift+Enter</strong> macht Zeilenumbruch."
+    },
+    "data": {
+      "title": "Datenverwaltung",
+      "description": "Alle Daten werden lokal im Browser gespeichert (LocalStorage + IndexedDB).",
+      "backupInfo": "Backups enthalten Arbeitsblätter, Einstellungen und Vorlagen. Bilddaten werden in dieser Version nicht exportiert.",
+      "included": "Wird gesichert",
+      "includedItems": {
+        "worksheets": "Arbeitsblätter",
+        "settings": "Globale Einstellungen",
+        "templates": "Design-Vorlagen (ohne Bilder)"
+      },
+      "excluded": "Nicht enthalten",
+      "excludedItems": {
+        "images": "Bilddaten (Blob/Base64)",
+        "cloud": "Externe Dienste/Cloud-Daten"
+      },
+      "downloadBackup": "Backup herunterladen",
+      "restoreBackup": "Backup wiederherstellen",
+      "deleteAllData": "Alle lokalen Daten löschen",
+      "confirmDelete": "Wirklich löschen?",
+      "clearCache": "Store-Cache leeren",
+      "backupSuccess": "Backup wurde als JSON-Datei heruntergeladen. Bilddaten sind bewusst ausgeschlossen.",
+      "backupError": "Backup konnte nicht erstellt werden.",
+      "restoreInfo": "Backup wird wiederhergestellt. Die Seite wird danach neu geladen.",
+      "restoreError": "Backup konnte nicht importiert werden.",
+      "deleteInfo": "Lokale Daten werden gelöscht. Die Seite wird danach neu geladen.",
+      "deleteError": "Lokale Daten konnten nicht gelöscht werden.",
+      "confirmDeleteInfo": "Erneut klicken, um alle lokalen Daten endgültig zu löschen.",
+      "cacheCleared": "LocalStorage-Cache geleert. Bitte Seite neu laden."
+    },
+    "legal": {
+      "title": "Rechtliches & Kontakt",
+      "contact": "Kontakt",
+      "contactInfo": "Support und Rückfragen: Toby.Bryson@schule.bayern.de",
+      "impressum": "Impressum",
+      "impressumInfo": "Vollständige Angaben sind über den Footer-Link \"Impressum\" erreichbar.",
+      "privacy": "Datenschutz",
+      "privacyInfo": "Hinweise zu lokaler Speicherung, optionaler KI-Nutzung und externen Diensten stehen im Footer unter \"Datenschutz\"."
+    }
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "subjects": "Meine Fächer",
+    "trash": "Papierkorb",
+    "settings": "Einstellungen",
+    "aiAssistant": "KI-Assistent",
+    "noModels": "Keine Modelle konfiguriert",
+    "impressum": "Impressum",
+    "datenschutz": "Datenschutz"
+  },
+  "dashboard": {
+    "greetings": {
+      "hello": "Hallo! 👋",
+      "welcomeBack": "Willkommen zurück!",
+      "readyForClass": "Bereit für den Unterricht?",
+      "niceToSeeYou": "Schön, dass du wieder da bist!"
+    },
+    "subtitle": "Was möchtest du heute erstellen?",
+    "recentlyEdited": "Zuletzt bearbeitet",
+    "searchPlaceholder": "Alle Dokumente durchsuchen",
+    "sort": {
+      "created": "Erstellt",
+      "alphabetical": "Alphabetisch",
+      "newest": "Neueste zuerst"
+    },
+    "renamePrompt": "Arbeitsblatt umbenennen",
+    "deleteConfirm": "Arbeitsblatt in den Papierkorb verschieben?",
+    "emptyWorksheet": "Leeres Arbeitsblatt"
+  },
+  "actionHub": {
+    "newWorksheet": "Neues Arbeitsblatt erstellen",
+    "newWorksheetDesc": "Manuell oder mit Vorlage beginnen.",
+    "startAI": "KI-Assistent starten",
+    "startAIDesc": "Automatische Erstellung & Vorschläge.",
+    "browseTemplates": "Vorlagen durchsuchen",
+    "openHeaderEditor": "Kopfzeilen-Editor öffnen",
+    "resumeLast": "Letztes Blatt fortsetzen"
+  },
+  "quickActions": {
+    "welcomeBack": "Willkommen zurück!",
+    "newWorksheet": "Neues Arbeitsblatt",
+    "newWorksheetDesc": "Schnell ein neues Blatt starten.",
+    "aiAssistant": "KI-Assistent",
+    "aiAssistantDesc": "Letztes Blatt mit KI verfeinern."
+  },
+  "filter": {
+    "subjectAll": "Fach: Alle",
+    "subjectPrefix": "Fach:",
+    "classAll": "Klasse: Alle",
+    "classPrefix": "Klasse:",
+    "sortNewest": "Sortierung: Neueste zuerst",
+    "sortCreated": "Sortierung: Erstellt am",
+    "sortAlphabetical": "Sortierung: Alphabetisch",
+    "subject": "Fach",
+    "class": "Klasse",
+    "sort": "Sortierung"
+  },
+  "worksheetCard": {
+    "exportAbgen": "Exportieren (.abgen)",
+    "emptyPreview": "Leeres Arbeitsblatt"
+  },
+  "trash": {
+    "title": "Papierkorb",
+    "description": "Gelöschte Arbeitsblätter werden nach 30 Tagen automatisch endgültig gelöscht.",
+    "emptyTrash": "Papierkorb leeren",
+    "emptying": "Leere...",
+    "emptyState": "Der Papierkorb ist leer.",
+    "emptyStateDesc": "Gelöschte Arbeitsblätter erscheinen hier für 30 Tage.",
+    "deletedToday": "Wird heute gelöscht",
+    "deletedTomorrow": "Wird in 1 Tag gelöscht",
+    "deletedInDays": "Wird in {{count}} Tagen gelöscht",
+    "deletedOn": "Gelöscht am {{date}}",
+    "permanentDelete": "Endgültig löschen",
+    "confirmDelete": "\"{{title}}\" endgültig löschen?",
+    "confirmEmptyTrash": "Papierkorb wirklich endgültig leeren?"
+  },
+  "profiles": {
+    "title": "Klassen & Fächer",
+    "subtitle": "Verwalte deine Fächer und Klassen-Profile für die Zuordnung zu Arbeitsblättern.",
+    "subjects": "Fächer ({{count}})",
+    "addSubject": "Fach hinzufügen",
+    "noSubjects": "Noch keine Fächer angelegt.",
+    "subjectPlaceholder": "Fachname (z.B. Mathematik)",
+    "curriculumPlaceholder": "Lehrplan-Kontext (optional)",
+    "classes": "Klassen ({{count}})",
+    "addClass": "Klasse hinzufügen",
+    "noClasses": "Noch keine Klassen angelegt.",
+    "classPlaceholder": "Klassenname (z.B. 3a)",
+    "characteristicPlaceholder": "Besonderheit (z.B. Inklusion, DaZ-Anteil)"
+  },
+  "templates": {
+    "title": "Vorlagen-Galerie",
+    "subtitle": "Gespeicherte Design-Vorlagen verwalten",
+    "loadError": "Vorlagen konnten nicht geladen werden.",
+    "empty": "Noch keine Vorlagen gespeichert.",
+    "confirmDelete": "\"{{name}}\" wirklich löschen?",
+    "deleteError": "Vorlage konnte nicht gelöscht werden.",
+    "loadSingleError": "Vorlage konnte nicht geladen werden.",
+    "editButton": "Bearbeiten",
+    "deleteButton": "Vorlage löschen",
+    "updatedAt": "Aktualisiert: {{date}}"
+  },
+  "editor": {
+    "lightTheme": "Helles Design",
+    "darkTheme": "Dunkles Design",
+    "backToDashboard": "Zurück zum Dashboard",
+    "dashboard": "Dashboard",
+    "worksheetNamePlaceholder": "Arbeitsblatt-Name...",
+    "undo": "Rückgängig (Ctrl+Z)",
+    "redo": "Wiederholen (Ctrl+Y)",
+    "showOutline": "Gliederung einblenden",
+    "hideOutline": "Gliederung ausblenden",
+    "saving": "Speichert...",
+    "save": "Speichern",
+    "saveAs": "Speichern unter…",
+    "unsavedChanges": "Ungespeicherte Änderungen",
+    "saveError": "Speicherfehler",
+    "saved": "Gespeichert",
+    "saveAsLabel": "Speichern unter",
+    "newClassPlaceholder": "Neue Klasse (z.B. 4a)",
+    "newSubjectPlaceholder": "Neues Fach (z.B. Mathematik)",
+    "createNewClass": "Neue Klasse anlegen",
+    "createNewSubject": "Neues Fach anlegen",
+    "sourcesManager": "Quellen verwalten",
+    "sources": "Quellen",
+    "shareAsAbgen": "Als .abgen-Datei teilen",
+    "noTasks": "Noch keine Aufgaben vorhanden.\nKlicke unten auf das \"+\" oder nutze den KI-Chat.",
+    "defaultVariant": "Niveau {{index}}"
+  },
+  "export": {
+    "abgenFormat": ".abgen (Daten)",
+    "pdfFormat": "PDF",
+    "docxFormat": "Word (.docx)",
+    "studentVersion": "Schülerversion",
+    "teacherVersion": "Lehrerversion (mit Lösungen)",
+    "openMenu": "Exportmenü öffnen",
+    "exportButton": "Exportieren",
+    "selectFormat": "Format wählen",
+    "selectVersion": "Version",
+    "minOneVersion": "Mindestens eine Version wählen",
+    "inProgress": "ABGEN-Export läuft",
+    "startExport": "Export starten"
+  },
+  "ribbon": {
+    "system": "System",
+    "file": "DATEI",
+    "fontSection": "Schriftart",
+    "bold": "Fett (Ctrl+B)",
+    "italic": "Kursiv (Ctrl+I)",
+    "underline": "Unterstrichen (Ctrl+U)",
+    "strikethrough": "Durchgestrichen",
+    "heading": "Überschrift",
+    "increaseFontSize": "Größer",
+    "decreaseFontSize": "Kleiner",
+    "paragraph": "Absatz",
+    "alignLeft": "Linksbündig",
+    "alignCenter": "Zentriert",
+    "alignRight": "Rechtsbündig",
+    "justify": "Blocksatz",
+    "standardAbbrev": "Std.",
+    "standardGroup": "Standard",
+    "customGroup": "Eigene",
+    "fontFamily": "Schriftart",
+    "fontSize": "Schriftgröße",
+    "saveAs": "Speichern unter...",
+    "bulletList": "Aufzählung",
+    "orderedList": "Nummerierte Liste",
+    "indent": "Einrücken",
+    "outdent": "Ausrücken",
+    "aiAssistant": "KI-Assistent",
+    "simplifyText": "Text vereinfachen",
+    "correct": "Korrigieren",
+    "export": "Exportieren",
+    "pdfStudent": "Als PDF (Schülerversion)",
+    "pdfTeacher": "Als PDF (Lehrerversion)",
+    "wordDocx": "Als Word (DOCX)",
+    "manageSources": "Quellen verwalten",
+    "actions": "AKTIONEN",
+    "tabGeneral": "Allgemein",
+    "tabTables": "Tabellen",
+    "tabSpecialChars": "Sonderzeich.",
+    "tabImageFormat": "Bildformat",
+    "tablesPlaceholder": "Tabellen-Werkzeuge – demnächst verfügbar",
+    "specialCharsPlaceholder": "Sonderzeichen – demnächst verfügbar",
+    "adjustment": "Anpassung",
+    "crop": "Zuschneiden",
+    "alignment": "Ausrichtung",
+    "imageAlignLeft": "Bild links ausrichten",
+    "imageCenter": "Bild zentrieren",
+    "imageAlignRight": "Bild rechts ausrichten"
+  },
+  "footer": {
+    "impressum": "Impressum",
+    "datenschutz": "Datenschutz",
+    "licenses": "Lizenzen",
+    "copyright": "© {{year}} AB Generator",
+    "version": "Version {{version}}",
+    "legalLinks": "Rechtliche Links"
+  },
+  "app": {
+    "openMenu": "Menü öffnen",
+    "closeAIChat": "KI-Chat schließen",
+    "openAIChat": "KI-Chat öffnen",
+    "hideAIChat": "KI-Chat ausblenden",
+    "showAIChat": "KI-Chat einblenden"
+  },
+  "tour": {
+    "dashboard": {
+      "aiAssistant": {
+        "title": "KI-Assistent",
+        "content": "Lass dir Aufgaben und Texte von der KI vorschlagen – spart Zeit bei der Vorbereitung."
+      },
+      "cloudSync": {
+        "title": "Cloud-Sync",
+        "content": "Unter Einstellungen kannst du deine Arbeitsblätter in der Cloud sichern (OneDrive, Google Drive oder WebDAV)."
+      },
+      "newWorksheet": {
+        "title": "Neues Arbeitsblatt",
+        "content": "Klicke hier, um dein erstes Arbeitsblatt zu erstellen! Wir zeigen dir dann den Editor."
+      }
+    },
+    "editor": {
+      "addTask": {
+        "title": "Aufgabe hinzufügen",
+        "content": "Klicke hier, um eine neue Aufgabe zu platzieren. Danach wählst du die Position im Editor."
+      },
+      "pdfExport": {
+        "title": "PDF-Export",
+        "content": "Exportiere dein Arbeitsblatt als PDF – getrennt nach Schüler- und Lehrerversion."
+      },
+      "homeButton": {
+        "title": "Zurück zum Dashboard",
+        "content": "Klicke auf das Haus-Symbol, um zum Dashboard zurückzukehren. Dein Arbeitsblatt wird automatisch gespeichert."
+      }
+    },
+    "farewell": "Viel Spaß beim Erstellen deiner Arbeitsblätter! 🎉",
+    "locale": {
+      "back": "Zurück",
+      "close": "Schließen",
+      "last": "Fertig",
+      "next": "Weiter",
+      "skip": "Überspringen"
+    }
+  }
+}

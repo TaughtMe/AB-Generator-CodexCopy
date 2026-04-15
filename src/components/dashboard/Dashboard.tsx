@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useShallow } from 'zustand/react/shallow';
 import { ActionHub } from './ActionHub';
@@ -19,6 +20,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat, onOpenDesignEditor }) => {
+    const { t } = useTranslation();
     const {
         recentWorksheets,
         loadRecent,
@@ -48,10 +50,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
     })));
 
     const GREETINGS = [
-        'Hallo! 👋',
-        'Willkommen zurück!',
-        'Bereit für den Unterricht?',
-        'Schön, dass du wieder da bist!',
+        t('dashboard.greetings.hello'),
+        t('dashboard.greetings.welcomeBack'),
+        t('dashboard.greetings.readyForClass'),
+        t('dashboard.greetings.niceToSeeYou'),
     ];
     const greeting = useMemo(
         () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
@@ -129,7 +131,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
         <div className="max-w-6xl mx-auto px-6 py-8 md:py-10">
             <div className="mb-5">
                 <h2 className="text-lg font-bold text-slate-800 dark:text-white">{greeting}</h2>
-                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">Was möchtest du heute erstellen?</p>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">{t('dashboard.subtitle')}</p>
             </div>
 
             {/* ── Aktions-Hub (oben) ── */}
@@ -146,7 +148,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenEditor, onOpenAIChat
             <section>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                     <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                        Zuletzt bearbeitet
+                        {t('dashboard.recentlyEdited')}
                     </h3>
 
                     <FilterBar

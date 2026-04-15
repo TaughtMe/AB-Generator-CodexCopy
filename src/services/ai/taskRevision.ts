@@ -274,6 +274,7 @@ function normalizeRevisionAddTaskPayload(raw: Record<string, unknown>): Omit<Tas
             type: 'multiple-choice',
             title: String(raw.title || 'Multiple-Choice'),
             question: String(raw.question || ''),
+            vocabulary: [],
             options: Array.isArray(raw.options)
                 ? raw.options
                     .filter(isObjectRecord)
@@ -294,6 +295,7 @@ function normalizeRevisionAddTaskPayload(raw: Record<string, unknown>): Omit<Tas
                 type: 'math',
                 title: String(raw.title || 'Lückentext'),
                 content: mathMatch[1].trim(),
+                vocabulary: [],
             } as Omit<Task, 'id'>;
         }
 
@@ -301,6 +303,7 @@ function normalizeRevisionAddTaskPayload(raw: Record<string, unknown>): Omit<Tas
             type: 'cloze',
             title: String(raw.title || 'Lückentext'),
             content,
+            vocabulary: [],
         } as Omit<Task, 'id'>;
     }
 
@@ -314,6 +317,7 @@ function normalizeRevisionAddTaskPayload(raw: Record<string, unknown>): Omit<Tas
         type: 'math',
         title: String(raw.title || 'Mathematik'),
         content: String(raw.content || ''),
+        vocabulary: [],
     } as Omit<Task, 'id'>;
 }
 

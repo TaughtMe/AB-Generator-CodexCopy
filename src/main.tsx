@@ -1,6 +1,7 @@
 import React, { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ErrorBoundary } from 'react-error-boundary'
+import './i18n/config'
 import './index.css'
 import { ErrorFallback } from './components/ui/ErrorFallback'
 import { LoadingScreen } from './components/ui/LoadingScreen'

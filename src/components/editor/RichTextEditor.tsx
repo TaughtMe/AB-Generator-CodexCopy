@@ -16,6 +16,7 @@ import { FontSize } from './tiptapFontSize';
 import { TextAlign } from './tiptapTextAlign';
 import { TiptapImage } from './tiptapImage';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
+import { TextEditorBubbleMenu } from './shared/TextEditorBubbleMenu';
 
 /* ══════════════════════════════════════════════════
    RichTextEditor – Wiederverwendbarer Tiptap-Editor
@@ -43,6 +44,8 @@ export interface RichTextEditorProps {
     variant?: 'default' | 'minimal';
     /** Optionaler Hook für Zugriff auf die Editor-Instanz (z.B. Table-Actions). */
     onEditorReady?: (editor: Editor | null) => void;
+    /** Task-ID für globale Shared-Editorfeatures (z.B. Vokabel markieren). */
+    taskId?: string;
 }
 
 /** Prüft ob ein String HTML-Tags enthält */
@@ -76,6 +79,7 @@ function RichTextEditorInner({
     className,
     variant = 'default',
     onEditorReady,
+    taskId,
 }: RichTextEditorProps) {
     const setActiveEditor = useWorkspaceStore((s) => s.setActiveEditor);
     const isMinimal = variant === 'minimal';
@@ -201,6 +205,7 @@ function RichTextEditorInner({
 
     return (
         <div className={clsx('rounded-lg border border-worksheet-border bg-worksheet-field overflow-visible transition-colors focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500 print:bg-transparent print:border-none', className)}>
+            {taskId && <TextEditorBubbleMenu editor={editor} taskId={taskId} />}
             {/* ── Editor-Content ── */}
             <EditorContent
                 editor={editor}

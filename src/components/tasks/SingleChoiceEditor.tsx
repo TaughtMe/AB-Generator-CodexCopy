@@ -4,6 +4,7 @@ import { useWorksheetStore } from '../../store/worksheetStore';
 import { Plus, Trash2, Check } from 'lucide-react';
 import { RichTextEditor } from '../editor/RichTextEditor';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { VocabularyList } from '../editor/shared/VocabularyList';
 
 interface SingleChoiceEditorProps {
     task: MultipleChoiceTask;
@@ -63,6 +64,7 @@ export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, is
                     placeholder="Stelle hier deine Frage…"
                     minRows={2}
                     hideToolbar={!isActive}
+                    taskId={task.id}
                 />
             </div>
 
@@ -111,6 +113,7 @@ export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, is
                                     hideToolbar={!isActive}
                                     variant="minimal"
                                     className="border-0 shadow-none ring-0 focus-within:ring-0"
+                                    taskId={task.id}
                                 />
                             </div>
 
@@ -137,6 +140,8 @@ export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, is
                     <Plus className={ICON_SIZES[16]} /> Option hinzufügen
                 </button>
             )}
+
+            <VocabularyList vocabulary={task.vocabulary} taskId={task.id} />
         </div>
     );
 };

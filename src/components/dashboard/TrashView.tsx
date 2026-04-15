@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RotateCcw, Trash, Trash2 } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useProfileStore } from '../../store/profileStore';
@@ -15,25 +16,26 @@ function getDaysUntilDeletion(deletedAt?: number): number {
 
 function formatDeletionHint(deletedAt?: number): string {
     const days = getDaysUntilDeletion(deletedAt);
-    if (days === 0) return 'Wird heute gelöscht';
-    if (days === 1) return 'Wird in 1 Tag gelöscht';
-    return `Wird in ${days} Tagen gelöscht`;
+    if (days === 0) return '@@today';
+    if (days === 1) return '@@tomorrow';
+    return `@@days:${days}`;
 }
 
 function formatDeletedDate(deletedAt?: number): string {
-    if (typeof deletedAt !== 'number') return 'Unbekannt';
+    if (typeof deletedAt !== 'number') return '@@unknown';
     try {
-        return new Date(deletedAt).toLocaleDateString('de-DE', {
+        return new Date(deletedAt).toLocaleDateString(undefined, {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
         });
     } catch {
-        return 'Unbekannt';
+        return '@@unknown';
     }
 }
 
 export const TrashView: React.FC = () => {
+    const { t } = useTranslation();
     const trashedWorksheets = useWorkspaceStore((s) => s.trashedWorksheets);
     const loadTrash = useWorkspaceStore((s) => s.loadTrash);
     const restoreWorksheet = useWorkspaceStore((s) => s.restoreWorksheet);
@@ -61,7 +63,7 @@ export const TrashView: React.FC = () => {
 
     const handleHardDelete = async (id: string, title: string) => {
         if (busyItemId || isEmptying) return;
-        const confirmed = window.confirm(`"${title}" endgültig löschen?`);
+        const confirmed = window.confirm(t('trash.confirmDelete', { title }));
         if (!confirmed) return;
 
         setBusyItemId(id);
@@ -74,7 +76,7 @@ export const TrashView: React.FC = () => {
 
     const handleEmptyTrash = async () => {
         if (trashedWorksheets.length === 0 || busyItemId || isEmptying) return;
-        const confirmed = window.confirm('Papierkorb wirklich endgültig leeren?');
+        const confirmed = window.confirm(t('trash.confirmEmptyTrash'));
         if (!confirmed) return;
 
         setIsEmptying(true);
@@ -89,9 +91,9 @@ export const TrashView: React.FC = () => {
         <div className="max-w-6xl mx-auto px-6 py-8 md:py-10">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-lg font-bold text-slate-800 dark:text-white">Papierkorb</h2>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('trash.title')}</h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        Gelöschte Arbeitsblätter werden nach 30 Tagen automatisch endgültig gelöscht.
+                        {t('trash.description')}
                     </p>
                 </div>
 
@@ -101,7 +103,7 @@ export const TrashView: React.FC = () => {
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                     <Trash2 className={ICON_SIZES[16]} />
-                    {isEmptying ? 'Leere...' : 'Papierkorb leeren'}
+                    {isEmptying ? t('trash.emptying') : t('trash.emptyTrash')}
                 </button>
             </div>
 
@@ -109,10 +111,10 @@ export const TrashView: React.FC = () => {
                 <div className="text-center py-16 border-2 border-dashed border-slate-200 dark:border-slate-700/40 rounded-2xl bg-white/50 dark:bg-slate-800/20">
                     <Trash2 className={`${ICON_SIZES[36]} mx-auto text-slate-300 dark:text-slate-600 mb-3 opacity-60`} />
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Der Papierkorb ist leer.
+                        {t('trash.emptyState')}
                     </p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                        Gelöschte Arbeitsblätter erscheinen hier für 30 Tage.
+                        {t('trash.emptyStateDesc')}
                     </p>
                 </div>
             ) : (
@@ -134,21 +136,21 @@ export const TrashView: React.FC = () => {
                                             {meta.title}
                                         </h3>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                            Gelöscht am {formatDeletedDate(meta.deletedAt)}
+                                            {t('trash.deletedOn', { date: (() => { const raw = formatDeletedDate(meta.deletedAt); return raw === '@@unknown' ? t('common.unknown') : raw; })() })}
                                         </p>
                                     </div>
                                     <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 px-2 py-1 text-[10px] font-semibold whitespace-nowrap">
-                                        {formatDeletionHint(meta.deletedAt)}
+                                        {(() => { const hint = formatDeletionHint(meta.deletedAt); if (hint === '@@today') return t('trash.deletedToday'); if (hint === '@@tomorrow') return t('trash.deletedTomorrow'); const days = hint.split(':')[1]; return t('trash.deletedInDays', { count: Number(days) }); })()}
                                     </span>
                                 </div>
 
                                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
                                     <span className="rounded-full bg-slate-100 dark:bg-slate-700/60 px-2 py-1">
-                                        {meta.taskCount} Aufgaben
+                                        {t('common.tasks', { count: meta.taskCount })}
                                     </span>
                                     {meta.variantCount > 1 && (
                                         <span className="rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300 px-2 py-1">
-                                            {meta.variantCount} Niveaus
+                                            {t('common.levels', { count: meta.variantCount })}
                                         </span>
                                     )}
                                     {contextLabel && (
@@ -165,7 +167,7 @@ export const TrashView: React.FC = () => {
                                         className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                     >
                                         <RotateCcw className={ICON_SIZES[14]} />
-                                        Wiederherstellen
+                                        {t('common.restore')}
                                     </button>
                                     <button
                                         onClick={() => void handleHardDelete(meta.id, meta.title)}
@@ -173,7 +175,7 @@ export const TrashView: React.FC = () => {
                                         className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                     >
                                         <Trash className={ICON_SIZES[14]} />
-                                        Endgültig löschen
+                                        {t('trash.permanentDelete')}
                                     </button>
                                 </div>
                             </article>

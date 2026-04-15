@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 
 import { useWorksheetStore } from './store/worksheetStore';
@@ -23,11 +24,13 @@ import { DashboardLayout } from './components/dashboard/DashboardLayout';
 import { LegalModals, type LegalModalType } from './components/layout/LegalModals';
 import { ClassesDashboard } from './components/dashboard/ClassesDashboard';
 import { SettingsView } from './components/settings/SettingsView';
+import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import type { SidebarView } from './components/layout/Sidebar';
 
 import './styles/PrintStyles.css';
 
 function App() {
+  const { t } = useTranslation();
   const title = useWorksheetStore((state) => state.title);
   const taskIds = useWorksheetStore((state) => state.taskIds);
   const tasksById = useWorksheetStore((state) => state.tasksById);
@@ -181,13 +184,26 @@ function App() {
   const handleAddVariant = () => {
     const existingLabels = new Set(variants.map((variant) => variant.label));
     let index = variants.length + 1;
-    let label = `Niveau ${index}`;
+    let label = t('editor.defaultVariant', { index });
     while (existingLabels.has(label)) {
       index += 1;
-      label = `Niveau ${index}`;
+      label = t('editor.defaultVariant', { index });
     }
     addVariant(label, 'duplicate-active');
   };
+
+  const handleOnboardingCreate = useCallback(() => {
+    createNewWorksheet();
+    setCurrentView('editor');
+  }, [createNewWorksheet, setCurrentView]);
+
+  /* ── Shared onboarding (lives across view switches) ── */
+  const onboardingElement = (
+    <OnboardingFlow
+      currentView={currentView}
+      onCreateAndOpenEditor={handleOnboardingCreate}
+    />
+  );
 
   /* ── Dashboard View (unified layout) ── */
   if (currentView !== 'editor') {
@@ -200,6 +216,7 @@ function App() {
 
     return (
       <>
+        {onboardingElement}
         <DashboardLayout
           activeView={sidebarView}
           onChangeView={handleSidebarChange}
@@ -253,6 +270,7 @@ function App() {
   /* ── Editor View ── */
   return (
     <div className="min-h-screen print:h-auto pb-32 print:pb-0 bg-slate-100 print:bg-white dark:bg-slate-950 print:dark:bg-white text-slate-900 dark:text-slate-100 print:dark:text-slate-900">
+      {onboardingElement}
       <RibbonToolbar
         onBackToDashboard={handleBackToDashboard}
         onSave={handleSave}
@@ -311,9 +329,8 @@ function App() {
           {/* Empty state */}
           {taskIds.length === 0 && (
             <div className="no-print text-center py-16 mx-auto max-w-[210mm] border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl mt-8">
-              <p className="text-slate-400 dark:text-slate-500 text-sm">
-                Noch keine Aufgaben vorhanden.<br />
-                Klicke unten auf das "+" oder nutze den KI-Chat.
+              <p className="text-slate-400 dark:text-slate-500 text-sm" style={{ whiteSpace: 'pre-line' }}>
+                {t('editor.noTasks')}
               </p>
             </div>
           )}
@@ -329,9 +346,9 @@ function App() {
       <button
         type="button"
         onClick={toggleAiSidebar}
-        aria-label={isAiSidebarOpen ? 'KI-Chat schließen' : 'KI-Chat öffnen'}
+        aria-label={isAiSidebarOpen ? t('app.closeAIChat') : t('app.openAIChat')}
         aria-pressed={isAiSidebarOpen}
-        title={isAiSidebarOpen ? 'KI-Chat ausblenden' : 'KI-Chat einblenden'}
+        title={isAiSidebarOpen ? t('app.hideAIChat') : t('app.showAIChat')}
         className={`no-print hidden lg:flex fixed z-50 h-14 w-14 items-center justify-center rounded-full border text-white shadow-xl transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 ${
           isAiSidebarOpen
             ? 'bottom-6 right-[21rem] xl:right-[25rem] bg-teal-500 dark:bg-purple-600 border-white/25 dark:border-white/10 hover:bg-teal-400 dark:hover:bg-purple-500 hover:-translate-y-0.5 hover:shadow-2xl active:scale-95'

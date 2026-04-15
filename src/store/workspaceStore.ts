@@ -837,7 +837,7 @@ interface WorkspaceActions {
     updateTask: (taskId: string, updates: Partial<Task>) => void;
     updateDocumentMeta: (meta: Partial<DocumentMeta>) => void;
     saveCurrentDocument: () => void;
-    deleteDocuments: (ids: string[]) => void;
+    deleteDocuments: (ids: string[]) => Promise<void>;
     markAsSaved: () => void;
 }
 
@@ -1139,6 +1139,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
     deleteWorksheet: async (id: string) => {
         await softDeleteWorksheetRecord(id, Date.now());
+        set((state) => ({
+            savedFiles: state.savedFiles.filter((file) => file.id !== id),
+        }));
         await Promise.all([
             get().loadRecent(),
             get().loadTrash(),
@@ -2038,9 +2041,18 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         });
     },
 
-    deleteDocuments: (ids: string[]) => set((state) => ({
-        savedFiles: state.savedFiles.filter((file) => !ids.includes(file.id)),
-    })),
+    deleteDocuments: async (ids: string[]) => {
+        for (const id of ids) {
+            await softDeleteWorksheetRecord(id, Date.now());
+        }
+        set((state) => ({
+            savedFiles: state.savedFiles.filter((file) => !ids.includes(file.id)),
+        }));
+        await Promise.all([
+            get().loadRecent(),
+            get().loadTrash(),
+        ]);
+    },
 
     markAsSaved: () => {
         set({ isFirstSave: false });

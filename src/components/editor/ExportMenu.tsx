@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download } from 'lucide-react';
 import { ICON_SIZES } from '../ui/iconSizes';
 
@@ -14,15 +15,15 @@ export interface ExportMenuProps {
     isAbgenSharing?: boolean;
 }
 
-const FORMAT_LABELS: Record<ExportFormat, string> = {
-    abgen: '.abgen (Daten)',
-    pdf: 'PDF',
-    docx: 'Word (.docx)',
+const FORMAT_LABEL_KEYS: Record<ExportFormat, string> = {
+    abgen: 'export.abgenFormat',
+    pdf: 'export.pdfFormat',
+    docx: 'export.docxFormat',
 };
 
-const VARIANT_LABELS: Record<ExportVariant, string> = {
-    student: 'Schülerversion',
-    teacher: 'Lehrerversion (mit Lösungen)',
+const VARIANT_LABEL_KEYS: Record<ExportVariant, string> = {
+    student: 'export.studentVersion',
+    teacher: 'export.teacherVersion',
 };
 
 export function ExportMenu({
@@ -33,6 +34,7 @@ export function ExportMenu({
     isAbgenExporting = false,
     isAbgenSharing = false,
 }: ExportMenuProps) {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [format, setFormat] = useState<ExportFormat>('pdf');
     const [includeStudent, setIncludeStudent] = useState(true);
@@ -93,20 +95,20 @@ export function ExportMenu({
             <button
                 onClick={() => setIsOpen((prev) => !prev)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all text-xs font-medium cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed active:scale-95"
-                title="Exportmenü öffnen"
+                title={t('export.openMenu')}
                 disabled={!hasTasks}
             >
                 <Download className={ICON_SIZES[14]} />
-                <span>Exportieren</span>
+                <span>{t('export.exportButton')}</span>
             </button>
 
             {isOpen && (
                 <div className="absolute right-0 mt-2 w-72 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-3 z-50">
                     <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-                        Format wählen
+                        {t('export.selectFormat')}
                     </div>
                     <div className="grid gap-1">
-                        {(Object.keys(FORMAT_LABELS) as ExportFormat[]).map((key) => (
+                        {(Object.keys(FORMAT_LABEL_KEYS) as ExportFormat[]).map((key) => (
                             <button
                                 key={key}
                                 type="button"
@@ -117,9 +119,9 @@ export function ExportMenu({
                                         : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                                 }`}
                             >
-                                <span>{FORMAT_LABELS[key]}</span>
+                                <span>{t(FORMAT_LABEL_KEYS[key])}</span>
                                 {format === key && (
-                                    <span className="text-[10px] font-semibold">Aktiv</span>
+                                    <span className="text-[10px] font-semibold">✓</span>
                                 )}
                             </button>
                         ))}
@@ -128,7 +130,7 @@ export function ExportMenu({
                     {requiresVariants && (
                         <div className="mt-3">
                             <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-                                Version
+                                {t('export.selectVersion')}
                             </div>
                             <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
                                 <input
@@ -137,7 +139,7 @@ export function ExportMenu({
                                     onChange={(event) => setIncludeStudent(event.target.checked)}
                                     className="accent-blue-500"
                                 />
-                                {VARIANT_LABELS.student}
+                                {t(VARIANT_LABEL_KEYS.student)}
                             </label>
                             <label className="mt-2 flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
                                 <input
@@ -146,7 +148,7 @@ export function ExportMenu({
                                     onChange={(event) => setIncludeTeacher(event.target.checked)}
                                     className="accent-blue-500"
                                 />
-                                {VARIANT_LABELS.teacher}
+                                {t(VARIANT_LABEL_KEYS.teacher)}
                             </label>
                         </div>
                     )}
@@ -154,9 +156,9 @@ export function ExportMenu({
                     <div className="mt-4 flex items-center justify-between">
                         <span className="text-[10px] text-slate-400">
                             {requiresVariants && selectedVariants.length === 0
-                                ? 'Mindestens eine Version wählen'
+                                ? t('export.minOneVersion')
                                 : format === 'abgen' && isAbgenBusy
-                                    ? 'ABGEN-Export läuft'
+                                    ? t('export.inProgress')
                                     : ''}
                         </span>
                         <button
@@ -164,7 +166,7 @@ export function ExportMenu({
                             disabled={!canExport}
                             className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            Export starten
+                            {t('export.startExport')}
                         </button>
                     </div>
                 </div>
