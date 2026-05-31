@@ -26,7 +26,7 @@ import { ClassesDashboard } from './components/dashboard/ClassesDashboard';
 import { SettingsView } from './components/settings/SettingsView';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import type { SidebarView } from './components/layout/Sidebar';
-import { buildPdfFilename, generateInteractivePdf } from './services/pdfExportService';
+import { PrintWorksheet } from './components/print/PrintWorksheet';
 
 function App() {
   const { t } = useTranslation();
@@ -76,6 +76,7 @@ function App() {
   const [activeLegalModal, setActiveLegalModal] = useState<LegalModalType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [printVariant, setPrintVariant] = useState<ExportVariant | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
@@ -101,50 +102,55 @@ function App() {
     }
   };
 
+  /**
+   * PDF-Export über die dedizierte Druckansicht (PrintWorksheet).
+   *
+   * Ablauf:
+   * 1. data-export-variant setzen (steuert Schüler-/Lehrer-Ansicht per CSS).
+   * 2. PrintWorksheet via State mounten (Portal in #print-root).
+   * 3. Auf vollständiges Rendern warten (Schriften, Tiptap, Bilder).
+   * 4. window.print() → Browser erzeugt das PDF aus der sauberen Ansicht.
+   *
+   * WYSIWYG ohne Drift: PrintWorksheet nutzt dieselben Task-Komponenten wie
+   * der Editor – es gibt keine zweite Render-Implementierung mehr.
+   */
+  const waitForPrintViewReady = async (): Promise<void> => {
+    if (document.fonts?.ready) {
+      try { await document.fonts.ready; } catch { /* ignore */ }
+    }
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    // Settle-Zeit für asynchrone Inhalte (Bilder aus IndexedDB, KaTeX).
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 300));
+  };
+
+  const printAndAwait = (): Promise<void> => new Promise<void>((resolve) => {
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener('afterprint', onAfterPrint);
+      resolve();
+    };
+    const onAfterPrint = () => cleanup();
+    const timeoutId = window.setTimeout(cleanup, 60000);
+    window.addEventListener('afterprint', onAfterPrint, { once: true });
+    window.print();
+  });
+
   const handlePdfExport = async (variants: ExportVariant[]) => {
-    if (taskIds.length === 0) return;
-    if (isExporting) return;
+    if (taskIds.length === 0 || isExporting) return;
     setIsExporting(true);
+    const root = document.documentElement;
+    const previousVariant = root.dataset.exportVariant;
     try {
-      const designSnapshot = useSettingsStore.getState().getDesignSnapshot();
-      const rawFontFamily = designSnapshot.fontFamily || '';
-      const primaryFont = rawFontFamily.split(',')[0].replace(/['"]/g, '').trim();
-      const customFonts = useFontStore.getState().customFonts;
-      const regularFontFile = customFonts.find(
-        (f) => f.name.toLowerCase().includes(primaryFont.toLowerCase()) && !f.name.toLowerCase().includes('bold'),
-      );
-      const boldFontFile = customFonts.find(
-        (f) => f.name.toLowerCase().includes(primaryFont.toLowerCase()) && f.name.toLowerCase().includes('bold'),
-      );
-
       for (const variant of variants) {
-        let pdfBytes: Uint8Array;
-
-        pdfBytes = await generateInteractivePdf(
-          tasksById,
-          taskIds,
-          variant,
-          title,
-          designSnapshot,
-          primaryFont,
-          regularFontFile?.data,
-          boldFontFile?.data,
-        );
-
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const objectUrl = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = objectUrl;
-        anchor.download = buildPdfFilename(title, variant);
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+        root.dataset.exportVariant = variant;
+        setPrintVariant(variant);
+        await waitForPrintViewReady();
+        await printAndAwait();
       }
-    } catch (err) {
-      console.error('[PDF-Export] Fehler:', err);
-      alert(`PDF-Export fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
+      setPrintVariant(null);
+      if (previousVariant) root.dataset.exportVariant = previousVariant;
+      else delete root.dataset.exportVariant;
       setIsExporting(false);
     }
   };
@@ -276,6 +282,7 @@ function App() {
   return (
     <div className="min-h-screen pb-32 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       {onboardingElement}
+      {printVariant && <PrintWorksheet />}
       <RibbonToolbar
         onBackToDashboard={handleBackToDashboard}
         onSave={handleSave}

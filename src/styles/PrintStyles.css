@@ -349,4 +349,72 @@
     .columns-task__col--empty > div {
         border: none !important;
     }
+
+    /* ══════════════════════════════════════════════════
+       Dedicated print view (PrintWorksheet portal in #print-root)
+       Editor (#root) is hidden; only the clean print view prints.
+       Reuses the SAME task components in read-only mode → WYSIWYG.
+       ══════════════════════════════════════════════════ */
+    #root {
+        display: none !important;
+    }
+
+    #print-root {
+        display: block !important;
+    }
+
+    /* Editor min-heights / field boxes must not add empty space in print */
+    #print-root .rich-text-content,
+    #print-root .tiptap,
+    #print-root .ProseMirror {
+        min-height: 0 !important;
+    }
+
+    .print-task {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #ffffff;
+        margin-bottom: 6mm;
+        overflow: hidden;
+    }
+
+    .print-task__header {
+        font-size: 9pt;
+        font-weight: 700;
+        color: var(--task-accent-color, #1e293b);
+        padding: 1.5mm 3mm;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .print-task__num {
+        margin-right: 0.3em;
+    }
+
+    .print-task__type {
+        letter-spacing: 0.06em;
+    }
+
+    .print-task__title {
+        font-weight: 400;
+        color: #334155;
+    }
+
+    .print-task__body {
+        padding: 3mm;
+    }
+
+    /* page-break tasks are layout-only: force a real break, render nothing */
+    .print-page-break {
+        break-after: page;
+        page-break-after: always;
+        height: 0;
+        margin: 0;
+        padding: 0;
+        border: none;
+    }
 }
