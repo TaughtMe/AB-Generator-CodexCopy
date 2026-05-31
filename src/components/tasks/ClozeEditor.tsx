@@ -88,14 +88,6 @@ function htmlToClozePrintHtml(
     });
 }
 
-/** Replace [Word] with the answer for teacher print */
-function htmlToTeacherPrintHtml(html: string): string {
-    return html.replace(
-        /\[([^\]]*)\]/g,
-        (_, word: string) => `<span class="cloze-teacher-answer">${word}</span>`,
-    );
-}
-
 /* ══════════════════════════════════════════════════
    ClozeEditor – Lückentext-Editor
    Syntax: [Wort] → wird auf dem Arbeitsblatt zur Lücke
@@ -176,11 +168,6 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
     const printStudentHtml = useMemo(
         () => htmlToClozePrintHtml(task.content ?? '', gapStyle, gapMultiplier),
         [task.content, gapStyle, gapMultiplier],
-    );
-
-    const printTeacherHtml = useMemo(
-        () => htmlToTeacherPrintHtml(task.content ?? ''),
-        [task.content],
     );
 
     const gapCount = useMemo(
@@ -295,7 +282,10 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
 
             {/* ── Live-Vorschau ── */}
             {plainText.trim() && (
-                <div className="rounded-md border border-dashed border-worksheet-border bg-worksheet-field px-3 py-2 print:bg-transparent print:border-none">
+                <div
+                    data-cloze-preview-wrapper
+                    className="rounded-md border border-dashed border-worksheet-border bg-worksheet-field px-3 py-2 print:bg-transparent print:border-none"
+                >
                     <p className="no-print text-[10px] font-semibold uppercase tracking-wide text-worksheet-inkLight mb-1.5">
                         Vorschau Schüler*in
                     </p>
@@ -306,12 +296,15 @@ export const ClozeEditor: React.FC<ClozeEditorProps> = ({ task, isActive = true 
                             dangerouslySetInnerHTML={{ __html: sanitizeHtml(printStudentHtml) }}
                         />
                     )}
-                    <div className={clsx(
-                        'text-sm text-worksheet-ink leading-loose whitespace-pre-wrap break-words',
-                        isActive ? 'hidden print:block' : 'block',
-                    )} style={{ overflowWrap: 'anywhere' }}>
-                        <span className="cloze-print-student" dangerouslySetInnerHTML={{ __html: sanitizeHtml(printStudentHtml) }} />
-                        <span className="cloze-print-teacher" dangerouslySetInnerHTML={{ __html: sanitizeHtml(printTeacherHtml) }} />
+                    <div
+                        data-cloze-preview
+                        className={clsx(
+                            'text-sm text-worksheet-ink leading-loose whitespace-pre-wrap break-words',
+                            isActive ? 'hidden' : 'block',
+                        )}
+                        style={{ overflowWrap: 'anywhere' }}
+                    >
+                        <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(printStudentHtml) }} />
                     </div>
                     {wordBankMode !== 'hidden' && wordBankWords.length > 0 && (
                         <div className="text-center">

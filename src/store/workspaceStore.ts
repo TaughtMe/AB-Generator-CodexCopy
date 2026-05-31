@@ -713,9 +713,22 @@ interface WorkspaceState {
     documentMeta: DocumentMeta;
     savedFiles: SavedFileSnapshot[];
     isFirstSave: boolean;
+    agentPhase: AgentPhase;
+    agentLogs: string[];
+    isAgentRunning: boolean;
+    afbConfig: AfbConfig;
 }
 
 export type WorkspaceView = 'dashboard' | 'ai-chat' | 'editor';
+export type AgentPhase = 'idle' | 'planning' | 'creating' | 'validating' | 'success' | 'error';
+
+export interface AfbConfig {
+    isActive: boolean;
+    reproduktion: number;
+    reorganisation: number;
+    transfer: number;
+    problemloesung: number;
+}
 export type WorkspaceAutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type DocumentMeta = {
     title: string;
@@ -839,6 +852,10 @@ interface WorkspaceActions {
     saveCurrentDocument: () => void;
     deleteDocuments: (ids: string[]) => Promise<void>;
     markAsSaved: () => void;
+    startAgent: () => void;
+    resetAgent: () => void;
+    addAgentLog: (message: string) => void;
+    setAgentPhase: (phase: AgentPhase) => void;
 }
 
 type WorkspaceStore = WorkspaceState & WorkspaceActions;
@@ -953,6 +970,16 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     },
     savedFiles: [],
     isFirstSave: true,
+    agentPhase: 'idle',
+    agentLogs: [],
+    isAgentRunning: false,
+    afbConfig: {
+        isActive: false,
+        reproduktion: 25,
+        reorganisation: 25,
+        transfer: 25,
+        problemloesung: 25,
+    },
 
     loadClassProfiles: async () => {
         set({ isClassProfilesLoading: true, classProfilesError: null });
@@ -2056,6 +2083,22 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
     markAsSaved: () => {
         set({ isFirstSave: false });
+    },
+
+    startAgent: () => {
+        set({ agentPhase: 'planning', agentLogs: [], isAgentRunning: true });
+    },
+
+    resetAgent: () => {
+        set({ agentPhase: 'idle', agentLogs: [], isAgentRunning: false });
+    },
+
+    addAgentLog: (message) => {
+        set((state) => ({ agentLogs: [...state.agentLogs, message] }));
+    },
+
+    setAgentPhase: (phase) => {
+        set({ agentPhase: phase });
     },
     };
 

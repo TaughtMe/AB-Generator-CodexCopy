@@ -23,6 +23,7 @@ import {
     Outdent,
     Sparkles,
     Download,
+    Loader2,
     Moon,
     Sun,
     BookOpen,
@@ -70,6 +71,7 @@ export interface RibbonToolbarProps {
     onSave: () => Promise<void> | void;
     isSaving: boolean;
     hasTasks: boolean;
+    isExporting?: boolean;
     onExportPdf: (variants: ExportVariant[]) => Promise<void> | void;
     onExportDocx: (variants: ExportVariant[]) => Promise<void> | void;
     onOpenSources: () => void;
@@ -80,6 +82,7 @@ export function RibbonToolbar({
     onSave,
     isSaving,
     hasTasks,
+    isExporting = false,
     onExportPdf,
     onExportDocx,
     onOpenSources,
@@ -572,25 +575,28 @@ export function RibbonToolbar({
                     <div className="relative" ref={exportDropdownRef}>
                         <button
                             type="button"
-                            onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                            onClick={() => !isExporting && setIsExportMenuOpen((prev) => !prev)}
                             onMouseDown={(e) => e.preventDefault()}
-                            disabled={!hasTasks}
+                            disabled={!hasTasks || isExporting}
                             className={clsx(
                                 'tour-pdf-export inline-flex h-10 w-10 items-center justify-center rounded-md transition-colors cursor-pointer',
                                 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-                                !hasTasks && 'opacity-30 cursor-not-allowed',
+                                (!hasTasks || isExporting) && 'opacity-40 cursor-not-allowed',
                             )}
-                            title={t('ribbon.export')}
+                            title={isExporting ? 'Exportiere…' : t('ribbon.export')}
                         >
-                            <Download className={ICON_SIZES[14]} />
+                            {isExporting
+                                ? <Loader2 className={clsx(ICON_SIZES[14], 'animate-spin')} />
+                                : <Download className={ICON_SIZES[14]} />}
                         </button>
-                        {isExportMenuOpen && (
+                        {isExportMenuOpen && !isExporting && (
                             <div className="absolute top-full right-0 mt-2 w-56 bg-slate-800 border border-slate-700 shadow-xl rounded-md z-50 overflow-hidden">
                                 <button
                                     type="button"
                                     onClick={() => { void handleExport('pdf-student'); }}
                                     onMouseDown={(e) => e.preventDefault()}
-                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
+                                    disabled={isExporting}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     {t('ribbon.pdfStudent')}
                                 </button>
@@ -598,7 +604,8 @@ export function RibbonToolbar({
                                     type="button"
                                     onClick={() => { void handleExport('pdf-teacher'); }}
                                     onMouseDown={(e) => e.preventDefault()}
-                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
+                                    disabled={isExporting}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     {t('ribbon.pdfTeacher')}
                                 </button>
@@ -606,7 +613,8 @@ export function RibbonToolbar({
                                     type="button"
                                     onClick={() => { void handleExport('docx'); }}
                                     onMouseDown={(e) => e.preventDefault()}
-                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white"
+                                    disabled={isExporting}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     {t('ribbon.wordDocx')}
                                 </button>

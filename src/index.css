@@ -106,11 +106,6 @@ body {
     gap: 32px;
 }
 
-/* ──── Print-only task indices (hidden on screen) ──── */
-.print-task-index {
-    display: none;
-}
-
 /* ──── Columns Task (Two-Column Layout) ──── */
 .columns-task__grid {
     display: grid;
@@ -125,7 +120,7 @@ body {
 
 /* ──── Page-break marker (visible on screen only) ──── */
 .page-break-marker {
-    /* Shown in editor; hidden via @media print in PrintStyles.css */
+    /* Screen-only marker for editor navigation */
 }
 
 /* ──── Tiptap Rich-Text Editor ──── */
@@ -235,5 +230,4 @@ body {
     border-bottom: 2px solid currentColor;
 }
 
-/* Print rules consolidated in PrintStyles.css – no @media print here
-   to avoid conflicting @page / margin declarations. */
+/* Legacy print export styles removed. */

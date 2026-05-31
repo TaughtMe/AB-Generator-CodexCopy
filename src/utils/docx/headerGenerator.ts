@@ -8,6 +8,8 @@ import {
     WidthType,
     VerticalAlign,
     BorderStyle,
+    TableLayoutType,
+    convertMillimetersToTwip,
 } from 'docx';
 import { mmToPx } from '../mmToEmu';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -95,7 +97,7 @@ export async function createHeaderTable(
                 }
             }
 
-            const logoTargetH = 15;
+            const logoTargetH = 10.5;
             const logoTargetW = logoMeta ? logoTargetH * logoMeta.ratio : 15;
             const logoCellParagraph = logoMeta
                 ? new Paragraph({
@@ -121,12 +123,12 @@ export async function createHeaderTable(
                             new TextRun({
                                 text: schoolName?.trim() || 'Kopfzeile AB',
                                 font: config.fontFamily,
-                                size: config.headingSizePt * 2,
+                                size: 10.5 * 2,
                                 bold: true,
                                 color: (brandColor || '#3B82F6').replace('#', ''),
                             }),
                         ],
-                        spacing: { after: showWorksheetTitle ? 40 : 0 },
+                        spacing: { after: showWorksheetTitle ? 20 : 0 },
                     }),
                 );
             }
@@ -138,7 +140,7 @@ export async function createHeaderTable(
                             new TextRun({
                                 text: worksheetTitle,
                                 font: config.fontFamily,
-                                size: 10 * 2,
+                                size: 10.5 * 2,
                                 color: config.docxTheme.muted,
                             }),
                         ],
@@ -147,8 +149,13 @@ export async function createHeaderTable(
                 );
             }
 
+            const logoCellWidth = convertMillimetersToTwip(12);
+            const gapCellWidth = convertMillimetersToTwip(4);
+            const titleCellWidth = config.a4InnerWidthDxa - logoCellWidth - gapCellWidth;
+
             const headerTable = new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
+                width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
+                layout: TableLayoutType.FIXED,
                 borders: {
                     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
                     bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -161,7 +168,7 @@ export async function createHeaderTable(
                     new TableRow({
                         children: [
                             new TableCell({
-                                width: { size: 18, type: WidthType.PERCENTAGE },
+                                width: { size: logoCellWidth, type: WidthType.DXA },
                                 verticalAlign: VerticalAlign.CENTER,
                                 children: [logoCellParagraph],
                                 borders: {
@@ -172,7 +179,18 @@ export async function createHeaderTable(
                                 },
                             }),
                             new TableCell({
-                                width: { size: 82, type: WidthType.PERCENTAGE },
+                                width: { size: gapCellWidth, type: WidthType.DXA },
+                                verticalAlign: VerticalAlign.CENTER,
+                                children: [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
+                                borders: {
+                                    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+                                },
+                            }),
+                            new TableCell({
+                                width: { size: titleCellWidth, type: WidthType.DXA },
                                 verticalAlign: VerticalAlign.CENTER,
                                 children: titleRuns.length > 0
                                     ? titleRuns

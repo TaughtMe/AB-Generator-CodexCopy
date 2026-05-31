@@ -96,16 +96,9 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({ task
                                 </button>
                             ) : (
                                 <span
-                                    className="shrink-0 w-5 h-5 mt-1.5 border-2 border-worksheet-border rounded-sm print:hidden"
-                                    data-correct={option.isCorrect}
+                                    className="shrink-0 w-5 h-5 mt-1.5 border-2 border-worksheet-border rounded-sm"
                                 />
                             )}
-
-                            {/* Print-only checkbox indicator */}
-                            <span
-                                className="mc-print-checkbox hidden shrink-0 w-5 h-5 mt-1.5 border-2 border-worksheet-border rounded-sm"
-                                data-correct={option.isCorrect}
-                            />
 
                             {/* Rich-Text option editor */}
                             <div className="flex-1 min-w-0 break-words">

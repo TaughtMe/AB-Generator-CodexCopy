@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Check, X, Sparkles } from 'lucide-react';
-import { modifyTask } from '../../services/aiService';
+import { MICRO_AI_TRUNCATION_USER_MESSAGE, modifyTask } from '../../services/aiService';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import type { Task } from '../../types/worksheet';
 import { ICON_SIZES } from '../ui/iconSizes';
@@ -30,6 +30,16 @@ const AISkeletonLoader: React.FC = () => (
         </div>
     </div>
 );
+
+function toUserFriendlyMicroAiError(error: unknown): string {
+    if (!(error instanceof Error)) return 'Unbekannter Fehler';
+    if (
+        /json|parse|unexpected end|abgeschnitten|unerwartet abgebrochen|valide[s]?\s+json/i.test(error.message)
+    ) {
+        return MICRO_AI_TRUNCATION_USER_MESSAGE;
+    }
+    return error.message;
+}
 
 export const TaskAIChat: React.FC<TaskAIChatProps> = ({ task, onClose }) => {
     const updateTask = useWorksheetStore((s) => s.updateTask);
@@ -65,7 +75,9 @@ export const TaskAIChat: React.FC<TaskAIChatProps> = ({ task, onClose }) => {
             setPreview(modified);
         } catch (err) {
             if (controller.signal.aborted) return;
-            setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+            setPreview(null);
+            setInstruction('');
+            setError(toUserFriendlyMicroAiError(err));
         } finally {
             if (!controller.signal.aborted) {
                 setIsLoading(false);

@@ -46,7 +46,6 @@ interface TaskCardProps {
 /**
  * TaskCard – Slim version for A4 page rendering.
  * Minimal chrome so the printed page looks clean.
- * Header and action buttons are hidden in @media print via .task-card-header
  */
 /* Während des Sortierens oder nach dem Drag keine Layout-Animation abspielen.
    Verhindert den Sprung-nach-oben-Bug beim Drag-Start. */
@@ -70,6 +69,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [showInlineAIPanel, setShowInlineAIPanel] = useState(false);
+    const [localTitle, setLocalTitle] = useState(task.title ?? '');
     const colorPickerRef = useRef<HTMLDivElement>(null);
     const brandColor = useSettingsStore((s) => s.brandColor);
     const applyColorToTasks = useSettingsStore((s) => s.applyColorToTasks);
@@ -105,28 +105,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         setShowInlineAIPanel(false);
     }, [isActive]);
 
+    // Sync when title changes externally (e.g. AI update)
+    useEffect(() => {
+        setLocalTitle(task.title ?? '');
+    }, [task.title]);
+
     return (
         <div
             ref={setNodeRef}
             style={style}
             data-task-id={id}
                 className={clsx(
-                    "task-card group rounded-lg transition-all bg-worksheet-field text-worksheet-ink border border-worksheet-border print:bg-transparent print:border-none print:shadow-none print:ring-0 print:outline-none",
+                    "task-card group rounded-lg transition-all bg-worksheet-field text-worksheet-ink border border-worksheet-border",
                     isDragging
                         ? "opacity-30 z-50 ring-2 ring-blue-500"
                         : (isActive ? "ring-1 ring-blue-500/40 hover:border-blue-400" : "hover:border-worksheet-border")
                 )}
             >
-            {/* Print-only task index – visible ONLY in @media print.
-                Lives outside .task-card-header so it survives the print hide. */}
-            {taskNumber !== null && (
-                <div className="print-task-index" aria-hidden="true">
-                    Aufgabe {taskNumber}
-                </div>
-            )}
-
-            {/* Header – hidden in print */}
-            <div className="task-card-header flex items-center gap-1.5 px-2 py-1 border-b border-worksheet-border bg-worksheet-field print:bg-transparent print:border-none">
+            <div className="task-card-header flex items-center gap-1.5 px-2 py-1 border-b border-worksheet-border bg-worksheet-field">
                 {/* Drag Handle */}
                 <div
                     {...attributes}
@@ -136,17 +132,35 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     <GripVertical className={ICON_SIZES[14]} />
                 </div>
 
-                {/* Task number + type */}
-                <span className="text-[11px] font-medium text-worksheet-inkLight tracking-wider">
+                {/* Task number + type + editable title */}
+                <span className="text-[11px] font-medium text-worksheet-inkLight tracking-wider flex items-center gap-1 min-w-0 flex-1">
                     {taskNumber !== null && (
                         <span
-                            className="font-bold mr-1"
+                            className="font-bold mr-0.5 shrink-0"
                             style={{ color: effectiveColor || undefined }}
                         >
                             {taskNumber}.
                         </span>
                     )}
-                    <span className="uppercase text-[10px]">{TASK_TYPE_LABELS[task.type] ?? task.type.replace('-', ' ')}</span>
+                    <span className="uppercase text-[10px] shrink-0">{TASK_TYPE_LABELS[task.type] ?? task.type.replace('-', ' ')}</span>
+                    {task.title && (
+                        <span className="mx-1 text-worksheet-inkLight/40 shrink-0">—</span>
+                    )}
+                    {onUpdateTask ? (
+                        <input
+                            type="text"
+                            value={localTitle}
+                            placeholder="Titel eingeben…"
+                            onChange={(e) => setLocalTitle(e.target.value)}
+                            onBlur={() => onUpdateTask(id, { title: localTitle } as Partial<Task>)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                            className="min-w-0 flex-1 bg-transparent text-[11px] text-worksheet-inkLight placeholder:text-worksheet-inkLight/30 outline-none border-b border-transparent hover:border-worksheet-border focus:border-worksheet-inkLight/40 transition-colors truncate"
+                        />
+                    ) : (
+                        task.title ? (
+                            <span className="min-w-0 flex-1 truncate text-[11px]">{task.title}</span>
+                        ) : null
+                    )}
                 </span>
 
                 {/* Action buttons – only visible for active task */}

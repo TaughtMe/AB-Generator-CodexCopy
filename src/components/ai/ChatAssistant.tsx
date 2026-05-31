@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Loader2, Paperclip, Send, Sparkles } from 'lucide-react';
 import {
     compileWorksheetPromptFromChat,
-    generateTasksFromCompiledPrompt,
     getActiveProviderLabel,
     isActiveProviderConfigured,
+    runAgentWorkflowStream,
+    validateAndNormalizeTasks,
 } from '../../services/aiService';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
@@ -12,6 +13,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useSourceStore } from '../../store/sourceStore';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { SourcesManagerModal } from '../editor/SourcesManagerModal';
+import type { AIProvider } from '../../store/settingsStore';
 
 interface ChatAssistantProps {
     onBack: () => void;
@@ -27,12 +29,15 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
     const setChatMessages = useWorkspaceStore((s) => s.setChatMessages);
     const seedGreetingIfEmpty = useWorkspaceStore((s) => s.seedGreetingIfEmpty);
     const setChatError = useWorkspaceStore((s) => s.setChatError);
-    const setCurrentView = useWorkspaceStore((s) => s.setCurrentView);
     const saveCurrentWorksheet = useWorkspaceStore((s) => s.saveCurrentWorksheet);
     const setIsChatGenerating = useWorkspaceStore((s) => s.setIsChatGenerating);
     const isChatGenerating = useWorkspaceStore((s) => s.isChatGenerating);
+    const startAgent = useWorkspaceStore((s) => s.startAgent);
+    const setAgentPhase = useWorkspaceStore((s) => s.setAgentPhase);
+    const addAgentLog = useWorkspaceStore((s) => s.addAgentLog);
+    const afbConfig = useWorkspaceStore((s) => s.afbConfig);
 
-    const addTasksFromAI = useWorksheetStore((s) => s.addTasksFromAI);
+    const replaceTasksFromAI = useWorksheetStore((s) => s.replaceTasksFromAI);
     const resetWorksheet = useWorksheetStore((s) => s.resetWorksheet);
     const sourceCount = useSourceStore((s) => s.sources.length);
     const activeSourceCount = useSourceStore((s) => s.sources.filter((source) => source.isActive).length);
@@ -42,6 +47,10 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
     const [showSourcesManager, setShowSourcesManager] = useState(false);
     const historyRef = useRef<HTMLDivElement>(null);
     const submitOnEnter = useSettingsStore((s) => s.submitOnEnter);
+    const aiProvider = useSettingsStore((s) => s.aiProvider);
+    const providers = useSettingsStore((s) => s.providers);
+    const chatModelPreferences = useSettingsStore((s) => s.chatModelPreferences);
+    const setChatStatusNotice = useWorkspaceStore((s) => s.setChatStatusNotice);
 
     const providerReady = useMemo(() => isActiveProviderConfigured(), []);
 
@@ -83,26 +92,78 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
 
     const handleGenerateWorksheet = async () => {
         if (isChatGenerating || isChatLoading) return;
+
+        startAgent();
+        addAgentLog('Agenten-Streaming gestartet...');
+
         setChatError(null);
         setIsChatGenerating(true);
+        let shouldOpenEditor = false;
 
         try {
             const chatSnapshot = chatMessages
                 .map((message) => ({ ...message, content: message.content.trim() }))
                 .filter((message) => message.content.length > 0);
 
+            addAgentLog(`${chatSnapshot.length} Chat-Nachrichten analysiert.`);
             const compiledPrompt = compileWorksheetPromptFromChat(chatMessages);
-            const generatedTasks = await generateTasksFromCompiledPrompt(compiledPrompt);
+            const afbPromptHint = afbConfig.isActive
+                ? `\n\nAFB-PROFIL (STRICT): Reproduktion ${afbConfig.reproduktion}%, Reorganisation ${afbConfig.reorganisation}%, Transfer ${afbConfig.transfer}%, Problemlösung ${afbConfig.problemloesung}%.`
+                : '\n\nAFB-PROFIL: Keine starre Prozentvorgabe. Nutze eine pädagogisch ausgewogene Mischung.';
+            const compiledPromptWithAfb = `${compiledPrompt}${afbPromptHint}`;
+            const providerConfig = providers[aiProvider];
+            const chatPreference = chatModelPreferences[aiProvider];
+            const activeModel = (chatPreference && chatPreference !== 'auto') ? chatPreference : providerConfig.model;
+
+            const workflowResult = await runAgentWorkflowStream({
+                input: compiledPromptWithAfb,
+                provider: aiProvider as AIProvider,
+                model: activeModel,
+                providerApiKey: providerConfig.apiKey,
+                providerBaseURL: providerConfig.baseUrl,
+                afbConfig,
+            });
+
+            if (useWorkspaceStore.getState().agentPhase !== 'success') {
+                throw new Error('Agentenlauf wurde nicht erfolgreich abgeschlossen.');
+            }
+
+            addAgentLog(`Auditor-Score: ${workflowResult.validation.score}`);
+            if (!workflowResult.validation.isValid && workflowResult.validation.errors.length > 0) {
+                addAgentLog(`Auditor-Fehler: ${workflowResult.validation.errors[0]}`);
+            }
+
+            setAgentPhase('creating');
+            addAgentLog('Hydrate JSON-Tasks in den Editor...');
+            const normalizedTasks = validateAndNormalizeTasks(workflowResult.tasks as unknown[]);
+            addAgentLog(`${normalizedTasks.length} Aufgaben normalisiert.`);
 
             resetWorksheet();
-            addTasksFromAI(generatedTasks);
-            setChatMessages(chatSnapshot);
+            replaceTasksFromAI(normalizedTasks);
+            setChatMessages([{
+                role: 'assistant',
+                content: 'Das Arbeitsblatt ist nun im Editor. Du kannst hier weiter mit mir planen oder Anpassungen vornehmen.',
+            }]);
+            setChatStatusNotice('Arbeitsblatt erfolgreich generiert und in den Editor geladen.');
             await saveCurrentWorksheet();
-            setCurrentView('editor');
+
+            setAgentPhase('success');
+            addAgentLog('Fertigstellung erfolgreich. Editor wird geöffnet...');
+            shouldOpenEditor = true;
         } catch (err) {
-            setChatError(err instanceof Error ? err.message : 'Arbeitsblatt konnte nicht erstellt werden.');
+            const message = err instanceof Error ? err.message : 'Arbeitsblatt konnte nicht erstellt werden.';
+            addAgentLog(`Fehler: ${message}`);
+            setAgentPhase('error');
+            useWorkspaceStore.getState().setCurrentView('ai-chat');
+            setChatError(message);
         } finally {
             setIsChatGenerating(false);
+            if (shouldOpenEditor) {
+                useWorkspaceStore.getState().setCurrentView('editor');
+                window.setTimeout(() => {
+                    useWorkspaceStore.getState().resetAgent();
+                }, 400);
+            }
         }
     };
 

@@ -182,7 +182,7 @@ export async function exportToDocx(
             // Per-Task accentColor oder globale brandColor (wenn aktiviert)
             const taskAccentColor = task.accentColor || (applyColorToTasks ? brandColor : undefined);
 
-            allChildren.push(wrapTaskInGrid(currentNumber, taskContent, {
+            allChildren.push(wrapTaskInGrid(task, currentNumber, taskContent, {
                 fontFamily,
                 fontSizePt: FONT_SIZE_PT,
                 taskGapAfter: TASK_GAP_AFTER,

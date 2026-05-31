@@ -26,8 +26,7 @@ import { ClassesDashboard } from './components/dashboard/ClassesDashboard';
 import { SettingsView } from './components/settings/SettingsView';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import type { SidebarView } from './components/layout/Sidebar';
-
-import './styles/PrintStyles.css';
+import { buildPdfFilename, generateInteractivePdf } from './services/pdfExportService';
 
 function App() {
   const { t } = useTranslation();
@@ -76,6 +75,7 @@ function App() {
   const [showSourcesManager, setShowSourcesManager] = useState(false);
   const [activeLegalModal, setActiveLegalModal] = useState<LegalModalType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
@@ -101,46 +101,51 @@ function App() {
     }
   };
 
-  const runPrintExport = async (variant: ExportVariant) => {
-    const root = document.documentElement;
-    const previousVariant = root.dataset.exportVariant;
-    root.dataset.exportVariant = variant;
-
-    const waitForPrint = () => new Promise<void>((resolve) => {
-      let resolved = false;
-
-      const cleanup = () => {
-        if (resolved) return;
-        resolved = true;
-        window.removeEventListener('afterprint', handleAfterPrint);
-        resolve();
-      };
-
-      const handleAfterPrint = () => {
-        window.clearTimeout(timeoutId);
-        cleanup();
-      };
-
-      const timeoutId = window.setTimeout(cleanup, 15000);
-      window.addEventListener('afterprint', handleAfterPrint, { once: true });
-      window.print();
-    });
-
-    try {
-      await waitForPrint();
-    } finally {
-      if (previousVariant) {
-        root.dataset.exportVariant = previousVariant;
-      } else {
-        delete root.dataset.exportVariant;
-      }
-    }
-  };
-
   const handlePdfExport = async (variants: ExportVariant[]) => {
     if (taskIds.length === 0) return;
-    for (const variant of variants) {
-      await runPrintExport(variant);
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const designSnapshot = useSettingsStore.getState().getDesignSnapshot();
+      const rawFontFamily = designSnapshot.fontFamily || '';
+      const primaryFont = rawFontFamily.split(',')[0].replace(/['"]/g, '').trim();
+      const customFonts = useFontStore.getState().customFonts;
+      const regularFontFile = customFonts.find(
+        (f) => f.name.toLowerCase().includes(primaryFont.toLowerCase()) && !f.name.toLowerCase().includes('bold'),
+      );
+      const boldFontFile = customFonts.find(
+        (f) => f.name.toLowerCase().includes(primaryFont.toLowerCase()) && f.name.toLowerCase().includes('bold'),
+      );
+
+      for (const variant of variants) {
+        let pdfBytes: Uint8Array;
+
+        pdfBytes = await generateInteractivePdf(
+          tasksById,
+          taskIds,
+          variant,
+          title,
+          designSnapshot,
+          primaryFont,
+          regularFontFile?.data,
+          boldFontFile?.data,
+        );
+
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = objectUrl;
+        anchor.download = buildPdfFilename(title, variant);
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      }
+    } catch (err) {
+      console.error('[PDF-Export] Fehler:', err);
+      alert(`PDF-Export fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -269,13 +274,14 @@ function App() {
 
   /* ── Editor View ── */
   return (
-    <div className="min-h-screen print:h-auto pb-32 print:pb-0 bg-slate-100 print:bg-white dark:bg-slate-950 print:dark:bg-white text-slate-900 dark:text-slate-100 print:dark:text-slate-900">
+    <div className="min-h-screen pb-32 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       {onboardingElement}
       <RibbonToolbar
         onBackToDashboard={handleBackToDashboard}
         onSave={handleSave}
         isSaving={isSaving}
         hasTasks={taskIds.length > 0}
+        isExporting={isExporting}
         onExportPdf={handlePdfExport}
         onExportDocx={handleDocxExport}
         onOpenSources={() => setShowSourcesManager(true)}
@@ -291,7 +297,7 @@ function App() {
         onRemoveVariant={removeVariant}
       />
 
-      <div className="lg:flex lg:items-stretch print:block print:overflow-visible print:p-0 print:m-0">
+      <div className="lg:flex lg:items-stretch">
         {/* Outline-Navigator (linke Sidebar) */}
         <div
           className={`no-print hidden lg:block shrink-0 h-[calc(100vh-90px)] sticky top-[90px] transition-all duration-200 ease-in-out overflow-hidden ${
@@ -308,7 +314,7 @@ function App() {
           )}
         </div>
 
-        <div className="flex-1 min-w-0 pb-28 print:block print:pb-0 print:overflow-visible print:p-0 print:m-0">
+        <div className="flex-1 min-w-0 pb-28">
           <WorksheetCanvas
             taskIds={taskIds}
             tasksById={tasksById}

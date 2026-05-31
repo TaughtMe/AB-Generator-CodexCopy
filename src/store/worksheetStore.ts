@@ -49,6 +49,7 @@ interface WorksheetStore extends Worksheet {
     /** Fügt einen neuen Task an einer bestimmten Position ein */
     insertTaskAt: (type: TaskType, index: number) => void;
     addTasksFromAI: (tasks: Omit<Task, 'id'>[]) => void;
+    replaceTasksFromAI: (tasks: IncomingAITask[]) => void;
     updateTask: (id: string, updates: Partial<Task>) => void;
     removeTask: (id: string) => void;
     reorderTasks: (taskIds: string[]) => void;
@@ -92,6 +93,8 @@ interface WorksheetStore extends Worksheet {
     resetWorksheet: () => void;
 }
 
+type IncomingAITask = Omit<Task, 'id'> | Task;
+
 type PersistedWorksheetSlice = Pick<
     WorksheetStore,
     'id'
@@ -126,6 +129,23 @@ const VALID_IMAGE_ALIGNMENTS: ImageAlignment[] = ['left', 'center', 'right'];
 const MIN_INFORMATION_TEXT_WIDTH_RATIO = 30;
 const MAX_INFORMATION_TEXT_WIDTH_RATIO = 80;
 const DEFAULT_INFORMATION_TEXT_WIDTH_RATIO = 60;
+const VALID_TASK_TYPES: TaskType[] = [
+    'multiple-choice',
+    'lineatur',
+    'cloze',
+    'image-placeholder',
+    'math',
+    'page-break',
+    'columns',
+    'instruction',
+    'heading',
+    'table',
+    'information',
+];
+
+function isTaskType(value: unknown): value is TaskType {
+    return typeof value === 'string' && VALID_TASK_TYPES.includes(value as TaskType);
+}
 
 /**
  * Erzeugt ein neues Task-Objekt mit einer frischen UUID.
@@ -589,6 +609,76 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
     }
 }
 
+function normalizeIncomingLineaturTask(taskData: IncomingAITask): IncomingAITask {
+    if (taskData.type !== 'lineatur') return taskData;
+
+    const partial = taskData as Partial<LineaturTask>;
+    const normalizedRows = (() => {
+        const rawRows = typeof partial.rowCount === 'number' ? partial.rowCount : partial.lineRows;
+        return typeof rawRows === 'number'
+            ? Math.max(1, Math.min(20, Math.round(rawRows)))
+            : 5;
+    })();
+
+    return {
+        ...taskData,
+        promptHtml: typeof partial.promptHtml === 'string' ? partial.promptHtml : '',
+        lineRows: normalizedRows,
+        rowCount: normalizedRows,
+        lineHeight:
+            typeof partial.lineHeight === 'number'
+                ? Math.max(4, Math.min(20, partial.lineHeight))
+                : 12,
+        gapColor:
+            typeof partial.gapColor === 'string'
+                ? partial.gapColor
+                : '#eaf4e8',
+    };
+}
+
+function materializeIncomingAITask(taskData: IncomingAITask, usedIds: Set<string>): Task | null {
+    const rawType = (taskData as { type?: unknown }).type;
+    if (!isTaskType(rawType)) return null;
+
+    const incomingTaskData = normalizeIncomingLineaturTask(taskData);
+    const rawId = typeof (incomingTaskData as { id?: unknown }).id === 'string'
+        ? (incomingTaskData as { id: string }).id.trim()
+        : '';
+    const id = rawId && !usedIds.has(rawId) ? rawId : crypto.randomUUID();
+
+    usedIds.add(id);
+
+    const importedTask = { ...incomingTaskData, type: rawType, id } as Task;
+    const fallbackTask = { ...createDefaultTaskOfType(rawType), id } as Task;
+    return sanitizeTaskForStore(importedTask, fallbackTask, false);
+}
+
+function appendIncomingAITasks(
+    tasksById: Record<string, Task>,
+    taskIds: string[],
+    tasks: IncomingAITask[],
+): WorksheetTaskState {
+    const nextTasksById = { ...tasksById };
+    const nextTaskIds = [...taskIds];
+    const usedIds = new Set(nextTaskIds);
+
+    for (const taskData of tasks) {
+        const task = materializeIncomingAITask(taskData, usedIds);
+        if (!task) continue;
+        nextTasksById[task.id] = task;
+        nextTaskIds.push(task.id);
+    }
+
+    return {
+        tasksById: nextTasksById,
+        taskIds: nextTaskIds,
+    };
+}
+
+function replaceWithIncomingAITasks(tasks: IncomingAITask[]): WorksheetTaskState {
+    return appendIncomingAITasks({}, [], tasks);
+}
+
 /**
  * Normalisiert Legacy-Persistenzdaten beim Laden.
  *
@@ -954,53 +1044,26 @@ export const useWorksheetStore = create<WorksheetStore>()(
     addTasksFromAI: (tasks) => set((state) => {
         const activeVariant = state.variants[getActiveVariantIndex(state)];
         if (!activeVariant) return state;
-        const newTasksById = { ...activeVariant.tasksById };
-        const newTaskIds = [...activeVariant.taskIds];
 
-        for (const taskData of tasks) {
-            const id = crypto.randomUUID();
-            const normalizedTaskData = taskData.type === 'lineatur'
-                ? {
-                    ...taskData,
-                    promptHtml: typeof (taskData as Partial<LineaturTask>).promptHtml === 'string'
-                        ? (taskData as Partial<LineaturTask>).promptHtml
-                        : '',
-                    lineRows: (() => {
-                        const partial = taskData as Partial<LineaturTask>;
-                        const rawRows = typeof partial.rowCount === 'number' ? partial.rowCount : partial.lineRows;
-                        return typeof rawRows === 'number'
-                            ? Math.max(1, Math.min(20, Math.round(rawRows)))
-                            : 5;
-                    })(),
-                    rowCount: (() => {
-                        const partial = taskData as Partial<LineaturTask>;
-                        const rawRows = typeof partial.rowCount === 'number' ? partial.rowCount : partial.lineRows;
-                        return typeof rawRows === 'number'
-                            ? Math.max(1, Math.min(20, Math.round(rawRows)))
-                            : 5;
-                    })(),
-                    lineHeight:
-                        typeof (taskData as Partial<LineaturTask>).lineHeight === 'number'
-                            ? Math.max(4, Math.min(20, (taskData as Partial<LineaturTask>).lineHeight as number))
-                            : 12,
-                    gapColor:
-                        typeof (taskData as Partial<LineaturTask>).gapColor === 'string'
-                            ? ((taskData as Partial<LineaturTask>).gapColor as string)
-                            : '#eaf4e8',
-                }
-                : taskData;
+        return syncActiveVariantTaskStateUnsaved(
+            state,
+            appendIncomingAITasks(activeVariant.tasksById, activeVariant.taskIds, tasks),
+        );
+    }),
 
-            const importedTask = { ...normalizedTaskData, id } as Task;
-            const fallbackTask = { ...createDefaultTaskOfType(importedTask.type), id } as Task;
-            const task = sanitizeTaskForStore(importedTask, fallbackTask, false);
-            newTasksById[id] = task;
-            newTaskIds.push(id);
-        }
+    /**
+     * Ersetzt den gesamten Aufgabenbestand durch KI-Tasks.
+     * Wenn IDs fehlen oder doppelt sind, werden stabile UUIDs vergeben.
+     */
+    replaceTasksFromAI: (tasks) => set((state) => {
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return state;
 
-        return syncActiveVariantTaskStateUnsaved(state, {
-            tasksById: newTasksById,
-            taskIds: newTaskIds,
-        });
+        return {
+            ...syncActiveVariantTaskStateUnsaved(state, replaceWithIncomingAITasks(tasks)),
+            activeTaskId: null,
+            ...pushUndoSnapshot(state),
+        };
     }),
 
     /**

@@ -1,4 +1,4 @@
-import { AlignmentType, Paragraph, TextRun } from 'docx';
+import { AlignmentType, ExternalHyperlink, HighlightColor, Paragraph, TextRun, type ParagraphChild } from 'docx';
 import { toDocxFontFamily } from './fontFamily';
 
 type DocxAlignment = (typeof AlignmentType)[keyof typeof AlignmentType];
@@ -12,6 +12,10 @@ type DocxAlignment = (typeof AlignmentType)[keyof typeof AlignmentType];
    - <strong>, <b>       → bold
    - <em>, <i>           → italics
    - <u>                 → underline
+   - <s>, <strike>, <del> → strike-through
+   - <mark>              → highlight
+   - <a href="...">      → external hyperlink
+   - <sub>/<sup>         → subscript/superscript
    - <ul>/<ol> + <li>    → Aufzählung / Nummerierung
    - Plaintext-Fallback  → wird als einzelner Paragraph behandelt
    ══════════════════════════════════════════════════ */
@@ -23,12 +27,21 @@ interface DocxTextStyle {
     bold?: boolean;
     italics?: boolean;
     underline?: boolean;
+    strike?: boolean;
+    highlight?: (typeof HighlightColor)[keyof typeof HighlightColor];
+    subScript?: boolean;
+    superScript?: boolean;
 }
 
 interface InlineStyle {
     bold: boolean;
     italic: boolean;
     underline: boolean;
+    strike: boolean;
+    highlight?: (typeof HighlightColor)[keyof typeof HighlightColor];
+    subScript: boolean;
+    superScript: boolean;
+    link?: string;
     /** Hex-Farbe ohne '#', z. B. 'FF0000'. Überschreibt den Style-Default. */
     color?: string;
     /** Font-Name aus inline-style (z. B. 'Roboto'). Überschreibt den Style-Default. */
@@ -264,12 +277,12 @@ function extractListItems(listHtml: string): string[] {
 
 /* ── Inline-Run-Parser ── */
 
-function parseInlineRuns(html: string, style: DocxTextStyle): TextRun[] {
-    const runs: TextRun[] = [];
+function parseInlineRuns(html: string, style: DocxTextStyle): ParagraphChild[] {
+    const runs: ParagraphChild[] = [];
     const fragments = tokenizeInline(html);
 
     for (const frag of fragments) {
-        const text = stripAllTags(frag.text).replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        const text = decodeHtmlText(stripAllTags(frag.text));
         if (!text) continue;
 
         // Per-Fragment-Farbe (aus span style) hat Vorrang vor der globalen Style-Farbe
@@ -277,17 +290,30 @@ function parseInlineRuns(html: string, style: DocxTextStyle): TextRun[] {
         const resolvedFont = toDocxFontFamily(frag.style.fontFamily ?? style.fontFamily);
         const resolvedSizeHalfPt = frag.style.fontSizeHalfPt ?? style.fontSizePt * 2;
 
-        runs.push(
-            new TextRun({
-                text,
-                font: resolvedFont,
-                size: resolvedSizeHalfPt,
-                color: resolvedColor,
-                bold: style.bold || frag.style.bold || undefined,
-                italics: style.italics || frag.style.italic || undefined,
-                underline: (style.underline || frag.style.underline) ? {} : undefined,
-            }),
-        );
+        const textRun = new TextRun({
+            text,
+            font: resolvedFont,
+            size: resolvedSizeHalfPt,
+            color: resolvedColor,
+            bold: style.bold || frag.style.bold || undefined,
+            italics: style.italics || frag.style.italic || undefined,
+            underline: (style.underline || frag.style.underline || frag.style.link) ? {} : undefined,
+            strike: style.strike || frag.style.strike || undefined,
+            highlight: style.highlight ?? frag.style.highlight,
+            subScript: style.subScript || frag.style.subScript || undefined,
+            superScript: style.superScript || frag.style.superScript || undefined,
+        });
+
+        if (frag.style.link) {
+            runs.push(
+                new ExternalHyperlink({
+                    children: [textRun],
+                    link: frag.style.link,
+                }),
+            );
+        } else {
+            runs.push(textRun);
+        }
     }
 
     return runs;
@@ -302,8 +328,15 @@ function tokenizeInline(html: string): InlineFragment[] {
     const fragments: InlineFragment[] = [];
 
     // Einfacher Stack-basierter Parser für verschachtelte Inline-Tags
-    const tagPattern = /<\/?(?:strong|b|em|i|u|br|p|span)[\s>/][^>]*>|<\/?(?:strong|b|em|i|u|br|p|span)>/gi;
-    const styleStack: InlineStyle[] = [{ bold: false, italic: false, underline: false }];
+    const tagPattern = /<\/?(?:strong|b|em|i|u|s|strike|del|mark|a|sub|sup|h[1-6]|br|p|span)[\s>/][^>]*>|<\/?(?:strong|b|em|i|u|s|strike|del|mark|a|sub|sup|h[1-6]|br|p|span)>/gi;
+    const styleStack: InlineStyle[] = [{
+        bold: false,
+        italic: false,
+        underline: false,
+        strike: false,
+        subScript: false,
+        superScript: false,
+    }];
 
     let lastIndex = 0;
     let match: RegExpExecArray | null;
@@ -344,9 +377,37 @@ function tokenizeInline(html: string): InlineFragment[] {
             if (tag.startsWith('<u')) {
                 newStyle.underline = true;
             }
+            if (tag.startsWith('<s') || tag.startsWith('<strike') || tag.startsWith('<del')) {
+                newStyle.strike = true;
+            }
+            if (tag.startsWith('<mark')) {
+                newStyle.highlight = HighlightColor.YELLOW;
+                const props = extractStyleProps(match[0]);
+                const highlightColor = props['background-color'] || props['background'];
+                if (highlightColor) {
+                    newStyle.highlight = cssColorToHighlightColor(highlightColor) ?? HighlightColor.YELLOW;
+                }
+            }
+            if (tag.startsWith('<a')) {
+                newStyle.underline = true;
+                newStyle.color = '2563EB';
+                newStyle.link = extractAttribute(match[0], 'href');
+            }
+            if (tag.startsWith('<sub')) {
+                newStyle.subScript = true;
+                newStyle.superScript = false;
+            }
+            if (tag.startsWith('<sup')) {
+                newStyle.superScript = true;
+                newStyle.subScript = false;
+            }
+            if (/^<h[1-6]/.test(tag)) {
+                newStyle.bold = true;
+                newStyle.fontSizeHalfPt = headingTagToHalfPoints(tag);
+            }
 
             // Slice 1: CSS-inline-style-Attribute auf span-Tags auswerten
-            if (tag.startsWith('<span')) {
+            if (tag.startsWith('<span') || tag.startsWith('<a') || tag.startsWith('<mark') || /^<h[1-6]/.test(tag)) {
                 const props = extractStyleProps(match[0]);
                 if (props['color']) {
                     const hex = cssColorToDocxHex(props['color']);
@@ -360,6 +421,17 @@ function tokenizeInline(html: string): InlineFragment[] {
                 }
                 if (props['text-decoration']?.includes('underline')) {
                     newStyle.underline = true;
+                }
+                if (props['text-decoration']?.includes('line-through')) {
+                    newStyle.strike = true;
+                }
+                if (props['vertical-align'] === 'sub') {
+                    newStyle.subScript = true;
+                    newStyle.superScript = false;
+                }
+                if (props['vertical-align'] === 'super') {
+                    newStyle.superScript = true;
+                    newStyle.subScript = false;
                 }
                 // Font-Family aus inline-style (z. B. Tiptap FontFamily-Extension)
                 if (props['font-family']) {
@@ -408,6 +480,53 @@ function stripAllTags(html: string): string {
     return html.replace(/<[^>]*>/g, '');
 }
 
+function decodeHtmlText(text: string): string {
+    return text
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+}
+
+function extractAttribute(tag: string, attribute: string): string | undefined {
+    const escaped = attribute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`${escaped}\\s*=\\s*(['"])(.*?)\\1`, 'i').exec(tag);
+    return match?.[2];
+}
+
+function headingTagToHalfPoints(tag: string): number {
+    const match = /^<h([1-6])/i.exec(tag);
+    const level = match ? parseInt(match[1], 10) : 3;
+    const ptByLevel: Record<number, number> = {
+        1: 18,
+        2: 16,
+        3: 14,
+        4: 12,
+        5: 11,
+        6: 10,
+    };
+    return (ptByLevel[level] ?? 12) * 2;
+}
+
+function cssColorToHighlightColor(color: string): (typeof HighlightColor)[keyof typeof HighlightColor] | undefined {
+    const hex = cssColorToDocxHex(color);
+    if (!hex) return undefined;
+
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+
+    if (r > 220 && g > 180 && b < 120) return HighlightColor.YELLOW;
+    if (g > 150 && r < 160 && b < 160) return HighlightColor.GREEN;
+    if (b > 160 && r < 170) return HighlightColor.CYAN;
+    if (r > 190 && g < 150 && b < 150) return HighlightColor.RED;
+    if (r > 180 && b > 180 && g < 150) return HighlightColor.MAGENTA;
+    if (r > 200 && g > 200 && b > 200) return HighlightColor.LIGHT_GRAY;
+    return HighlightColor.YELLOW;
+}
+
 function plainTextToParagraphs(
     text: string,
     style: DocxTextStyle,
@@ -425,6 +544,11 @@ function plainTextToParagraphs(
                         color: style.color,
                         bold: style.bold,
                         italics: style.italics,
+                        underline: style.underline ? {} : undefined,
+                        strike: style.strike,
+                        highlight: style.highlight,
+                        subScript: style.subScript,
+                        superScript: style.superScript,
                     }),
                 ],
                 spacing: { after: spacingAfter },

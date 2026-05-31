@@ -6,8 +6,8 @@ import {
     convertMillimetersToTwip,
 } from 'docx';
 
-const DEFAULT_LINE_SPACING_TWIP = 360; // 1.5 Zeilen (240 * 1.5)
-const DEFAULT_PARAGRAPH_AFTER_TWIP = 120; // 6pt Absatzabstand
+const DEFAULT_LINE_SPACING_TWIP = 300; // close to the editor's compact 1.4 line rhythm
+const DEFAULT_PARAGRAPH_AFTER_TWIP = 20;
 
 export function createStyledDocument(
     fontFamily: string,

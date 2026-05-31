@@ -173,7 +173,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
     };
 
     return (
-        <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white/70 shadow-xl backdrop-blur-md dark:border-slate-700/70 dark:bg-slate-900/80">
+        <aside className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white/70 shadow-xl backdrop-blur-md dark:border-slate-700/70 dark:bg-slate-900/80">
             <div className="shrink-0 px-4 py-3 flex items-center justify-between gap-2 border-b border-slate-200/70 dark:border-slate-800/80 bg-white/40 dark:bg-slate-900/40">
                 <div className="flex items-center gap-2">
                     <MessageSquare className={`${ICON_SIZES[16]} text-slate-500 dark:text-slate-300`} />
@@ -297,7 +297,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                 )}
             </div>
 
-            <div className="shrink-0 border-t border-slate-200/70 bg-white/70 p-3 space-y-2 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-900/70">
+            <div className="relative z-10 shrink-0 space-y-2 border-t border-slate-200 p-4 pb-20 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
                 {!providerReady && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-[11px] text-red-700">
                         KI nicht konfiguriert. Bitte Einstellungen für {getActiveProviderLabel()} prüfen.

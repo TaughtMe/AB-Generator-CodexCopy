@@ -96,3 +96,35 @@ export function preloadCuratedFonts(): void {
         loadGoogleFont(font.value);
     }
 }
+
+// System-Fonts die nicht über Fontsource/CDN verfügbar sind
+const SYSTEM_FONT_NAMES = new Set([
+    'inter', 'system-ui', 'georgia', 'comic sans ms', 'courier new',
+    'times new roman', 'arial', 'verdana', 'helvetica', 'helvetica neue',
+]);
+
+/**
+ * Lädt Font-Bytes für pdf-lib dynamisch vom Fontsource-CDN (jsDelivr).
+ * Gibt null zurück wenn der Font nicht gefunden wird oder der Fetch fehlschlägt.
+ * Unterstützt WOFF-Format (von @pdf-lib/fontkit verarbeitet).
+ */
+export async function fetchFontFromCDN(fontFamily: string, bold: boolean = false): Promise<Uint8Array | null> {
+    if (!fontFamily) return null;
+
+    const normalized = fontFamily.toLowerCase().trim();
+    if (SYSTEM_FONT_NAMES.has(normalized)) return null;
+
+    // "Open Sans" → "open-sans"
+    const fontName = normalized.replace(/\s+/g, '-');
+    const weight = bold ? '700' : '400';
+    const url = `https://cdn.jsdelivr.net/npm/@fontsource/${fontName}/files/${fontName}-latin-${weight}-normal.woff`;
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const arrayBuffer = await response.arrayBuffer();
+        return new Uint8Array(arrayBuffer);
+    } catch {
+        return null;
+    }
+}

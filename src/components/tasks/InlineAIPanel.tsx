@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, Send, Sparkles, X } from 'lucide-react';
-import { modifyTask } from '../../services/aiService';
+import { MICRO_AI_TRUNCATION_USER_MESSAGE, modifyTask } from '../../services/aiService';
 import type { Task } from '../../types/worksheet';
 import { ICON_SIZES } from '../ui/iconSizes';
 
@@ -18,6 +18,16 @@ const QUICK_ACTIONS: Array<{ key: QuickActionKey; label: string; instruction: st
     { key: 'shorter', label: 'Kürzer', instruction: 'Überarbeite genau diese Aufgabe und mache sie kürzer/kompakter. Behalte den Aufgabentyp bei.' },
     { key: 'longer', label: 'Länger', instruction: 'Überarbeite genau diese Aufgabe und mache sie ausführlicher/länger. Behalte den Aufgabentyp bei.' },
 ];
+
+function toUserFriendlyMicroAiError(error: unknown): string {
+    if (!(error instanceof Error)) return 'Unbekannter KI-Fehler';
+    if (
+        /json|parse|unexpected end|abgeschnitten|unerwartet abgebrochen|valide[s]?\s+json/i.test(error.message)
+    ) {
+        return MICRO_AI_TRUNCATION_USER_MESSAGE;
+    }
+    return error.message;
+}
 
 export const InlineAIPanel: React.FC<InlineAIPanelProps> = ({ task, onApply, onClose }) => {
     const inputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +52,8 @@ export const InlineAIPanel: React.FC<InlineAIPanelProps> = ({ task, onApply, onC
             setInstruction('');
             onClose();
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unbekannter KI-Fehler');
+            setInstruction('');
+            setError(toUserFriendlyMicroAiError(err));
         } finally {
             setIsLoading(false);
         }

@@ -50,7 +50,7 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
     const setAiSidebarDraft = useWorkspaceStore((s) => s.setAiSidebarDraft);
 
     const resetWorksheet = useWorksheetStore((s) => s.resetWorksheet);
-    const addTasksFromAI = useWorksheetStore((s) => s.addTasksFromAI);
+    const replaceTasksFromAI = useWorksheetStore((s) => s.replaceTasksFromAI);
 
     const submitOnEnter = useSettingsStore((s) => s.submitOnEnter);
 
@@ -102,7 +102,7 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
             const generatedTasks = await generateTasksFromCompiledPrompt(compiledPrompt);
 
             resetWorksheet();
-            addTasksFromAI(generatedTasks);
+            replaceTasksFromAI(generatedTasks);
 
             // Start editor sidebar with a fresh greeting instead of the full
             // planning conversation. The old messages can confuse the task-

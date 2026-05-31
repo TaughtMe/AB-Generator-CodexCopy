@@ -271,6 +271,95 @@ interface TaskRendererConfig {
     docxTheme: DocxTheme;
 }
 
+const EDITOR_CARD_BG = 'F8FAFC';
+const EDITOR_BORDER = 'E2E8F0';
+const EDITOR_MUTED = '475569';
+const EDITOR_OPTION_CORRECT_BG = 'F0FDF4';
+
+const TASK_TYPE_LABELS_DOCX: Record<Task['type'], string> = {
+    'instruction': 'AUFGABE',
+    'heading': 'ÜBERSCHRIFT',
+    'multiple-choice': 'MULTIPLE CHOICE',
+    'cloze': 'LÜCKENTEXT',
+    'math': 'MATHEMATIK',
+    'table': 'TABELLE',
+    'lineatur': 'LINEATUR',
+    'columns': 'ZWEISPALTIG',
+    'page-break': 'SEITENUMBRUCH',
+    'image-placeholder': 'BILD',
+    'information': 'INFORMATION',
+};
+
+function editorBorder(color = EDITOR_BORDER, size = 6) {
+    return {
+        style: 'single' as const,
+        size,
+        color,
+    };
+}
+
+function editorBoxBorders(color = EDITOR_BORDER, size = 6) {
+    const border = editorBorder(color, size);
+    return {
+        top: border,
+        right: border,
+        bottom: border,
+        left: border,
+        insideHorizontal: border,
+        insideVertical: border,
+    };
+}
+
+function htmlToPlainText(value: string | undefined): string {
+    if (!value) return '';
+    return value
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function createEditorContentBox(
+    children: (Paragraph | Table)[],
+    config: TaskRendererConfig,
+    options: { shading?: string; borderColor?: string } = {},
+): Table {
+    return new Table({
+        rows: [
+            new TableRow({
+                children: [
+                    new TableCell({
+                        children: children.length > 0
+                            ? children
+                            : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
+                        margins: {
+                            top: 120,
+                            right: 160,
+                            bottom: 120,
+                            left: 160,
+                        },
+                        shading: { fill: options.shading ?? EDITOR_CARD_BG, type: ShadingType.CLEAR },
+                        borders: {
+                            top: editorBorder(options.borderColor),
+                            right: editorBorder(options.borderColor),
+                            bottom: editorBorder(options.borderColor),
+                            left: editorBorder(options.borderColor),
+                        },
+                    }),
+                ],
+            }),
+        ],
+        width: { size: config.a4InnerWidthDxa - 360, type: WidthType.DXA },
+        layout: TableLayoutType.FIXED,
+        borders: editorBoxBorders(options.borderColor),
+    });
+}
+
 function renderMultipleChoice(
     task: MultipleChoiceTask,
     isTeacherVersion: boolean,
@@ -279,83 +368,93 @@ function renderMultipleChoice(
     const elements: (Paragraph | Table)[] = [];
 
     if (task.question && task.question.trim()) {
-        // Unterstützt jetzt HTML-Content aus dem Tiptap-Editor (Bold/Italic/Underline/Listen)
         const questionParagraphs = htmlToDocxParagraphs(task.question, {
             fontFamily: config.fontFamily,
             fontSizePt: config.fontSizePt,
             color: config.docxTheme.text,
             bold: true,
-        }, 120);
-        elements.push(...questionParagraphs);
+        }, 30);
+        elements.push(createEditorContentBox(questionParagraphs, config));
     }
 
-    const answerColDXA = config.a4InnerWidthDxa - config.checkboxColDxa;
+    const answerColDXA = config.a4InnerWidthDxa - config.checkboxColDxa - 360;
     const MC_CHECKBOX_SIZE_PT = Math.max(config.fontSizePt + 5, 16);
     const MC_CHECKBOX_FONT = 'Arial';
     const MC_CHECKBOX_LINE_TWIP = 260;
 
-    const optionRows = task.options.map((option) => {
+    for (const [index, option] of task.options.entries()) {
         const isCorrectTeacher = isTeacherVersion && option.isCorrect;
         const checkChar = isCorrectTeacher ? '☑' : '☐';
         const textColor = isCorrectTeacher ? config.docxTheme.correctAnswer : config.docxTheme.text;
         const isBold = isCorrectTeacher;
+        const optionParagraphs = htmlToDocxParagraphs(option.text || `Option ${index + 1}`, {
+            fontFamily: config.fontFamily,
+            fontSizePt: config.fontSizePt,
+            color: textColor,
+            bold: isBold,
+        }, 20);
 
-        return new TableRow({
-            height: { value: config.mcOptionRowDxa, rule: HeightRule.EXACT },
-            children: [
-                new TableCell({
-                    children: [
-                        new Paragraph({
-                            children: [
-                                new TextRun({
-                                    text: checkChar,
-                                    font: MC_CHECKBOX_FONT,
-                                    size: MC_CHECKBOX_SIZE_PT * 2,
-                                    color: textColor,
-                                    bold: true,
-                                }),
-                            ],
-                            alignment: AlignmentType.CENTER,
-                            spacing: {
-                                before: 0,
-                                after: 0,
-                                line: MC_CHECKBOX_LINE_TWIP,
-                                lineRule: LineRuleType.EXACT,
-                            },
-                        }),
-                    ],
-                    width: { size: config.checkboxColDxa, type: WidthType.DXA },
-                    verticalAlign: VerticalAlign.CENTER,
-                    borders: config.noTableBorders,
-                }),
-                new TableCell({
-                    children: [
-                        new Paragraph({
-                            children: [
-                                new TextRun({
-                                    text: option.text,
-                                    font: config.fontFamily,
-                                    size: config.fontSizePt * 2,
-                                    color: textColor,
-                                    bold: isBold,
-                                }),
-                            ],
-                            spacing: { before: 0, after: 0 },
-                        }),
-                    ],
-                    width: { size: answerColDXA, type: WidthType.DXA },
-                    verticalAlign: VerticalAlign.CENTER,
-                    borders: config.noTableBorders,
-                }),
-            ],
-        });
-    });
-
-    if (optionRows.length > 0) {
         elements.push(
             new Table({
-                rows: optionRows,
-                width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
+                rows: [
+                    new TableRow({
+                        height: { value: config.mcOptionRowDxa, rule: HeightRule.ATLEAST },
+                        children: [
+                            new TableCell({
+                                children: [
+                                    new Paragraph({
+                                        children: [
+                                            new TextRun({
+                                                text: checkChar,
+                                                font: MC_CHECKBOX_FONT,
+                                                size: MC_CHECKBOX_SIZE_PT * 2,
+                                                color: textColor,
+                                                bold: true,
+                                            }),
+                                        ],
+                                        alignment: AlignmentType.CENTER,
+                                        spacing: {
+                                            before: 0,
+                                            after: 0,
+                                            line: MC_CHECKBOX_LINE_TWIP,
+                                            lineRule: LineRuleType.EXACT,
+                                        },
+                                    }),
+                                ],
+                                width: { size: config.checkboxColDxa, type: WidthType.DXA },
+                                verticalAlign: VerticalAlign.CENTER,
+                                shading: { fill: isCorrectTeacher ? EDITOR_OPTION_CORRECT_BG : EDITOR_CARD_BG, type: ShadingType.CLEAR },
+                                borders: {
+                                    top: editorBorder(isCorrectTeacher ? config.docxTheme.correctAnswer : EDITOR_BORDER),
+                                    bottom: editorBorder(isCorrectTeacher ? config.docxTheme.correctAnswer : EDITOR_BORDER),
+                                    left: editorBorder(isCorrectTeacher ? config.docxTheme.correctAnswer : EDITOR_BORDER),
+                                    right: { style: 'none', size: 0, color: 'FFFFFF' },
+                                },
+                            }),
+                            new TableCell({
+                                children: optionParagraphs.length > 0
+                                    ? optionParagraphs
+                                    : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
+                                width: { size: answerColDXA, type: WidthType.DXA },
+                                verticalAlign: VerticalAlign.CENTER,
+                                margins: {
+                                    top: 90,
+                                    right: 140,
+                                    bottom: 90,
+                                    left: 80,
+                                },
+                                shading: { fill: isCorrectTeacher ? EDITOR_OPTION_CORRECT_BG : EDITOR_CARD_BG, type: ShadingType.CLEAR },
+                                borders: {
+                                    top: editorBorder(isCorrectTeacher ? config.docxTheme.correctAnswer : EDITOR_BORDER),
+                                    bottom: editorBorder(isCorrectTeacher ? config.docxTheme.correctAnswer : EDITOR_BORDER),
+                                    left: { style: 'none', size: 0, color: 'FFFFFF' },
+                                    right: editorBorder(isCorrectTeacher ? config.docxTheme.correctAnswer : EDITOR_BORDER),
+                                },
+                            }),
+                        ],
+                    }),
+                ],
+                width: { size: config.a4InnerWidthDxa - 360, type: WidthType.DXA },
                 layout: TableLayoutType.FIXED,
                 borders: config.noTableBorders,
             }),
@@ -684,6 +783,7 @@ async function renderImagePlaceholder(task: ImagePlaceholderTask, config: TaskRe
 }
 
 export function wrapTaskInGrid(
+    task: Task,
     taskIndex: number | null,
     contentElements: (Paragraph | Table)[],
     config: TaskRendererConfig,
@@ -698,40 +798,62 @@ export function wrapTaskInGrid(
      * Word ist bei vertikalen Abständen kontextabhängig. Das Grid stabilisiert
      * die Höhe und reduziert Layoutdrift über unterschiedliche Tasktypen hinweg.
      */
-    const titleText = taskIndex !== null ? `Aufgabe ${taskIndex}` : '';
+    const typeLabel = TASK_TYPE_LABELS_DOCX[task.type] ?? task.type.toUpperCase();
+    const taskTitle = htmlToPlainText(task.title);
+    const titlePrefix = taskIndex !== null ? `${taskIndex}. ${typeLabel}` : typeLabel;
+    const titleText = taskTitle ? `${titlePrefix} — ${taskTitle}` : titlePrefix;
     // Per-Task accentColor → hex ohne '#' für DOCX
     const titleColor = accentColor
         ? accentColor.replace('#', '')
         : config.docxTheme.taskTitle;
-    const titleCellBorders: TaskRendererConfig['noTableBorders'] = titleText
-        ? {
-            ...config.noTableBorders,
-            bottom: { style: 'single', size: 2, color: titleColor },
-        }
-        : config.noTableBorders;
+    const outerBorder = editorBorder(EDITOR_BORDER, 6);
+    const titleCellBorders = {
+        top: outerBorder,
+        right: outerBorder,
+        bottom: editorBorder(EDITOR_BORDER, 6),
+        left: outerBorder,
+    };
 
     const titleRow = new TableRow({
-        height: { value: titleText ? config.taskTitleRowDxa : 0, rule: titleText ? HeightRule.EXACT : HeightRule.AUTO },
+        height: { value: config.taskTitleRowDxa, rule: HeightRule.ATLEAST },
         children: [
             new TableCell({
                 children: [
                     new Paragraph({
-                        children: titleText
-                            ? [
-                                new TextRun({
-                                    text: titleText,
-                                    font: config.fontFamily,
-                                    size: config.fontSizePt * 2,
-                                    bold: true,
-                                    color: titleColor,
-                                }),
-                            ]
-                            : [],
+                        children: [
+                            ...(taskIndex !== null
+                                ? [
+                                    new TextRun({
+                                        text: `${taskIndex}. `,
+                                        font: config.fontFamily,
+                                        size: 16,
+                                        bold: true,
+                                        color: titleColor,
+                                    }),
+                                ]
+                                : []),
+                            new TextRun({
+                                text: taskIndex !== null
+                                    ? titleText.replace(`${taskIndex}. `, '')
+                                    : titleText,
+                                font: config.fontFamily,
+                                size: 16,
+                                bold: true,
+                                color: EDITOR_MUTED,
+                            }),
+                        ],
                         spacing: { before: 0, after: 0 },
                     }),
                 ],
                 width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
                 verticalAlign: VerticalAlign.CENTER,
+                shading: { fill: EDITOR_CARD_BG, type: ShadingType.CLEAR },
+                margins: {
+                    top: 60,
+                    right: 120,
+                    bottom: 60,
+                    left: 120,
+                },
                 borders: titleCellBorders,
             }),
         ],
@@ -744,7 +866,19 @@ export function wrapTaskInGrid(
                     ? contentElements
                     : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
                 width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
-                borders: config.noTableBorders,
+                shading: { fill: EDITOR_CARD_BG, type: ShadingType.CLEAR },
+                margins: {
+                    top: 120,
+                    right: 120,
+                    bottom: 120,
+                    left: 120,
+                },
+                borders: {
+                    top: { style: 'none', size: 0, color: 'FFFFFF' },
+                    right: outerBorder,
+                    bottom: outerBorder,
+                    left: outerBorder,
+                },
             }),
         ],
     });
@@ -753,7 +887,14 @@ export function wrapTaskInGrid(
         rows: [titleRow, contentRow],
         width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
         layout: TableLayoutType.FIXED,
-        borders: config.noTableBorders,
+        borders: {
+            top: outerBorder,
+            right: outerBorder,
+            bottom: outerBorder,
+            left: outerBorder,
+            insideHorizontal: outerBorder,
+            insideVertical: outerBorder,
+        },
     });
 }
 
@@ -762,7 +903,7 @@ function renderInstruction(
     config: TaskRendererConfig,
 ): (Paragraph | Table)[] {
     if (!task.text || !task.text.trim()) {
-        return [
+        return [createEditorContentBox([
             new Paragraph({
                 children: [
                     new TextRun({
@@ -774,15 +915,15 @@ function renderInstruction(
                     }),
                 ],
             }),
-        ];
+        ], config)];
     }
 
-    // Unterstützt jetzt HTML-Content aus dem Tiptap-Editor
-    return htmlToDocxParagraphs(task.text, {
+    const paragraphs = htmlToDocxParagraphs(task.text, {
         fontFamily: config.fontFamily,
         fontSizePt: config.fontSizePt,
         color: config.docxTheme.text,
-    }, 80);
+    }, 30);
+    return [createEditorContentBox(paragraphs, config)];
 }
 
 function renderInformation(
@@ -790,7 +931,7 @@ function renderInformation(
     config: TaskRendererConfig,
 ): (Paragraph | Table)[] {
     if (!task.content || !task.content.trim()) {
-        return [
+        return [createEditorContentBox([
             new Paragraph({
                 children: [
                     new TextRun({
@@ -802,14 +943,15 @@ function renderInformation(
                     }),
                 ],
             }),
-        ];
+        ], config)];
     }
 
-    return htmlToDocxParagraphs(task.content, {
+    const paragraphs = htmlToDocxParagraphs(task.content, {
         fontFamily: config.fontFamily,
         fontSizePt: config.fontSizePt,
         color: config.docxTheme.text,
-    }, 80);
+    }, 30);
+    return [createEditorContentBox(paragraphs, config)];
 }
 
 function renderHeading(
@@ -832,6 +974,90 @@ function renderHeading(
             spacing: { before: 200, after: 120 },
         }),
     ];
+}
+
+interface HtmlTableCellLayout {
+    element: Element;
+    colIndex: number;
+    colSpan: number;
+    rowSpan: number;
+}
+
+interface HtmlTableLayout {
+    rows: HtmlTableCellLayout[][];
+    colCount: number;
+    colPixelWidths: number[];
+}
+
+function readPositiveSpan(cell: Element, attribute: 'colspan' | 'rowspan'): number {
+    const parsed = parseInt(cell.getAttribute(attribute) ?? '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function readPositiveColWidth(cell: Element): number {
+    const colwidth = cell.getAttribute('colwidth');
+    if (colwidth) {
+        const firstWidth = colwidth
+            .split(',')
+            .map((part) => parseInt(part.trim(), 10))
+            .find((width) => Number.isFinite(width) && width > 0);
+        if (firstWidth) return firstWidth;
+    }
+
+    const styleWidth = readCellStyleValue(cell, 'width');
+    const widthMatch = styleWidth ? /(\d+(?:\.\d+)?)\s*px/i.exec(styleWidth) : null;
+    return widthMatch ? parseFloat(widthMatch[1]) : 0;
+}
+
+function buildHtmlTableLayout(tableRows: Element[]): HtmlTableLayout {
+    const occupied = new Map<number, number>();
+    const rows: HtmlTableCellLayout[][] = [];
+    const colPixelWidths: number[] = [];
+    let colCount = 0;
+
+    tableRows.forEach((rowElement, rowIndex) => {
+        const rowCells: HtmlTableCellLayout[] = [];
+        let colIndex = 0;
+
+        const cells = Array.from(rowElement.querySelectorAll('th,td'));
+        cells.forEach((cell) => {
+            while ((occupied.get(colIndex) ?? 0) > rowIndex) {
+                colIndex += 1;
+            }
+
+            const colSpan = readPositiveSpan(cell, 'colspan');
+            const rowSpan = readPositiveSpan(cell, 'rowspan');
+            rowCells.push({ element: cell, colIndex, colSpan, rowSpan });
+
+            const rawWidth = readPositiveColWidth(cell);
+            if (rawWidth > 0) {
+                const distributedWidth = rawWidth / colSpan;
+                for (let spanIndex = 0; spanIndex < colSpan; spanIndex += 1) {
+                    colPixelWidths[colIndex + spanIndex] = Math.max(
+                        colPixelWidths[colIndex + spanIndex] ?? 0,
+                        distributedWidth,
+                    );
+                }
+            }
+
+            if (rowSpan > 1) {
+                for (let spanIndex = 0; spanIndex < colSpan; spanIndex += 1) {
+                    occupied.set(colIndex + spanIndex, rowIndex + rowSpan);
+                }
+            }
+
+            colIndex += colSpan;
+        });
+
+        colCount = Math.max(colCount, colIndex);
+        rows.push(rowCells);
+    });
+
+    return {
+        rows,
+        colCount: Math.max(1, colCount),
+        colPixelWidths,
+    };
 }
 
 function renderTableTask(
@@ -912,29 +1138,29 @@ function renderTableTask(
     }
 
     const tableRows = Array.from(htmlTable.querySelectorAll('tr'));
-    const colCount = Math.max(
-        1,
-        ...tableRows.map((row) => Math.max(1, row.querySelectorAll('th,td').length)),
-    );
+    const tableLayout = buildHtmlTableLayout(tableRows);
+    const colCount = tableLayout.colCount;
     const columnBaseWidth = Math.floor(config.a4InnerWidthDxa / colCount);
 
-    // ── Spaltenbreiten aus colwidth-Attribut der ersten Zeile lesen ──
-    const firstRowCells = tableRows[0]
-        ? Array.from(tableRows[0].querySelectorAll('th,td'))
-        : [];
-    const cellPixelWidths: number[] = firstRowCells.map((c) => {
-        const cw = c.getAttribute('colwidth');
-        return cw ? parseInt(cw, 10) : 0;
-    });
+    // ── Spaltenbreiten aus colwidth/style-width lesen ──
+    const cellPixelWidths = tableLayout.colPixelWidths;
     const hasCustomWidths = cellPixelWidths.some((w) => w > 0);
     const totalPixelWidth = cellPixelWidths.reduce((s, w) => s + (w || 0), 0) || 1;
+    const resolveColumnWidth = (colIndex: number): number => {
+        if (hasCustomWidths && cellPixelWidths[colIndex] > 0) {
+            return Math.round((cellPixelWidths[colIndex] / totalPixelWidth) * config.a4InnerWidthDxa);
+        }
 
-    const docxRows = tableRows.map((rowElement) => {
-        const cells = Array.from(rowElement.querySelectorAll('th,td'));
-        const rowCells = Array.from({ length: colCount }, (_, colIndex) => {
-            const cell = cells[colIndex];
-            const isHeaderCell = cell?.tagName.toLowerCase() === 'th';
-            const cellHtml = DOMPurify.sanitize(cell?.innerHTML?.trim() ?? '');
+        return colIndex === colCount - 1
+            ? config.a4InnerWidthDxa - columnBaseWidth * (colCount - 1)
+            : columnBaseWidth;
+    };
+
+    const docxRows = tableLayout.rows.map((layoutRow) => {
+        const rowCells = layoutRow.map((layoutCell) => {
+            const cell = layoutCell.element;
+            const isHeaderCell = cell.tagName.toLowerCase() === 'th';
+            const cellHtml = DOMPurify.sanitize(cell.innerHTML?.trim() ?? '');
             const cellAlignment = parseCellAlignment(cell);
             const cellParagraphs = cellHtml
                 ? htmlToDocxParagraphs(cellHtml, {
@@ -945,17 +1171,9 @@ function renderTableTask(
                 }, 40, { defaultAlignment: cellAlignment })
                 : [];
 
-            // Proportionale Spaltenbreite wenn colwidth vorhanden
-            let colWidth: number;
-            if (hasCustomWidths && cellPixelWidths[colIndex] > 0) {
-                colWidth = Math.round(
-                    (cellPixelWidths[colIndex] / totalPixelWidth) * config.a4InnerWidthDxa,
-                );
-            } else {
-                colWidth = colIndex === colCount - 1
-                    ? config.a4InnerWidthDxa - columnBaseWidth * (colCount - 1)
-                    : columnBaseWidth;
-            }
+            const colWidth = Array.from({ length: layoutCell.colSpan }, (_, spanIndex) => (
+                resolveColumnWidth(layoutCell.colIndex + spanIndex)
+            )).reduce((sum, width) => sum + width, 0);
 
             // Tiptap background-color und border-top/right/bottom/left auslesen
             const cellDocxStyle = parseCellStyle(cell);
@@ -970,6 +1188,8 @@ function renderTableTask(
                     ? cellParagraphs
                     : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
                 width: { size: colWidth, type: WidthType.DXA },
+                columnSpan: layoutCell.colSpan > 1 ? layoutCell.colSpan : undefined,
+                rowSpan: layoutCell.rowSpan > 1 ? layoutCell.rowSpan : undefined,
                 verticalAlign: VerticalAlign.TOP,
                 shading: cellDocxStyle.shading,
                 borders: {

@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai';
+import { z } from 'zod';
 import type { Task, WorksheetSource } from '../types/worksheet';
 import { useSettingsStore, type AIProvider } from '../store/settingsStore';
 import { useSourceStore } from '../store/sourceStore';
@@ -17,6 +18,8 @@ import {
 
 export { AI_JSON_TRUNCATED_USER_MESSAGE };
 export type { AIClassContext, TaskRevisionResult };
+export const MICRO_AI_TRUNCATION_USER_MESSAGE =
+    'Die KI-Antwort wurde unerwartet abgebrochen. Bitte versuche es erneut.';
 
 /* ══════════════════════════════════════════════════
    aiService.ts – Zentrale KI-Fassade
@@ -592,6 +595,7 @@ async function requestOpenAICompatible(params: {
     systemPrompt: string;
     screenshotBase64?: string;
     modelOverride?: string;
+    maxTokens?: number;
     signal?: AbortSignal;
 }): Promise<string> {
     const config = requireProviderConfig(params.provider);
@@ -636,6 +640,8 @@ async function requestOpenAICompatible(params: {
                 headers,
                 body: JSON.stringify({
                     model: params.modelOverride ?? config.model,
+                    max_tokens: params.maxTokens ?? 1500,
+                    stream: false,
                     messages: [
                         { role: 'system', content: params.systemPrompt },
                         { role: 'user', content },
@@ -740,6 +746,7 @@ const geminiAdapter: ProviderAdapter = {
             const result = await model.generateContent({
                 contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
                 systemInstruction: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
+                generationConfig: { maxOutputTokens: 1500 },
             });
 
             return result.response.text();
@@ -803,6 +810,7 @@ const openaiAdapter: ProviderAdapter = {
             provider: 'openai',
             userPrompt: buildModifyUserPrompt(task, instruction),
             systemPrompt: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
+            maxTokens: 1500,
         });
     },
 
@@ -848,6 +856,7 @@ const openRouterAdapter: ProviderAdapter = {
             provider: 'openrouter',
             userPrompt: buildModifyUserPrompt(task, instruction),
             systemPrompt: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
+            maxTokens: 1500,
         });
     },
 
@@ -893,6 +902,7 @@ const localAdapter: ProviderAdapter = {
             provider: 'local',
             userPrompt: buildModifyUserPrompt(task, instruction),
             systemPrompt: withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
+            maxTokens: 1500,
         });
     },
 
@@ -1009,11 +1019,17 @@ WICHTIG: Die Antwort muss ein valides JSON-Objekt sein, OHNE Markdown-Codeblöck
 Das Format muss exakt dem Eingabe-Format entsprechen (gleicher "type").
 Behalte den ursprünglichen "type" bei, ändere ihn NICHT.
 Wenn der Typ "cloze" ist, markiere Lücken immer mit [Wort] (nicht mit {{Wort}}).
+Ändere nur den 'content'-Bereich. Halte die Formatierung exakt bei. Fasse dich extrem kurz, um Token zu sparen.
 `;
 
 const CHAT_ASSISTANT_SYSTEM_PROMPT = `Du bist ein didaktischer KI-Co-Pilot für Lehrkräfte.
-Deine Aufgabe in dieser Chat-Phase ist NICHT das direkte Erstellen des Arbeitsblatts,
-sondern das gemeinsame Schärfen von:
+DU BIST AUSSCHLIESSLICH DER PLANER. Deine einzige Aufgabe ist es, mit dem Lehrer die Struktur, das Thema und die Aufgabentypen zu definieren.
+
+STRICKTES VERBOT: Generiere NIEMALS das finale Arbeitsblatt, keine Informationstexte, keine Lückentexte und keine konkreten Aufgaben im Chat!
+
+SOBALD DIE PLANUNG STEHT: Schreibe exakt und nur diesen Satz: 'Die Planung ist abgeschlossen. Klicke nun unten auf den Button "Arbeitsblatt erstellen", damit ich die Inhalte generiere und in den Editor lade.'
+
+Planungsfokus:
 - Thema
 - Zielgruppe / Klassenstufe
 - gewünschte Aufgabentypen
@@ -1025,6 +1041,7 @@ Regeln:
 - Stelle bei fehlenden Infos maximal 2 präzise Rückfragen.
 - Gib keine JSON-Ausgabe und keine Codeblöcke aus.
 - Wenn der Nutzer Rohtext einfügt, fasse ihn didaktisch strukturiert zusammen.
+- Liefere niemals ausformulierte Aufgaben, keine Aufgabensammlungen und keinen finalen Arbeitsblatt-Content.
 `;
 
 /** Baut den System-Prompt mit optionalem Lehrplan-Kontext + Profildaten */
@@ -1217,7 +1234,7 @@ interface OrphanedLineatur {
 }
 
 /** Validiert und normalisiert Tasks aus der KI-Antwort */
-function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
+export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
     type ParsedItem = Omit<Task, 'id'> | OrphanedLineatur | null;
 
     // ── Pass 1: Parse jedes Item ──
@@ -1228,22 +1245,29 @@ function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
 
     const parsed: ParsedItem[] = [];
     for (const item of items) {
-        const type = item.type as string;
+        const rawType = String(item.type ?? '')
+            .trim()
+            .toLowerCase()
+            .replace(/_/g, '-');
+        const type = rawType === 'multiplechoice' ? 'multiple-choice' : rawType;
         const linesFields = extractLinesAfterFields(item);
 
         switch (type) {
             case 'multiple-choice':
+            case 'mc':
                 parsed.push({
                     type: 'multiple-choice' as const,
                     title: String(item.title || 'Multiple-Choice'),
                     question: String(item.question || ''),
                     vocabulary: [],
                     options: Array.isArray(item.options)
-                        ? item.options.map((opt: Record<string, unknown>) => ({
-                            id: crypto.randomUUID(),
-                            text: String(opt.text || ''),
-                            isCorrect: Boolean(opt.isCorrect),
-                        }))
+                        ? item.options
+                            .filter((opt): opt is Record<string, unknown> => typeof opt === 'object' && opt !== null)
+                            .map((opt) => ({
+                                id: crypto.randomUUID(),
+                                text: String(opt.text || ''),
+                                isCorrect: Boolean(opt.isCorrect),
+                            }))
                         : [],
                     ...linesFields,
                 } as Omit<Task, 'id'>);
@@ -1272,6 +1296,121 @@ function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                 }
                 break;
             }
+
+            case 'instruction':
+                parsed.push({
+                    type: 'instruction' as const,
+                    title: String(item.title || 'Aufgabe'),
+                    text: String(item.text ?? item.content ?? ''),
+                    vocabulary: [],
+                    ...linesFields,
+                } as Omit<Task, 'id'>);
+                break;
+
+            case 'information':
+            case 'information-text': {
+                const textWidthRatioRaw = typeof item.textWidthRatio === 'number'
+                    ? item.textWidthRatio
+                    : 60;
+                const textWidthRatio = Math.max(30, Math.min(100, Math.round(textWidthRatioRaw)));
+                const chunks = Array.isArray(item.chunks)
+                    ? item.chunks
+                        .filter((chunk): chunk is Record<string, unknown> => typeof chunk === 'object' && chunk !== null)
+                        .map((chunk) => ({
+                            id: typeof chunk.id === 'string' && chunk.id.trim() ? chunk.id : crypto.randomUUID(),
+                            heading: String(chunk.heading ?? ''),
+                            content: String(chunk.content ?? ''),
+                            notesHeading: String(chunk.notesHeading ?? 'Notizen'),
+                        }))
+                    : [];
+
+                parsed.push({
+                    type: 'information' as const,
+                    title: String(item.title || 'Informationstext'),
+                    content: String(item.content ?? item.text ?? ''),
+                    hasNotesColumn: Boolean(item.hasNotesColumn),
+                    textWidthRatio,
+                    highlightVocabulary: Boolean(item.highlightVocabulary),
+                    isChunked: Boolean(item.isChunked),
+                    chunks,
+                    showNumber: false,
+                    vocabulary: [],
+                    ...linesFields,
+                } as Omit<Task, 'id'>);
+                break;
+            }
+
+            case 'heading':
+                parsed.push({
+                    type: 'heading' as const,
+                    title: String(item.title || 'Zwischenüberschrift'),
+                    text: String(item.text ?? item.title ?? 'Zwischenüberschrift'),
+                    showNumber: false,
+                    vocabulary: [],
+                } as Omit<Task, 'id'>);
+                break;
+
+            case 'table': {
+                const rows = typeof item.rows === 'number'
+                    ? Math.max(1, Math.min(20, Math.round(item.rows)))
+                    : 3;
+                const cols = typeof item.cols === 'number'
+                    ? Math.max(1, Math.min(12, Math.round(item.cols)))
+                    : 3;
+                parsed.push({
+                    type: 'table' as const,
+                    title: String(item.title || 'Tabelle'),
+                    content: String(item.content ?? ''),
+                    rows,
+                    cols,
+                    vocabulary: [],
+                    ...linesFields,
+                } as Omit<Task, 'id'>);
+                break;
+            }
+
+            case 'image-placeholder':
+            case 'image':
+                parsed.push({
+                    type: 'image-placeholder' as const,
+                    title: String(item.title || 'Bild-Platzhalter'),
+                    caption: String(item.caption ?? ''),
+                    imageAlign: item.imageAlign === 'center' || item.imageAlign === 'right' ? item.imageAlign : 'left',
+                    align: item.align === 'center' || item.align === 'right' ? item.align : 'left',
+                    opacity: typeof item.opacity === 'number' ? Math.max(0, Math.min(1, item.opacity)) : 1,
+                    width: typeof item.width === 'string' ? item.width : '100%',
+                    height: typeof item.height === 'string' ? item.height : 'auto',
+                    widthMm: typeof item.widthMm === 'number' ? Math.max(20, Math.min(180, item.widthMm)) : 80,
+                    heightMm: typeof item.heightMm === 'number' ? Math.max(20, Math.min(260, item.heightMm)) : 60,
+                    vocabulary: [],
+                    ...linesFields,
+                } as Omit<Task, 'id'>);
+                break;
+
+            case 'columns': {
+                const layout = item.layout === '60-40' || item.layout === '40-60' ? item.layout : '50-50';
+                const gapMm = typeof item.gapMm === 'number' ? Math.max(2, Math.min(20, item.gapMm)) : 6;
+                parsed.push({
+                    type: 'columns' as const,
+                    title: String(item.title || 'Zweispaltig'),
+                    layout,
+                    gapMm,
+                    children: [null, null],
+                    showNumber: false,
+                    vocabulary: [],
+                } as Omit<Task, 'id'>);
+                break;
+            }
+
+            case 'page-break':
+            case 'pagebreak':
+                parsed.push({
+                    type: 'page-break' as const,
+                    title: String(item.title || 'Seitenumbruch'),
+                    showNumber: false,
+                    vocabulary: [],
+                } as Omit<Task, 'id'>);
+                break;
 
             case 'lineatur': {
                 // ── Verwaiste Lineatur: nicht als Task akzeptieren, sondern
@@ -1373,16 +1512,72 @@ export async function generateTasks(options: GenerateTasksOptions): Promise<Omit
     return tasks;
 }
 
-export async function modifyTask(task: Task, instruction: string): Promise<Omit<Task, 'id'>> {
-    const responseText = await getAdapter().modifyTaskText(task, instruction);
-    const jsonStr = extractJSON(responseText);
+interface ModifyTaskApiRequest {
+    task: Omit<Task, 'id'>;
+    instruction: string;
+    provider: 'openai' | 'google' | 'openrouter' | 'lmstudio';
+    model: string;
+    providerApiKey?: string;
+    providerBaseURL?: string;
+}
 
-    let parsed: Record<string, unknown>;
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+async function requestModifiedTaskObject(task: Task, instruction: string): Promise<Record<string, unknown>> {
+    const { provider } = getActiveProviderState();
+    const config = requireProviderConfig(provider);
+    const { id: removedId, ...taskData } = task;
+    void removedId;
+
+    const requestPayload: ModifyTaskApiRequest = {
+        task: taskData,
+        instruction,
+        provider: mapAgentProvider(provider),
+        model: config.model,
+        providerApiKey: config.apiKey?.trim() || undefined,
+        providerBaseURL: config.baseUrl?.trim() || undefined,
+    };
+
+    const response = await fetch('/api/modify-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestPayload),
+    });
+
+    let responseBody: unknown = null;
     try {
-        parsed = JSON.parse(jsonStr);
+        responseBody = await response.json();
     } catch {
-        throw new Error(`KI hat kein valides JSON zurückgegeben:\n${responseText.substring(0, 500)}`);
+        responseBody = null;
     }
+
+    if (!response.ok) {
+        const errorMessage =
+            isPlainRecord(responseBody) && typeof responseBody.error === 'string'
+                ? responseBody.error
+                : `${PROVIDER_LABELS[provider]} Anfrage fehlgeschlagen (HTTP ${response.status}).`;
+        throw normalizeProviderError(provider, errorMessage);
+    }
+
+    if (!isPlainRecord(responseBody)) {
+        console.error('[modifyTask] Ungültige API-Antwort für /api/modify-task.', {
+            responseBody,
+        });
+        throw new Error(MICRO_AI_TRUNCATION_USER_MESSAGE);
+    }
+
+    return responseBody;
+}
+
+export async function modifyTask(task: Task, instruction: string): Promise<Omit<Task, 'id'>> {
+    const trimmedInstruction = instruction.trim();
+    if (!trimmedInstruction) {
+        throw new Error('Leere KI-Anweisung ist nicht erlaubt.');
+    }
+
+    const parsed = await requestModifiedTaskObject(task, trimmedInstruction);
 
     const modified = validateSingleTask(parsed, task.type);
     if (!modified) {
@@ -1517,4 +1712,512 @@ export async function generateTasksFromCompiledPrompt(compiledPrompt: string): P
     }
 
     return tasks;
+}
+
+export interface AgentAfbConfig {
+    isActive: boolean;
+    reproduktion: number;
+    reorganisation: number;
+    transfer: number;
+    problemloesung: number;
+}
+
+export interface AgentWorkflowRequest {
+    input: string;
+    provider: AIProvider;
+    model: string;
+    providerApiKey?: string;
+    providerBaseURL?: string;
+    afbConfig: AgentAfbConfig;
+}
+
+const streamPhaseSchema = z.enum(['planning', 'creating', 'validating', 'success', 'error']);
+
+const agentAfbConfigSchema = z.object({
+    isActive: z.boolean(),
+    reproduktion: z.number(),
+    reorganisation: z.number(),
+    transfer: z.number(),
+    problemloesung: z.number(),
+}).strict();
+
+const agentTaskItemSchema = z.object({
+    type: z.string(),
+    title: z.string(),
+}).passthrough();
+
+const agentPlannerSchema = z.object({
+    topic: z.string(),
+    subject: z.string(),
+    grade: z.string(),
+    learningGoals: z.array(z.string()),
+    difficulty: z.number(),
+}).strict();
+
+const agentValidationSchema = z.object({
+    isValid: z.boolean(),
+    score: z.number(),
+    errors: z.array(z.string()),
+}).strict();
+
+const agentWorkflowResponseSchema = z.object({
+    planner: agentPlannerSchema,
+    tasks: z.array(agentTaskItemSchema).min(1),
+    validation: agentValidationSchema,
+    afbConfig: agentAfbConfigSchema,
+}).strict();
+
+const agentStreamEventSchema = z.object({
+    phase: streamPhaseSchema,
+    log: z.string(),
+    result: z.unknown().optional(),
+}).strict();
+
+export type AgentWorkflowResponse = z.infer<typeof agentWorkflowResponseSchema>;
+type AgentStreamEvent = z.infer<typeof agentStreamEventSchema>;
+
+type AgentTaskItem = z.infer<typeof agentTaskItemSchema>;
+type AgentPlanner = z.infer<typeof agentPlannerSchema>;
+type AgentValidation = z.infer<typeof agentValidationSchema>;
+
+const DEFAULT_AGENT_PLANNER: AgentPlanner = {
+    topic: 'unknown',
+    subject: 'unknown',
+    grade: 'unknown',
+    learningGoals: [],
+    difficulty: 3,
+};
+
+const DEFAULT_AGENT_VALIDATION: AgentValidation = {
+    isValid: true,
+    score: 100,
+    errors: [],
+};
+
+function mapAgentProvider(provider: AIProvider): 'openai' | 'google' | 'openrouter' | 'lmstudio' {
+    if (provider === 'gemini') return 'google';
+    if (provider === 'local') return 'lmstudio';
+    return provider;
+}
+
+function sanitizeJsonPayload(rawPayload: string): string {
+    return rawPayload
+        .replace(/^\uFEFF/, '')
+        .replace(/```(?:json)?/gi, '')
+        .replace(/```/g, '')
+        .trim();
+}
+
+function extractJsonArrayCandidates(rawText: string): string[] {
+    const candidates: string[] = [];
+    let start = -1;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = 0; index < rawText.length; index += 1) {
+        const char = rawText[index];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (char === '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (char === '"') {
+            inString = true;
+            continue;
+        }
+
+        if (char === '[') {
+            if (depth === 0) {
+                start = index;
+            }
+            depth += 1;
+            continue;
+        }
+
+        if (char === ']' && depth > 0) {
+            depth -= 1;
+            if (depth === 0 && start >= 0) {
+                candidates.push(rawText.slice(start, index + 1));
+                start = -1;
+            }
+        }
+    }
+
+    return candidates;
+}
+
+function isRecordObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function isTaskLikeEntry(value: unknown): value is Record<string, unknown> {
+    return isRecordObject(value) && typeof value.type === 'string';
+}
+
+function isTaskLikeArray(value: unknown): value is Record<string, unknown>[] {
+    return Array.isArray(value) && value.length > 0 && value.every((entry) => isTaskLikeEntry(entry));
+}
+
+function tryParseJson(
+    payload: string,
+    options: { context?: string; logErrors?: boolean } = {},
+): unknown | null {
+    const { context = 'unknown', logErrors = false } = options;
+    const sanitizedPayload = sanitizeJsonPayload(payload);
+    if (!sanitizedPayload) return null;
+
+    try {
+        return JSON.parse(sanitizedPayload);
+    } catch (error) {
+        const extracted = extractJSON(sanitizedPayload);
+        if (extracted && extracted !== sanitizedPayload) {
+            try {
+                return JSON.parse(sanitizeJsonPayload(extracted));
+            } catch (nestedError) {
+                if (logErrors) {
+                    console.error('[aiService] JSON-Parsing fehlgeschlagen (mit Fallback).', {
+                        context,
+                        error,
+                        nestedError,
+                        payloadPreview: sanitizedPayload.slice(0, 1200),
+                    });
+                }
+                return null;
+            }
+        }
+        if (logErrors) {
+            console.error('[aiService] JSON-Parsing fehlgeschlagen.', {
+                context,
+                error,
+                payloadPreview: sanitizedPayload.slice(0, 1200),
+            });
+        }
+        return null;
+    }
+}
+
+function findTaskArrayInUnknown(candidate: unknown): Record<string, unknown>[] | null {
+    if (!candidate) return null;
+
+    if (typeof candidate === 'string') {
+        const parsedStringCandidate = tryParseJson(candidate, {
+            context: 'find-task-array:string',
+            logErrors: false,
+        });
+        if (parsedStringCandidate !== null) {
+            return findTaskArrayInUnknown(parsedStringCandidate);
+        }
+
+        const arrayCandidates = extractJsonArrayCandidates(sanitizeJsonPayload(candidate));
+        for (let index = arrayCandidates.length - 1; index >= 0; index -= 1) {
+            const parsedArrayCandidate = tryParseJson(arrayCandidates[index], {
+                context: `find-task-array:string-candidate-${index}`,
+                logErrors: false,
+            });
+            if (isTaskLikeArray(parsedArrayCandidate)) {
+                return parsedArrayCandidate;
+            }
+        }
+        return null;
+    }
+
+    if (isTaskLikeArray(candidate)) {
+        return candidate;
+    }
+
+    if (Array.isArray(candidate)) {
+        for (const entry of candidate) {
+            const nested = findTaskArrayInUnknown(entry);
+            if (nested) return nested;
+        }
+        return null;
+    }
+
+    if (!isRecordObject(candidate)) {
+        return null;
+    }
+
+    if ('tasks' in candidate) {
+        const fromTasks = findTaskArrayInUnknown(candidate.tasks);
+        if (fromTasks) return fromTasks;
+    }
+
+    for (const value of Object.values(candidate)) {
+        const nested = findTaskArrayInUnknown(value);
+        if (nested) return nested;
+    }
+
+    return null;
+}
+
+function normalizeAgentTasksFromUnknown(candidate: unknown, context: string): AgentTaskItem[] | null {
+    const rawTasks = findTaskArrayInUnknown(candidate);
+    if (!rawTasks) return null;
+
+    const parsedTasks = z.array(agentTaskItemSchema).min(1).safeParse(rawTasks);
+    if (!parsedTasks.success) {
+        console.error('[aiService] Task-Array aus Agent-Stream ist ungültig.', {
+            context,
+            issues: parsedTasks.error.issues,
+        });
+        return null;
+    }
+
+    return parsedTasks.data;
+}
+
+function normalizeAgentWorkflowResultFromUnknown(
+    candidate: unknown,
+    fallbackAfbConfig: AgentAfbConfig,
+    context: string,
+): AgentWorkflowResponse | null {
+    const parsedStrict = agentWorkflowResponseSchema.safeParse(candidate);
+    if (parsedStrict.success) {
+        return parsedStrict.data;
+    }
+
+    const tasks = normalizeAgentTasksFromUnknown(candidate, context);
+    if (!tasks) return null;
+
+    const record = isRecordObject(candidate) ? candidate : {};
+    const planner = agentPlannerSchema.safeParse(record.planner).success
+        ? agentPlannerSchema.parse(record.planner)
+        : DEFAULT_AGENT_PLANNER;
+    const validation = agentValidationSchema.safeParse(record.validation).success
+        ? agentValidationSchema.parse(record.validation)
+        : DEFAULT_AGENT_VALIDATION;
+    const afbConfig = agentAfbConfigSchema.safeParse(record.afbConfig).success
+        ? agentAfbConfigSchema.parse(record.afbConfig)
+        : agentAfbConfigSchema.parse(fallbackAfbConfig);
+
+    return {
+        planner,
+        tasks,
+        validation,
+        afbConfig,
+    };
+}
+
+function collectAgentStreamEvents(candidate: unknown, events: AgentStreamEvent[]): void {
+    if (!candidate) return;
+
+    if (Array.isArray(candidate)) {
+        for (const item of candidate) collectAgentStreamEvents(item, events);
+        return;
+    }
+
+    if (typeof candidate === 'string') {
+        const parsedStringPayload = tryParseJson(candidate, {
+            context: 'collect-agent-stream-events:string',
+            logErrors: false,
+        });
+        if (parsedStringPayload !== null) {
+            collectAgentStreamEvents(parsedStringPayload, events);
+        }
+        return;
+    }
+
+    if (typeof candidate !== 'object') return;
+
+    const parsedEvent = agentStreamEventSchema.safeParse(candidate);
+    if (parsedEvent.success) {
+        events.push(parsedEvent.data);
+        return;
+    }
+
+    const record = candidate as Record<string, unknown>;
+    if ('data' in record) {
+        collectAgentStreamEvents(record.data, events);
+    }
+    if ('parts' in record && Array.isArray(record.parts)) {
+        collectAgentStreamEvents(record.parts, events);
+    }
+}
+
+function parseAgentStreamLine(line: string): AgentStreamEvent[] {
+    const trimmed = line.trim();
+    if (!trimmed) return [];
+    if (trimmed === '[DONE]') return [];
+
+    let payload = trimmed;
+    if (payload.startsWith('data:')) {
+        payload = payload.slice(5).trim();
+    }
+    if (!payload || payload === '[DONE]') return [];
+
+    const protocolPrefixMatch = payload.match(/^\d+:(.*)$/s);
+    if (protocolPrefixMatch) {
+        payload = protocolPrefixMatch[1].trim();
+    }
+    if (!payload) return [];
+
+    const parsedPayload = tryParseJson(payload, {
+        context: 'parse-agent-stream-line',
+        logErrors: false,
+    });
+    if (parsedPayload === null) return [];
+
+    const events: AgentStreamEvent[] = [];
+    collectAgentStreamEvents(parsedPayload, events);
+    return events;
+}
+
+const AGENT_WORKFLOW_ENDPOINT = '/api/generate-worksheet';
+
+export async function runAgentWorkflowStream(request: AgentWorkflowRequest): Promise<AgentWorkflowResponse> {
+    const { useWorkspaceStore } = await import('../store/workspaceStore');
+    try {
+        const normalizedAfbConfig = agentAfbConfigSchema.parse(request.afbConfig);
+        const response = await fetch(AGENT_WORKFLOW_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                input: request.input,
+                provider: mapAgentProvider(request.provider),
+                model: request.model,
+                providerApiKey: request.providerApiKey?.trim() || undefined,
+                providerBaseURL: request.providerBaseURL?.trim() || undefined,
+                afbConfig: normalizedAfbConfig,
+                stream: true,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP Error ${response.status} bei ${AGENT_WORKFLOW_ENDPOINT}: ${errorText || 'Keine Fehlerdetails vom Server.'}`);
+        }
+
+        if (!response.body) {
+            throw new Error('Kein Stream-Body in der Agenten-Antwort vorhanden.');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let rawStreamText = '';
+        let finalResult: AgentWorkflowResponse | null = null;
+        let streamError: string | null = null;
+
+        const applyEvents = (events: AgentStreamEvent[], sourceLabel: string) => {
+            for (const event of events) {
+                const store = useWorkspaceStore.getState();
+                store.setAgentPhase(event.phase);
+                store.addAgentLog(event.log);
+                if (event.phase === 'error') {
+                    streamError = event.log;
+                }
+                if (event.result !== undefined) {
+                    const normalizedResult = normalizeAgentWorkflowResultFromUnknown(
+                        event.result,
+                        normalizedAfbConfig,
+                        sourceLabel,
+                    );
+                    if (normalizedResult) {
+                        finalResult = normalizedResult;
+                    }
+                }
+            }
+        };
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                const flushed = decoder.decode();
+                if (flushed) {
+                    rawStreamText += flushed;
+                    buffer += flushed;
+                }
+                break;
+            }
+
+            const decodedChunk = decoder.decode(value, { stream: true });
+            rawStreamText += decodedChunk;
+            buffer += decodedChunk;
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+                const events = parseAgentStreamLine(line);
+                applyEvents(events, 'stream-line');
+            }
+        }
+
+        if (buffer.trim().length > 0) {
+            const trailingLines = buffer
+                .split('\n')
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0);
+
+            for (const line of trailingLines) {
+                const events = parseAgentStreamLine(line);
+                applyEvents(events, 'stream-trailing-buffer');
+            }
+        }
+
+        if (streamError) {
+            throw new Error(streamError);
+        }
+
+        if (!finalResult) {
+            const fallbackTasks = normalizeAgentTasksFromUnknown(rawStreamText, 'stream-raw-fallback');
+            if (fallbackTasks) {
+                useWorkspaceStore.getState().addAgentLog('Fallback-Parsing aktiv: Aufgaben aus Raw-Stream hydriert.');
+                finalResult = {
+                    planner: DEFAULT_AGENT_PLANNER,
+                    tasks: fallbackTasks,
+                    validation: DEFAULT_AGENT_VALIDATION,
+                    afbConfig: normalizedAfbConfig,
+                };
+            } else {
+                const parsedRawPayload = tryParseJson(rawStreamText, {
+                    context: 'stream-raw-fallback:json',
+                    logErrors: true,
+                });
+                if (parsedRawPayload) {
+                    finalResult = normalizeAgentWorkflowResultFromUnknown(
+                        parsedRawPayload,
+                        normalizedAfbConfig,
+                        'stream-raw-fallback:parsed',
+                    );
+                }
+                if (!finalResult) {
+                    console.error('[runAgentWorkflowStream] Kein auswertbares finales Ergebnis im Stream gefunden.', {
+                        streamTail: rawStreamText.slice(-2000),
+                    });
+                }
+            }
+        }
+
+        if (!finalResult) {
+            throw new Error('Agenten-Stream abgeschlossen, aber kein finales Ergebnis empfangen.');
+        }
+
+        const store = useWorkspaceStore.getState();
+        if (store.agentPhase !== 'success') {
+            store.setAgentPhase('success');
+        }
+
+        return finalResult;
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unbekannter Fehler im Agenten-Workflow.';
+        const store = useWorkspaceStore.getState();
+        store.setAgentPhase('error');
+        store.addAgentLog(message);
+        console.error('[runAgentWorkflowStream] Fehler:', error);
+        throw (error instanceof Error ? error : new Error(message));
+    }
 }
