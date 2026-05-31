@@ -48,6 +48,10 @@ function usePrintRootContainer(): HTMLElement | null {
             document.body.appendChild(el);
             created = true;
         }
+        // Bulletproof: hidden on screen via inline style. The @media print rule
+        // `#print-root { display: block !important }` overrides this only while
+        // printing (an !important stylesheet rule beats a normal inline style).
+        el.style.display = 'none';
         setContainer(el);
         return () => {
             if (created && el && el.parentNode) {

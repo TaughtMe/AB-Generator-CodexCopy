@@ -138,19 +138,28 @@ function App() {
   const handlePdfExport = async (variants: ExportVariant[]) => {
     if (taskIds.length === 0 || isExporting) return;
     setIsExporting(true);
-    const root = document.documentElement;
-    const previousVariant = root.dataset.exportVariant;
+    const html = document.documentElement;
+    const previousVariant = html.dataset.exportVariant;
     try {
       for (const variant of variants) {
-        root.dataset.exportVariant = variant;
+        html.dataset.exportVariant = variant;
         setPrintVariant(variant);
         await waitForPrintViewReady();
-        await printAndAwait();
+
+        // body.pdf-exporting aktiviert die @media-print-Regeln, die NUR beim
+        // Drucken den Editor (#root) ausblenden und #print-root zeigen. Auf dem
+        // Bildschirm bleibt #print-root durch sein inline display:none verborgen.
+        document.body.classList.add('pdf-exporting');
+        try {
+          await printAndAwait();
+        } finally {
+          document.body.classList.remove('pdf-exporting');
+        }
       }
     } finally {
       setPrintVariant(null);
-      if (previousVariant) root.dataset.exportVariant = previousVariant;
-      else delete root.dataset.exportVariant;
+      if (previousVariant) html.dataset.exportVariant = previousVariant;
+      else delete html.dataset.exportVariant;
       setIsExporting(false);
     }
   };

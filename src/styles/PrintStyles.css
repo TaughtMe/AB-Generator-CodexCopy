@@ -351,15 +351,18 @@
     }
 
     /* ══════════════════════════════════════════════════
-       Dedicated print view (PrintWorksheet portal in #print-root)
-       Editor (#root) is hidden; only the clean print view prints.
-       Reuses the SAME task components in read-only mode → WYSIWYG.
+       Dedicated print view (PrintWorksheet portal in #print-root).
+       Only active during PDF export (body.pdf-exporting): the editor is
+       hidden and the clean print view is shown. Without the class (e.g.
+       native Ctrl+P) nothing changes, so default printing is not broken.
+       #print-root is inline display:none on screen; the !important rule
+       below reveals it only in print media while exporting.
        ══════════════════════════════════════════════════ */
-    #root {
+    body.pdf-exporting #root {
         display: none !important;
     }
 
-    #print-root {
+    body.pdf-exporting #print-root {
         display: block !important;
     }
 
