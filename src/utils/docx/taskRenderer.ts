@@ -855,6 +855,7 @@ export function wrapTaskInGrid(
                     left: 120,
                 },
                 borders: titleCellBorders,
+                margins: { top: 0, bottom: 0, left: 0, right: 0 },
             }),
         ],
     });
@@ -1334,6 +1335,7 @@ export async function renderColumnsTask(
         width: { size: leftWidth, type: WidthType.DXA },
         borders: cellBorders,
         verticalAlign: VerticalAlign.TOP,
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
     });
 
     const rightCell = new TableCell({
@@ -1343,6 +1345,7 @@ export async function renderColumnsTask(
         width: { size: rightWidth, type: WidthType.DXA },
         borders: cellBorders,
         verticalAlign: VerticalAlign.TOP,
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
     });
 
     return new Table({
