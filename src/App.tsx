@@ -27,6 +27,7 @@ import { SettingsView } from './components/settings/SettingsView';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import type { SidebarView } from './components/layout/Sidebar';
 import { PrintWorksheet } from './components/print/PrintWorksheet';
+import './styles/PrintStyles.css';
 
 function App() {
   const { t } = useTranslation();
