@@ -10,6 +10,7 @@ import {
 } from 'pdf-lib';
 import type { ExportVariant } from '../components/editor/ExportMenu';
 import type { DesignSnapshot } from '../types/designTemplate';
+import { useWorksheetStore } from '../store/worksheetStore';
 import type {
     ClozeTask,
     ColumnsTask,
@@ -1193,6 +1194,34 @@ function drawDocumentHeader(ctx: RenderContext, title: string, designSnapshot: P
     const safeTitle = title.trim() || 'Arbeitsblatt';
     const accentHex = getAccentHex(designSnapshot);
     const accentColor = hexToPdfRgb(accentHex);
+
+    // Spiegelt den Editor (WorksheetHeader): Ist der Header-Toggle aus, wird nur
+    // ein einfacher Titel mit Unterstrich gezeichnet – kein Logo, keine
+    // Name/Datum/Klasse-Felder. So bleibt der PDF-Export WYSIWYG zum Editor.
+    const { showHeader } = useWorksheetStore.getState();
+    if (!showHeader) {
+        const SIMPLE_TITLE_SIZE = 13;
+        const SLATE_800 = rgb(0.118, 0.161, 0.231); // #1e293b
+        const SLATE_200 = rgb(0.886, 0.91, 0.945);  // #e2e8f0
+        drawWrappedText(ctx, safeTitle, {
+            x: PAGE_MARGIN_LEFT,
+            width: CONTENT_WIDTH,
+            font: ctx.boldFont,
+            size: SIMPLE_TITLE_SIZE,
+            color: SLATE_800,
+            lineHeight: SIMPLE_TITLE_SIZE * 1.3,
+        });
+        moveCursor(ctx, 6);
+        ensurePageSpace(ctx, 1);
+        ctx.page.drawLine({
+            start: { x: PAGE_MARGIN_LEFT, y: ctx.y },
+            end: { x: A4_WIDTH_PT - PAGE_MARGIN_RIGHT, y: ctx.y },
+            thickness: 1.5,
+            color: SLATE_200,
+        });
+        moveCursor(ctx, 14);
+        return;
+    }
 
     const headerTopY = ctx.y;
     const logoSize = 30;
