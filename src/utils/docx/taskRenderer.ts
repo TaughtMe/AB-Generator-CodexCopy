@@ -855,7 +855,6 @@ export function wrapTaskInGrid(
                     left: 120,
                 },
                 borders: titleCellBorders,
-                margins: { top: 0, bottom: 0, left: 0, right: 0 },
             }),
         ],
     });
