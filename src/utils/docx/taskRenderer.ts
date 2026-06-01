@@ -355,13 +355,15 @@ function renderMultipleChoice(
     const elements: (Paragraph | Table)[] = [];
 
     if (task.question && task.question.trim()) {
+        // Question as direct paragraphs — NOT wrapped in createEditorContentBox,
+        // which would triple-nest tables and cause character-by-character wrapping.
         const questionParagraphs = htmlToDocxParagraphs(task.question, {
             fontFamily: config.fontFamily,
             fontSizePt: config.fontSizePt,
             color: config.docxTheme.text,
             bold: true,
         }, 30);
-        elements.push(createEditorContentBox(questionParagraphs, config));
+        elements.push(...questionParagraphs);
     }
 
     const answerColDXA = config.a4InnerWidthDxa - config.checkboxColDxa - 360;
@@ -585,13 +587,24 @@ function renderCloze(task: ClozeTask, isTeacherVersion: boolean, config: TaskRen
                 runs.push(...createStudentGapRuns(word, gapStyle, gapMultiplier, config));
             }
         } else if (part.value) {
-            runs.push(
-                new TextRun({
-                    text: part.value,
-                    font: config.fontFamily,
-                    size: config.fontSizePt * 2,
-                }),
-            );
+            // Strip HTML tags from non-gap segments — cloze content is stored as
+            // Tiptap HTML so plain text parts may contain <p>, </p>, <br> etc.
+            const plainText = part.value
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<[^>]+>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>');
+            if (plainText) {
+                runs.push(
+                    new TextRun({
+                        text: plainText,
+                        font: config.fontFamily,
+                        size: config.fontSizePt * 2,
+                    }),
+                );
+            }
         }
     }
 
