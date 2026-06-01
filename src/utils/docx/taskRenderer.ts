@@ -276,19 +276,6 @@ const EDITOR_BORDER = 'E2E8F0';
 const EDITOR_MUTED = '475569';
 const EDITOR_OPTION_CORRECT_BG = 'F0FDF4';
 
-const TASK_TYPE_LABELS_DOCX: Record<Task['type'], string> = {
-    'instruction': 'AUFGABE',
-    'heading': 'ÜBERSCHRIFT',
-    'multiple-choice': 'MULTIPLE CHOICE',
-    'cloze': 'LÜCKENTEXT',
-    'math': 'MATHEMATIK',
-    'table': 'TABELLE',
-    'lineatur': 'LINEATUR',
-    'columns': 'ZWEISPALTIG',
-    'page-break': 'SEITENUMBRUCH',
-    'image-placeholder': 'BILD',
-    'information': 'INFORMATION',
-};
 
 function editorBorder(color = EDITOR_BORDER, size = 6) {
     return {
@@ -798,62 +785,63 @@ export function wrapTaskInGrid(
      * Word ist bei vertikalen Abständen kontextabhängig. Das Grid stabilisiert
      * die Höhe und reduziert Layoutdrift über unterschiedliche Tasktypen hinweg.
      */
-    const typeLabel = TASK_TYPE_LABELS_DOCX[task.type] ?? task.type.toUpperCase();
+    // Match PDF export: show number + user title only, no internal type labels.
+    // heading tasks render without a card border (just the h3 content directly).
+    const isHeading = task.type === 'heading';
     const taskTitle = htmlToPlainText(task.title);
-    const titlePrefix = taskIndex !== null ? `${taskIndex}. ${typeLabel}` : typeLabel;
-    const titleText = taskTitle ? `${titlePrefix} — ${taskTitle}` : titlePrefix;
-    // Per-Task accentColor → hex ohne '#' für DOCX
     const titleColor = accentColor
         ? accentColor.replace('#', '')
         : config.docxTheme.taskTitle;
-    const outerBorder = editorBorder(EDITOR_BORDER, 6);
+    const outerBorder = isHeading
+        ? { style: 'none' as const, size: 0, color: 'FFFFFF' }
+        : editorBorder(EDITOR_BORDER, 6);
     const titleCellBorders = {
         top: outerBorder,
         right: outerBorder,
-        bottom: editorBorder(EDITOR_BORDER, 6),
+        bottom: isHeading ? outerBorder : editorBorder(EDITOR_BORDER, 6),
         left: outerBorder,
     };
 
+    // Build header text: "1. Neue Aufgabe" (no type label, like PDF/editor)
+    const hasHeader = (taskIndex !== null || (Boolean(taskTitle) && !isHeading));
+    const titleRuns: TextRun[] = [];
+    if (taskIndex !== null) {
+        titleRuns.push(new TextRun({
+            text: `${taskIndex}. `,
+            font: config.fontFamily,
+            size: 16,
+            bold: true,
+            color: titleColor,
+        }));
+    }
+    if (taskTitle && !isHeading) {
+        titleRuns.push(new TextRun({
+            text: taskTitle,
+            font: config.fontFamily,
+            size: 16,
+            bold: false,
+            color: EDITOR_MUTED,
+        }));
+    }
+
     const titleRow = new TableRow({
-        height: { value: config.taskTitleRowDxa, rule: HeightRule.ATLEAST },
+        height: { value: hasHeader ? config.taskTitleRowDxa : 0, rule: hasHeader ? HeightRule.ATLEAST : HeightRule.AUTO },
         children: [
             new TableCell({
                 children: [
                     new Paragraph({
-                        children: [
-                            ...(taskIndex !== null
-                                ? [
-                                    new TextRun({
-                                        text: `${taskIndex}. `,
-                                        font: config.fontFamily,
-                                        size: 16,
-                                        bold: true,
-                                        color: titleColor,
-                                    }),
-                                ]
-                                : []),
-                            new TextRun({
-                                text: taskIndex !== null
-                                    ? titleText.replace(`${taskIndex}. `, '')
-                                    : titleText,
-                                font: config.fontFamily,
-                                size: 16,
-                                bold: true,
-                                color: EDITOR_MUTED,
-                            }),
-                        ],
+                        children: hasHeader ? titleRuns : [],
                         spacing: { before: 0, after: 0 },
                     }),
                 ],
                 width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
                 verticalAlign: VerticalAlign.CENTER,
-                shading: { fill: EDITOR_CARD_BG, type: ShadingType.CLEAR },
-                margins: {
-                    top: 60,
-                    right: 120,
-                    bottom: 60,
-                    left: 120,
-                },
+                shading: isHeading
+                    ? undefined
+                    : { fill: EDITOR_CARD_BG, type: ShadingType.CLEAR },
+                margins: isHeading
+                    ? { top: 0, bottom: 0, left: 0, right: 0 }
+                    : { top: 60, right: 120, bottom: 60, left: 120 },
                 borders: titleCellBorders,
             }),
         ],
@@ -866,19 +854,15 @@ export function wrapTaskInGrid(
                     ? contentElements
                     : [new Paragraph({ children: [], spacing: { before: 0, after: 0 } })],
                 width: { size: config.a4InnerWidthDxa, type: WidthType.DXA },
-                shading: { fill: EDITOR_CARD_BG, type: ShadingType.CLEAR },
-                margins: {
-                    top: 120,
-                    right: 120,
-                    bottom: 120,
-                    left: 120,
-                },
-                borders: {
-                    top: { style: 'none', size: 0, color: 'FFFFFF' },
-                    right: outerBorder,
-                    bottom: outerBorder,
-                    left: outerBorder,
-                },
+                shading: isHeading
+                    ? undefined
+                    : { fill: EDITOR_CARD_BG, type: ShadingType.CLEAR },
+                margins: isHeading
+                    ? { top: 0, bottom: 0, left: 0, right: 0 }
+                    : { top: 120, right: 120, bottom: 120, left: 120 },
+                borders: isHeading
+                    ? { top: outerBorder, right: outerBorder, bottom: outerBorder, left: outerBorder }
+                    : { top: { style: 'none', size: 0, color: 'FFFFFF' }, right: outerBorder, bottom: outerBorder, left: outerBorder },
             }),
         ],
     });
