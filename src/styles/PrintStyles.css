@@ -402,27 +402,15 @@
         display: block !important;
     }
 
-    /* ── RichTextEditor content box ──────────────────────────────────────────
-       The .rich-text-box wrapper has border + bg-worksheet-field. We keep the
-       box (it matches the editor's card-in-card look) but strip interactive
-       chrome (focus ring, hover transitions). Color-adjust forces the light
-       bg-worksheet-field to print instead of being optimized away.
-    ── */
-    #print-root .rich-text-box {
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 8px !important;
-        background-color: #f8fafc !important;
-        box-shadow: none !important;
-        transition: none !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    /* Remove only the inner EditorContent padding (px-3 py-2) — the outer
-       .rich-text-box already provides the spacing via its own padding-less
-       look; the content body padding (.print-task__body) handles outer spacing. */
+    /* ── RichTextEditor: remove interactive box styling and extra padding ──
+       The EditorContent wrapper has `px-3 py-2` (12px/8px) which stacks on top
+       of .print-task__body padding and makes the content look too spacious.
+       .prose.prose-sm is the most specific shared selector for that wrapper. ── */
     #print-root .prose.prose-sm {
         padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
     }
 
     /* Remove min-height so tasks don't add empty space */
