@@ -49,9 +49,16 @@ export async function convertMathToImage(latex: string): Promise<Blob> {
             backgroundColor: '#ffffff',
         });
 
-        // 4. Convert data-URL to Blob
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
+        // 4. Convert data-URL to Blob — using atob() instead of fetch() to avoid
+        //    CSP connect-src restrictions on data: URIs.
+        const base64 = dataUrl.split(',')[1];
+        if (!base64) throw new Error('toPng returned an empty data URL');
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'image/png' });
 
         // 5. Validate PNG data
         const arrayBuffer = await blob.arrayBuffer();

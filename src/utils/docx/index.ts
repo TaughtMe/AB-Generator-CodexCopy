@@ -102,6 +102,34 @@ export async function exportToDocx(
                 docxTheme: DOCX_THEME,
             });
             allChildren.push(...headerParas);
+
+            // Fallback: when no design header is configured, show a simple title
+            // (matches WorksheetHeader component behaviour in the editor).
+            if (headerParas.length === 0) {
+                const safeTitle = (title || '').trim() || 'Neues Arbeitsblatt';
+                allChildren.push(
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: safeTitle,
+                                font: fontFamily,
+                                size: HEADING_SIZE_PT * 2,
+                                bold: true,
+                                color: DOCX_THEME.taskTitle,
+                            }),
+                        ],
+                        spacing: { before: 0, after: convertMillimetersToTwip(4) },
+                        border: {
+                            bottom: {
+                                style: 'single',
+                                size: 12,
+                                color: 'E2E8F0',
+                                space: 4,
+                            },
+                        },
+                    }),
+                );
+            }
         } catch (headerErr) {
             console.warn('[docxExport] Header failed, exporting without:', headerErr);
         }
