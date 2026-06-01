@@ -161,6 +161,11 @@ export function DashboardView({
     await exportToDocx(record.title, record.tasksById, record.taskIds, variant === 'teacher');
   };
 
+  const handleExportAbgenWorksheet = async (id: string) => {
+    const exportWorksheetFn = useWorkspaceStore.getState().exportWorksheet;
+    await exportWorksheetFn(id);
+  };
+
   const handleDeleteWorksheet = async (id: string) => {
     const shouldDelete = window.confirm('Arbeitsblatt in den Papierkorb verschieben?');
     if (!shouldDelete) return;
@@ -211,6 +216,7 @@ export function DashboardView({
           onAssignWorksheet={handleAssignWorksheet}
           onDuplicateWorksheet={handleDuplicateWorksheet}
           onDownloadWorksheet={handleDownloadWorksheet}
+          onExportAbgenWorksheet={handleExportAbgenWorksheet}
           onDeleteWorksheet={handleDeleteWorksheet}
         />
         <RecentList

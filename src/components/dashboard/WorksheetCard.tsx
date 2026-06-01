@@ -62,6 +62,7 @@ interface WorksheetCardProps {
     onDeleteAction?: () => Promise<void> | void;
     onDownloadStudentAction?: () => Promise<void> | void;
     onDownloadTeacherAction?: () => Promise<void> | void;
+    onDownloadAbgenAction?: () => Promise<void> | void;
 }
 
 type WorksheetCardComponentProps = LegacyWorksheetCardProps | WorksheetCardProps;
@@ -366,6 +367,7 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
     onDeleteAction,
     onDownloadStudentAction,
     onDownloadTeacherAction,
+    onDownloadAbgenAction,
 }) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [showDownloadMenu, setShowDownloadMenu] = React.useState(false);
@@ -570,6 +572,16 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
                                 >
                                     <FileText size={16} />
                                     Lehrerversion (mit Lösung)
+                                </button>
+                                <hr className="border-slate-200 dark:border-slate-700" />
+                                <button
+                                    onClick={() => {
+                                        void runAction(onDownloadAbgenAction);
+                                    }}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <FileDown size={16} />
+                                    .abgen (Teilen / Editor)
                                 </button>
                             </>
                         )}

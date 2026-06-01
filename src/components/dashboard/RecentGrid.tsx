@@ -9,6 +9,7 @@ interface RecentGridProps {
   onAssignWorksheet?: (id: string) => Promise<void> | void;
   onDuplicateWorksheet?: (id: string) => Promise<void> | void;
   onDownloadWorksheet?: (id: string, variant: 'student' | 'teacher') => Promise<void> | void;
+  onExportAbgenWorksheet?: (id: string) => Promise<void> | void;
   onDeleteWorksheet?: (id: string) => Promise<void> | void;
 }
 
@@ -70,6 +71,7 @@ export function RecentGrid(props: RecentGridProps) {
             onDeleteAction={() => props.onDeleteWorksheet?.(file.id)}
             onDownloadStudentAction={() => props.onDownloadWorksheet?.(file.id, 'student')}
             onDownloadTeacherAction={() => props.onDownloadWorksheet?.(file.id, 'teacher')}
+            onDownloadAbgenAction={() => props.onExportAbgenWorksheet?.(file.id)}
           />
         ))}
       </div>
