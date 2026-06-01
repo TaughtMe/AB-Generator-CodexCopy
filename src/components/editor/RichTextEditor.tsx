@@ -204,7 +204,7 @@ function RichTextEditorInner({
     if (!editor) return null;
 
     return (
-        <div className={clsx('rounded-lg border border-worksheet-border bg-worksheet-field overflow-visible transition-colors focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500 print:bg-transparent print:border-none', className)}>
+        <div className={clsx('rich-text-box rounded-lg border border-worksheet-border bg-worksheet-field overflow-visible transition-colors focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500', className)}>
             {taskId && <TextEditorBubbleMenu editor={editor} taskId={taskId} />}
             {/* ── Editor-Content ── */}
             <EditorContent
