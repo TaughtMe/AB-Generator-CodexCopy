@@ -28,7 +28,8 @@ import { toDocxFontFamily } from './fontFamily';
  * Regressionen im Exportpfad.
  */
 
-const FONT_SIZE_PT = 11;
+// 10.5pt matches the editor's rendered body text (Tailwind text-sm = 14px = 10.5pt).
+const FONT_SIZE_PT = 10.5;
 const HEADING_SIZE_PT = 13;
 
 /** A4-Innenbreite in DXA (Twips) für 170 mm Druckbereich. */

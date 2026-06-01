@@ -6,8 +6,9 @@ import {
     convertMillimetersToTwip,
 } from 'docx';
 
-const DEFAULT_LINE_SPACING_TWIP = 300; // close to the editor's compact 1.4 line rhythm
-const DEFAULT_PARAGRAPH_AFTER_TWIP = 20;
+// lineRule AUTO: 240 = single line, 348 ≈ 1.45 → matches the editor's line-height: 1.45
+const DEFAULT_LINE_SPACING_TWIP = 348;
+const DEFAULT_PARAGRAPH_AFTER_TWIP = 40;
 
 export function createStyledDocument(
     fontFamily: string,
