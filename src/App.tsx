@@ -51,6 +51,8 @@ function App() {
   const setShowHeader = useWorksheetStore((state) => state.setShowHeader);
 
   const saveCurrentWorksheet = useWorkspaceStore((s) => s.saveCurrentWorksheet);
+  const exportWorksheet = useWorkspaceStore((s) => s.exportWorksheet);
+  const currentWorksheetId = useWorkspaceStore((s) => s.currentWorksheetId);
   const createNewWorksheet = useWorkspaceStore((s) => s.createNewWorksheet);
   const openWorksheet = useWorkspaceStore((s) => s.openWorksheet);
   const loadClassProfiles = useWorkspaceStore((s) => s.loadClassProfiles);
@@ -192,6 +194,16 @@ function App() {
     }
   };
 
+  const handleAbgenExport = async () => {
+    if (!currentWorksheetId) return;
+    try {
+      await exportWorksheet(currentWorksheetId);
+    } catch (err) {
+      console.error('[abgenExport] Fehler:', err);
+      alert('Export fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
   const handleToggleHeaderDesign = () => {
     setShowHeader(!showHeader);
     if (!showHeader) setShowDesignEditor(true);
@@ -320,6 +332,7 @@ function App() {
         isExporting={isExporting}
         onExportPdf={handlePdfExport}
         onExportDocx={handleDocxExport}
+        onExportAbgen={handleAbgenExport}
         onOpenSources={() => setShowSourcesManager(true)}
       />
 

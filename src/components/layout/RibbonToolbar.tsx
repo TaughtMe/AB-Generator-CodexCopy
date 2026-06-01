@@ -74,6 +74,7 @@ export interface RibbonToolbarProps {
     isExporting?: boolean;
     onExportPdf: (variants: ExportVariant[]) => Promise<void> | void;
     onExportDocx: (variants: ExportVariant[]) => Promise<void> | void;
+    onExportAbgen: () => Promise<void> | void;
     onOpenSources: () => void;
 }
 
@@ -85,6 +86,7 @@ export function RibbonToolbar({
     isExporting = false,
     onExportPdf,
     onExportDocx,
+    onExportAbgen,
     onOpenSources,
 }: RibbonToolbarProps) {
     const { t } = useTranslation();
@@ -149,19 +151,14 @@ export function RibbonToolbar({
         return () => document.removeEventListener('mousedown', handler);
     }, [showAiDropdown, isExportMenuOpen, isSaveMenuOpen]);
 
-    const handleExport = useCallback(async (target: 'pdf-student' | 'pdf-teacher' | 'docx') => {
+    const handleExport = useCallback(async (target: 'pdf-student' | 'pdf-teacher' | 'docx' | 'abgen') => {
         if (!hasTasks) return;
         setIsExportMenuOpen(false);
-        if (target === 'pdf-student') {
-            await onExportPdf(['student' as ExportVariant]);
-            return;
-        }
-        if (target === 'pdf-teacher') {
-            await onExportPdf(['teacher' as ExportVariant]);
-            return;
-        }
+        if (target === 'pdf-student') { await onExportPdf(['student' as ExportVariant]); return; }
+        if (target === 'pdf-teacher') { await onExportPdf(['teacher' as ExportVariant]); return; }
+        if (target === 'abgen') { await onExportAbgen(); return; }
         await onExportDocx(['student' as ExportVariant]);
-    }, [hasTasks, onExportDocx, onExportPdf]);
+    }, [hasTasks, onExportDocx, onExportPdf, onExportAbgen]);
 
     const handlePrimarySave = useCallback(() => {
         if (isFirstSave) {
@@ -617,6 +614,16 @@ export function RibbonToolbar({
                                     className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     {t('ribbon.wordDocx')}
+                                </button>
+                                <div className="my-1 border-t border-slate-700" />
+                                <button
+                                    type="button"
+                                    onClick={() => { void handleExport('abgen'); }}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    disabled={isExporting}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    {t('ribbon.abgenExport', '.abgen (Teilen)')}
                                 </button>
                             </div>
                         )}
