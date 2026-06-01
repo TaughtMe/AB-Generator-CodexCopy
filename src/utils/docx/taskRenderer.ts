@@ -29,11 +29,10 @@ import type {
     TableTask,
     ImageAlignment,
 } from '../../types/worksheet';
-import { renderLineBlockToImage } from '../lineBlockToImage';
-import { convertMathToImage } from '../mathExportUtils';
-import { mmToPx, A4_INNER_WIDTH_MM } from '../mmToEmu';
 import { getImage } from '../../store/dexieStore';
 import { getRowHeightMM } from '../lineaturStyles';
+import { mmToPx } from '../mmToEmu';
+import { latexToDocxMathParagraph, latexFallbackParagraph } from './mathConverter';
 import { processImageForDocx } from './imagePipeline';
 import DOMPurify from 'dompurify';
 import {
@@ -507,7 +506,15 @@ function createStudentGapRuns(
     return [createStudentGapBlankRun(continuousUnits, config)];
 }
 
-async function renderLineatur(task: LineaturTask, config: TaskRendererConfig): Promise<Paragraph[]> {
+function renderLineatur(task: LineaturTask, config: TaskRendererConfig): Paragraph[] {
+    /**
+     * Renders lineatur as native Word paragraphs with bottom borders so the
+     * result is truly editable (no image). Each "row" becomes one empty
+     * paragraph with a ruled bottom border and fixed minimum height.
+     *
+     * For primary-4-lines (Grundschul): alternates two border weights to
+     * approximate the 4-line pattern. All other styles use a single line.
+     */
     const elements: Paragraph[] = [];
 
     if (task.promptHtml && task.promptHtml.trim()) {
@@ -519,30 +526,38 @@ async function renderLineatur(task: LineaturTask, config: TaskRendererConfig): P
         elements.push(...promptParagraphs);
     }
 
-    const rows = task.lineRows ?? 4;
-    const rowHeight = getRowHeightMM(task.lineStyle);
-    const heightMM = rows * rowHeight;
+    const rowCount = Math.max(1, Math.min(20, task.lineRows ?? task.rowCount ?? 4));
+    const rowHeightMM = getRowHeightMM(task.lineStyle);
+    // Convert mm → twips for spacing (1mm ≈ 56.7 twips).
+    const rowHeightTwip = Math.round(rowHeightMM * 56.7);
+    const isGrundschul = task.lineStyle === 'primary-4-lines';
 
-    const rawImageData = await renderLineBlockToImage(task, heightMM);
-    const imageMeta = await processImageForDocx(rawImageData);
-    const widthPx = mmToPx(A4_INNER_WIDTH_MM);
-    const heightPx = mmToPx(heightMM);
-
-    elements.push(
-        new Paragraph({
-            children: [
-                new ImageRun({
-                    data: imageMeta.data,
-                    transformation: {
-                        width: widthPx,
-                        height: heightPx,
+    for (let i = 0; i < rowCount; i++) {
+        // Grundschul: 4 visible sub-lines per block, so expand each row.
+        const linesPerRow = isGrundschul ? 4 : 1;
+        for (let l = 0; l < linesPerRow; l++) {
+            const isAuxLine = isGrundschul && (l === 1 || l === 2); // middle dashed lines
+            elements.push(
+                new Paragraph({
+                    children: [],
+                    spacing: {
+                        before: 0,
+                        after: 0,
+                        line: isGrundschul ? Math.round(rowHeightTwip / linesPerRow) : rowHeightTwip,
+                        lineRule: 'exact' as never,
                     },
-                    type: 'png',
+                    border: {
+                        bottom: {
+                            style: isAuxLine ? 'dashed' : 'single',
+                            size: isAuxLine ? 4 : 6,
+                            color: isAuxLine ? 'CBD5E1' : '94A3B8',
+                            space: 0,
+                        },
+                    },
                 }),
-            ],
-            spacing: { after: config.taskGapAfter },
-        }),
-    );
+            );
+        }
+    }
 
     return elements;
 }
@@ -616,7 +631,11 @@ function renderCloze(task: ClozeTask, isTeacherVersion: boolean, config: TaskRen
     ];
 }
 
-async function renderMath(task: MathTask, config: TaskRendererConfig): Promise<Paragraph[]> {
+function renderMath(task: MathTask, config: TaskRendererConfig): Paragraph[] {
+    /**
+     * Converts LaTeX to native Word OMML math (fully editable).
+     * Falls back to styled source text when conversion fails so nothing is lost.
+     */
     if (!task.content || !task.content.trim()) {
         return [
             new Paragraph({
@@ -633,36 +652,16 @@ async function renderMath(task: MathTask, config: TaskRendererConfig): Promise<P
         ];
     }
 
-    const blob = await convertMathToImage(task.content);
-    const imageMeta = await processImageForDocx(blob);
+    const spacing = { before: 60, after: config.taskGapAfter };
 
-    const maxDisplayWidthMM = A4_INNER_WIDTH_MM * 0.7;
-    let displayWidthMM = maxDisplayWidthMM;
-    let displayHeightMM = maxDisplayWidthMM / (imageMeta.ratio || 1);
-
-    if (displayHeightMM > 60) {
-        displayHeightMM = 60;
-        displayWidthMM = 60 * imageMeta.ratio;
+    // Try native OMML conversion first.
+    const ommlParagraph = latexToDocxMathParagraph(task.content, { spacing });
+    if (ommlParagraph) {
+        return [ommlParagraph];
     }
 
-    const widthPx = mmToPx(displayWidthMM);
-    const heightPx = mmToPx(displayHeightMM);
-
-    return [
-        new Paragraph({
-            children: [
-                new ImageRun({
-                    data: imageMeta.data,
-                    transformation: {
-                        width: widthPx,
-                        height: heightPx,
-                    },
-                    type: 'png',
-                }),
-            ],
-            spacing: { before: 80, after: config.taskGapAfter },
-        }),
-    ];
+    // Fallback: render LaTeX source as italic styled text (editable).
+    return [latexFallbackParagraph(task.content, config.fontFamily, config.fontSizePt, { spacing })];
 }
 
 async function renderImagePlaceholder(task: ImagePlaceholderTask, config: TaskRendererConfig): Promise<Paragraph[]> {
@@ -1220,11 +1219,11 @@ export async function renderTaskContent(
         case 'multiple-choice':
             return renderMultipleChoice(task, isTeacherVersion, config);
         case 'lineatur':
-            return await renderLineatur(task, config);
+            return renderLineatur(task as LineaturTask, config);
         case 'cloze':
             return renderCloze(task, isTeacherVersion, config);
         case 'math':
-            return await renderMath(task, config);
+            return renderMath(task as MathTask, config);
         case 'image-placeholder':
             return await renderImagePlaceholder(task, config);
         case 'instruction':
