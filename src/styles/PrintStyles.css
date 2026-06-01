@@ -458,6 +458,23 @@
         padding: 2mm 3mm;
     }
 
+    /* Zwischenüberschrift: kein Rahmen, kein Hintergrund — wirkt wie freier Fließtext */
+    .print-task--heading {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+
+    .print-task--heading .print-task__header {
+        display: none !important;
+    }
+
+    .print-task--heading .print-task__body {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
     /* page-break tasks are layout-only: force a real break, render nothing */
     .print-page-break {
         break-after: page;

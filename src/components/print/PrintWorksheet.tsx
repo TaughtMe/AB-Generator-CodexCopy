@@ -95,7 +95,7 @@ export function PrintWorksheet() {
                 return (
                     <div
                         key={id}
-                        className="print-task"
+                        className={`print-task${task.type === 'heading' ? ' print-task--heading' : ''}`}
                         style={{ ['--task-accent-color' as string]: accent || '#1e293b' }}
                     >
                         <div className="print-task__header">
