@@ -4,7 +4,6 @@ import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { WorksheetHeader } from '../layout/WorksheetHeader';
 import { TaskEditorRenderer } from '../tasks/TaskRegistry';
-import type { Task } from '../../types/worksheet';
 
 /* ══════════════════════════════════════════════════
    PrintWorksheet – Saubere, druckbare Ansicht des Arbeitsblatts.
@@ -20,20 +19,6 @@ import type { Task } from '../../types/worksheet';
    - page-break-Tasks sind reine Layout-Organisation und erzeugen echte
      Seitenumbrüche, ohne selbst sichtbaren Inhalt zu sein.
    ══════════════════════════════════════════════════ */
-
-const TASK_TYPE_LABELS: Record<Task['type'], string> = {
-    'instruction': 'AUFGABE',
-    'heading': 'ÜBERSCHRIFT',
-    'multiple-choice': 'MULTIPLE CHOICE',
-    'cloze': 'LÜCKENTEXT',
-    'math': 'MATHEMATIK',
-    'table': 'TABELLE',
-    'lineatur': 'LINEATUR',
-    'columns': 'ZWEISPALTIG',
-    'page-break': 'SEITENUMBRUCH',
-    'image-placeholder': 'BILD',
-    'information': 'INFORMATION',
-};
 
 /** Erstellt (einmalig) den Portal-Container als Geschwister von #root. */
 function usePrintRootContainer(): HTMLElement | null {
@@ -104,7 +89,6 @@ export function PrintWorksheet() {
 
                 const number = taskNumberMap[id] ?? null;
                 const accent = task.accentColor || (applyColorToTasks ? brandColor : undefined);
-                const typeLabel = TASK_TYPE_LABELS[task.type] ?? task.type.toUpperCase();
                 const hasTitleSuffix =
                     Boolean(task.title) && task.type !== 'heading';
 
@@ -117,12 +101,11 @@ export function PrintWorksheet() {
                         <div className="print-task__header">
                             {number !== null && (
                                 <span className="print-task__num" style={{ color: accent || undefined }}>
-                                    {number}.
+                                    {number}.{' '}
                                 </span>
                             )}
-                            <span className="print-task__type">{typeLabel}</span>
                             {hasTitleSuffix && (
-                                <span className="print-task__title"> — {task.title}</span>
+                                <span className="print-task__title">{task.title}</span>
                             )}
                         </div>
                         <div className="print-task__body">
