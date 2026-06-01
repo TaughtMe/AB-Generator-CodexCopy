@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Search, Upload } from 'lucide-react';
 import { QuickActions } from './QuickActions';
 import { RecentGrid } from './RecentGrid';
 import { RecentList } from './RecentList';
@@ -28,10 +28,59 @@ export function DashboardView({
   const loadRecent = useWorkspaceStore((state) => state.loadRecent);
   const duplicateWorksheet = useWorkspaceStore((state) => state.duplicateWorksheet);
   const removeWorksheet = useWorkspaceStore((state) => state.removeWorksheet);
+  const importWorksheet = useWorkspaceStore((state) => state.importWorksheet);
   const filter = useWorkspaceStore((state) => state.filter);
   const subjects = useProfileStore((state) => state.subjects);
   const classProfiles = useWorkspaceStore((state) => state.classProfiles);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // ── Drag & Drop .abgen import ──────────────────────────────────────────────
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const dragCounterRef = useRef(0); // track nested drag-enter/leave pairs
+
+  const isAbgenFile = (dt: DataTransfer) =>
+    Array.from(dt.items).some(
+      (item) => item.kind === 'file' && (item.type === 'application/json' || item.type === ''),
+    ) || Array.from(dt.files).some((f) => f.name.endsWith('.abgen'));
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    if (dragCounterRef.current === 1) setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.name.endsWith('.abgen'));
+    if (files.length === 0) return;
+
+    setIsImporting(true);
+    try {
+      for (const file of files) {
+        await importWorksheet(file);
+      }
+      await loadRecent();
+    } catch (err) {
+      alert('Import fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsImporting(false);
+    }
+  }, [importWorksheet, loadRecent]);
 
   useEffect(() => {
     void loadRecent();
@@ -119,7 +168,26 @@ export function DashboardView({
   };
 
   return (
-    <div className="px-8 py-8">
+    <div
+      className="relative px-8 py-8"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drop overlay */}
+      {(isDragOver || isImporting) && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-xl border-4 border-dashed border-blue-400 bg-blue-50/90 dark:bg-blue-950/90 backdrop-blur-sm pointer-events-none">
+          <Upload className="h-14 w-14 text-blue-400 mb-4 animate-bounce" />
+          <p className="text-lg font-semibold text-blue-600 dark:text-blue-300">
+            {isImporting ? 'Wird importiert…' : '.abgen-Datei hier ablegen'}
+          </p>
+          <p className="text-sm text-blue-400 mt-1">
+            {isImporting ? '' : 'Arbeitsblatt wird importiert und gespeichert'}
+          </p>
+        </div>
+      )}
+
       <div className="relative max-w-2xl mb-8">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
