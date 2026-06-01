@@ -416,14 +416,16 @@ export const ImageTaskEditor: React.FC<ImageTaskEditorProps> = ({ task, isActive
                             )}
                         </div>
                     ) : (
+                        /* Read-only / print: use physical mm dimensions so the placeholder
+                           has a proper printable size instead of collapsing to text height. */
                         <div
-                            className="flex items-center justify-center border-2 border-dashed border-worksheet-border rounded-lg"
+                            className="flex items-center justify-center border-2 border-dashed border-slate-300 rounded-lg"
                             style={{
-                                width: task.width || '100%',
-                                height: task.height || 'auto',
+                                width: `${task.widthMm || 80}mm`,
+                                height: `${task.heightMm || 60}mm`,
                             }}
                         >
-                            <span className="text-worksheet-inkLight text-sm">[Bild-Platzhalter]</span>
+                            <ImageIcon className="text-slate-300" style={{ width: '10mm', height: '10mm' }} />
                         </div>
                     )}
                 </div>

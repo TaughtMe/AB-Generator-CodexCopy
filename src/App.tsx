@@ -119,9 +119,28 @@ function App() {
     if (document.fonts?.ready) {
       try { await document.fonts.ready; } catch { /* ignore */ }
     }
+    // Two rAFs to let React flush all renders.
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    // Settle-Zeit für asynchrone Inhalte (Bilder aus IndexedDB, KaTeX).
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 300));
+
+    // Wait for all <img> elements in #print-root to finish loading
+    // (images are fetched async from IndexedDB and set as blob URLs).
+    const printRoot = document.getElementById('print-root');
+    if (printRoot) {
+      const imgs = Array.from(printRoot.querySelectorAll('img'));
+      const pending = imgs.filter((img) => !img.complete);
+      if (pending.length > 0) {
+        await Promise.all(pending.map(
+          (img) => new Promise<void>((resolve) => {
+            const done = () => resolve();
+            img.addEventListener('load', done, { once: true });
+            img.addEventListener('error', done, { once: true });
+          }),
+        ));
+      }
+    }
+
+    // Extra settle for KaTeX math and other async content.
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 150));
   };
 
   const printAndAwait = (): Promise<void> => new Promise<void>((resolve) => {
