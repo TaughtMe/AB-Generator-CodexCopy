@@ -8,36 +8,50 @@ export const A4_INNER_WIDTH_MM = 170;
  * Generates CSS background properties for lineatur rendering.
  * All sizes are in mm for true physical accuracy.
  */
+/**
+ * Encodes a minimal SVG as a CSS background data URI.
+ * SVGs are vector-based and scale reliably at any DPI/zoom (screen + print),
+ * unlike CSS gradients with sub-mm measurements which can disappear in print.
+ */
+function svgUri(svg: string): string {
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
 export function getLineaturBackground(lineStyle: LineStyle): CSSProperties {
-    const lineColor = 'rgba(0, 0, 0, 0.18)';
-    const primaryLineColor = 'rgba(0, 0, 0, 0.35)';
-
     switch (lineStyle) {
-        case 'grid-5mm':
+        case 'grid-5mm': {
+            // SVG tile: 1×1 user units mapped to 5mm×5mm.
+            // Lines on top and left edges → tiled into a full grid.
+            // stroke-width 0.06 user units = 0.06×5mm = 0.3mm per line.
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="5mm" height="5mm" viewBox="0 0 1 1"><path d="M1 0 L0 0 0 1" fill="none" stroke="rgba(0,0,0,0.22)" stroke-width="0.06"/></svg>`;
             return {
-                backgroundImage: `
-                    linear-gradient(to right, ${lineColor} 0.3mm, transparent 0.3mm),
-                    linear-gradient(to bottom, ${lineColor} 0.3mm, transparent 0.3mm)
-                `,
+                backgroundImage: svgUri(svg),
                 backgroundSize: '5mm 5mm',
+                backgroundRepeat: 'repeat',
             };
+        }
 
-        case 'grid-10mm':
+        case 'grid-10mm': {
+            // stroke-width 0.03 user units = 0.03×10mm = 0.3mm per line.
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10mm" height="10mm" viewBox="0 0 1 1"><path d="M1 0 L0 0 0 1" fill="none" stroke="rgba(0,0,0,0.22)" stroke-width="0.03"/></svg>`;
             return {
-                backgroundImage: `
-                    linear-gradient(to right, ${lineColor} 0.3mm, transparent 0.3mm),
-                    linear-gradient(to bottom, ${lineColor} 0.3mm, transparent 0.3mm)
-                `,
+                backgroundImage: svgUri(svg),
                 backgroundSize: '10mm 10mm',
+                backgroundRepeat: 'repeat',
             };
+        }
 
-        case 'lines-8mm':
+        case 'lines-8mm': {
+            // Horizontal line at the bottom of each 8mm tile.
+            // The SVG is 1×1 user units, stretched to 100%×8mm.
+            // A line at y=0.97 with stroke-width=0.04 → 0.04×8mm≈0.32mm line.
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="8mm" viewBox="0 0 1 1" preserveAspectRatio="none"><line x1="0" y1="1" x2="1" y2="1" stroke="rgba(0,0,0,0.38)" stroke-width="0.04"/></svg>`;
             return {
-                backgroundImage: `
-                    linear-gradient(to bottom, transparent calc(8mm - 0.3mm), ${primaryLineColor} 0.3mm)
-                `,
+                backgroundImage: svgUri(svg),
                 backgroundSize: '100% 8mm',
+                backgroundRepeat: 'repeat-y',
             };
+        }
 
         case 'primary-4-lines': {
             // Grundschul-Lineatur: Haus-Metapher mit 4mm/4mm/4mm + 8mm Zeilenabstand
