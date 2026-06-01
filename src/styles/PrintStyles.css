@@ -14,11 +14,20 @@
     }
 
 
-    /* ── Page setup – margins set here so every print engine (Chrome, Firefox,
-       Safari) gets consistent 20mm×20mm inset without relying on body padding. ── */
+    /* ── Page setup ── */
     @page {
         size: A4 portrait;
         margin: 20mm;
+    }
+
+    /* ── Root font size: scales all rem-based Tailwind utilities to document
+       proportions instead of the browser's 16px screen default.
+       text-sm  (0.875rem) → 10.5pt  ✓ normal body text
+       text-base (1rem)    → 12pt    ✓ headings / titles
+       text-xl  (1.25rem)  → 15pt    ✓ section headings
+       text-xs  (0.75rem)  →  9pt    ✓ labels ── */
+    html {
+        font-size: 12pt;
     }
 
     /* ── Force backgrounds & colors to print (lineatur grids, header) ── */
@@ -366,7 +375,18 @@
         display: block !important;
     }
 
-    /* Editor min-heights / field boxes must not add empty space in print */
+    /* ── RichTextEditor: remove interactive box styling and extra padding ──
+       The EditorContent wrapper has `px-3 py-2` (12px/8px) which stacks on top
+       of .print-task__body padding and makes the content look too spacious.
+       .prose.prose-sm is the most specific shared selector for that wrapper. ── */
+    #print-root .prose.prose-sm {
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    /* Remove min-height so tasks don't add empty space */
     #print-root .rich-text-content,
     #print-root .tiptap,
     #print-root .ProseMirror {
@@ -408,7 +428,7 @@
     }
 
     .print-task__body {
-        padding: 3mm;
+        padding: 2mm 3mm;
     }
 
     /* page-break tasks are layout-only: force a real break, render nothing */
