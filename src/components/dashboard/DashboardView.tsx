@@ -39,11 +39,6 @@ export function DashboardView({
   const [isImporting, setIsImporting] = useState(false);
   const dragCounterRef = useRef(0); // track nested drag-enter/leave pairs
 
-  const isAbgenFile = (dt: DataTransfer) =>
-    Array.from(dt.items).some(
-      (item) => item.kind === 'file' && (item.type === 'application/json' || item.type === ''),
-    ) || Array.from(dt.files).some((f) => f.name.endsWith('.abgen'));
-
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     dragCounterRef.current += 1;
