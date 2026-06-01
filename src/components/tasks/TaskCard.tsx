@@ -122,21 +122,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         : (isActive ? "ring-1 ring-blue-500/40 hover:border-blue-400" : "hover:border-worksheet-border")
                 )}
             >
-            {/* Print-only task index – visible ONLY in @media print */}
-            <div className="print-task-index" aria-hidden="true">
-                {taskNumber !== null && (
-                    <span style={{ color: effectiveColor || undefined, marginRight: '0.3em' }}>
-                        {taskNumber}.
-                    </span>
-                )}
-                <span className="uppercase" style={{ fontSize: '9pt', letterSpacing: '0.06em' }}>
-                    {TASK_TYPE_LABELS[task.type] ?? task.type.replace('-', ' ')}
-                </span>
-                {task.title && task.type !== 'heading' && task.type !== 'page-break' && (
-                    <span style={{ fontWeight: 'normal' }}>{' — '}{task.title}</span>
-                )}
-            </div>
-
             <div className="task-card-header flex items-center gap-1.5 px-2 py-1 border-b border-worksheet-border bg-worksheet-field">
                 {/* Drag Handle */}
                 <div
