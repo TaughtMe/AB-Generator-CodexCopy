@@ -6,6 +6,7 @@ import { listProviderModels } from '../services/aiService';
 
 export function useProviderModels(provider: AIProvider, enabled: boolean) {
     const providerConfig = useSettingsStore((state) => state.providers[provider]);
+    const setProviderModel = useSettingsStore((state) => state.setProviderModel);
     const [models, setModels] = useState<ProviderModelOption[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -24,6 +25,15 @@ export function useProviderModels(provider: AIProvider, enabled: boolean) {
         try {
             const loadedModels = await listProviderModels(provider);
             setModels(loadedModels);
+
+            if (provider === 'local' && loadedModels.length > 0) {
+                const currentModel = useSettingsStore.getState().providers.local.model;
+                const currentModelExists = loadedModels.some((model) => model.value === currentModel);
+
+                if (!currentModelExists) {
+                    setProviderModel('local', loadedModels[0].value);
+                }
+            }
         } catch (err) {
             setModels([]);
             setError(err instanceof Error ? err.message : 'Modelle konnten nicht geladen werden.');
@@ -33,6 +43,7 @@ export function useProviderModels(provider: AIProvider, enabled: boolean) {
     }, [
         enabled,
         provider,
+        setProviderModel,
     ]);
 
     useEffect(() => {

@@ -74,7 +74,9 @@
       "testingApi": "Prüfe API...",
       "baseUrl": "Base URL",
       "defaultModel": "Standardmodell",
-      "refreshModels": "Lokale Modelle aktualisieren"
+      "refreshModels": "Lokale Modelle aktualisieren",
+      "modelsLoaded": "{{count}} lokale Modelle geladen",
+      "localModelHint": "LM Studio starten, Server aktivieren und dann lokale Modelle aktualisieren."
     },
     "chat": {
       "title": "KI-Chat",

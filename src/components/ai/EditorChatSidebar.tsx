@@ -75,6 +75,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
     const {
         models: detectedProviderModels,
         isLoading: isLoadingProviderModels,
+        error: providerModelsError,
         reload: reloadProviderModels,
     } = useProviderModels(aiProvider, true);
     const mergedGeminiModels = useMemo(
@@ -260,6 +261,24 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                         </button>
                     )}
                 </div>
+                {aiProvider === 'local' && (
+                    <div className="mt-1.5 min-h-5">
+                        {providerModelsError ? (
+                            <div
+                                className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
+                                title={providerModelsError}
+                            >
+                                <XCircle className={ICON_SIZES[12]} />
+                                <span className="truncate">{providerModelsError}</span>
+                            </div>
+                        ) : detectedProviderModels.length > 0 ? (
+                            <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                <CheckCircle2 className={ICON_SIZES[12]} />
+                                <span>{detectedProviderModels.length} lokale Modelle geladen</span>
+                            </div>
+                        ) : null}
+                    </div>
+                )}
             </div>
 
             <div ref={historyRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 custom-scrollbar">

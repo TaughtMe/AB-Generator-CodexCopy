@@ -62,6 +62,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const {
         models: detectedProviderModels,
         isLoading: isLoadingProviderModels,
+        error: providerModelsError,
         reload: reloadProviderModels,
     } = useProviderModels(aiProvider, isOpen);
     const mergedGeminiModels = useMemo(
@@ -405,6 +406,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                             </button>
                                         )}
                                     </div>
+                                    {aiProvider === 'local' && (
+                                        <div className="mt-2 min-h-5">
+                                            {providerModelsError ? (
+                                                <div
+                                                    className="inline-flex max-w-full items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
+                                                    title={providerModelsError}
+                                                >
+                                                    <XCircle className={ICON_SIZES[12]} />
+                                                    <span className="max-w-[28rem] truncate">{providerModelsError}</span>
+                                                </div>
+                                            ) : detectedProviderModels.length > 0 ? (
+                                                <div className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                                    <CheckCircle2 className={ICON_SIZES[12]} />
+                                                    <span>{t('settings.ai.modelsLoaded', { count: detectedProviderModels.length })}</span>
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">{t('settings.ai.localModelHint')}</p>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -441,6 +462,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                             </button>
                                         )}
                                     </div>
+                                    {aiProvider === 'local' && (
+                                        <div className="mt-2 min-h-5">
+                                            {providerModelsError ? (
+                                                <div
+                                                    className="inline-flex max-w-full items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
+                                                    title={providerModelsError}
+                                                >
+                                                    <XCircle className={ICON_SIZES[12]} />
+                                                    <span className="max-w-[28rem] truncate">{providerModelsError}</span>
+                                                </div>
+                                            ) : detectedProviderModels.length > 0 ? (
+                                                <div className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                                    <CheckCircle2 className={ICON_SIZES[12]} />
+                                                    <span>{t('settings.ai.modelsLoaded', { count: detectedProviderModels.length })}</span>
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">{t('settings.ai.localModelHint')}</p>
+                                            )}
+                                        </div>
+                                    )}
                                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{t('settings.chat.activeForChat')} {effectiveChatModel}</p>
                                 </div>
 

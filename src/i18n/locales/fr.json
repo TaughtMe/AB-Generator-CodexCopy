@@ -74,7 +74,9 @@
       "testingApi": "Test de l'API...",
       "baseUrl": "URL de base",
       "defaultModel": "Modèle par défaut",
-      "refreshModels": "Actualiser les modèles locaux"
+      "refreshModels": "Actualiser les modèles locaux",
+      "modelsLoaded": "{{count}} modèles locaux chargés",
+      "localModelHint": "Démarrez LM Studio, activez le serveur, puis actualisez les modèles locaux."
     },
     "chat": {
       "title": "Chat IA",

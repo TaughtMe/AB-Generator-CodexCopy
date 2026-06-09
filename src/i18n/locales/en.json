@@ -74,7 +74,9 @@
       "testingApi": "Testing API...",
       "baseUrl": "Base URL",
       "defaultModel": "Default Model",
-      "refreshModels": "Refresh local models"
+      "refreshModels": "Refresh local models",
+      "modelsLoaded": "{{count}} local models loaded",
+      "localModelHint": "Start LM Studio, enable the server, then refresh local models."
     },
     "chat": {
       "title": "AI Chat",

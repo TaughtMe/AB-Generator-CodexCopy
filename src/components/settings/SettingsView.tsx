@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cpu, Database, Globe, MessageSquare, Moon, Plus, RefreshCw, Settings, Sun, Trash2, Type } from 'lucide-react';
+import { CheckCircle2, Cpu, Database, Globe, Loader2, MessageSquare, Moon, Plus, RefreshCw, Settings, Sun, Trash2, Type, XCircle } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { PROVIDER_LABELS } from '../../services/ai/modelCatalog';
@@ -35,6 +35,8 @@ const PROVIDER_PRESETS = [
 ];
 
 const formatModelName = (rawId: string) => rawId.split('/').pop() || rawId;
+type ProviderModelLoadStatus = 'loading' | 'success' | 'error';
+type ProviderModelLoadState = Record<string, { status: ProviderModelLoadStatus; message: string }>;
 
 export const SettingsView: React.FC = () => {
     const { t, i18n } = useTranslation();
@@ -43,6 +45,7 @@ export const SettingsView: React.FC = () => {
     const [dataActionInfo, setDataActionInfo] = useState<string | null>(null);
     const [isDataActionRunning, setIsDataActionRunning] = useState(false);
     const [isConfirmingReset, setIsConfirmingReset] = useState(false);
+    const [providerModelLoadState, setProviderModelLoadState] = useState<ProviderModelLoadState>({});
     const backupFileInputRef = useRef<HTMLInputElement | null>(null);
 
     const aiProvider = useSettingsStore((state) => state.aiProvider);
@@ -77,7 +80,9 @@ export const SettingsView: React.FC = () => {
 
     const activeConfig = providers[aiProvider];
     const {
+        models: detectedProviderModels,
         isLoading: isLoadingProviderModels,
+        error: providerModelsError,
         reload: reloadProviderModels,
     } = useProviderModels(aiProvider, true);
 
@@ -152,6 +157,32 @@ export const SettingsView: React.FC = () => {
         localStorage.removeItem('tour_completed_dashboard');
         localStorage.removeItem('tour_completed_editor');
         window.location.reload();
+    }
+
+    async function handleFetchModelsForProvider(providerId: string) {
+        setProviderModelLoadState((state) => ({
+            ...state,
+            [providerId]: { status: 'loading', message: 'Modelle werden geladen...' },
+        }));
+
+        try {
+            const models = await fetchModelsForProvider(providerId);
+            setProviderModelLoadState((state) => ({
+                ...state,
+                [providerId]: {
+                    status: 'success',
+                    message: `${models.length} ${models.length === 1 ? 'Modell' : 'Modelle'} geladen. Wähle sie unten für Quick Access aus.`,
+                },
+            }));
+        } catch (error) {
+            setProviderModelLoadState((state) => ({
+                ...state,
+                [providerId]: {
+                    status: 'error',
+                    message: error instanceof Error ? error.message : 'Modelle konnten nicht geladen werden.',
+                },
+            }));
+        }
     }
 
     return (
@@ -256,7 +287,11 @@ export const SettingsView: React.FC = () => {
                             </button>
 
                             <div className="space-y-4">
-                                {customProviders.map((provider) => (
+                                {customProviders.map((provider) => {
+                                    const loadState = providerModelLoadState[provider.id];
+                                    const isLoadingModels = loadState?.status === 'loading';
+
+                                    return (
                                     <div key={provider.id} className="bg-slate-800 border border-slate-700 p-5 rounded-xl mb-4 relative space-y-3">
                                         <button
                                             type="button"
@@ -326,15 +361,34 @@ export const SettingsView: React.FC = () => {
                                         <div className="pt-1">
                                             <button
                                                 type="button"
-                                                onClick={() => { void fetchModelsForProvider(provider.id); }}
-                                                disabled={!provider.baseUrl.trim()}
-                                                className="px-3 py-2 text-sm rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                                onClick={() => { void handleFetchModelsForProvider(provider.id); }}
+                                                disabled={!provider.baseUrl.trim() || isLoadingModels}
+                                                className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
                                             >
-                                                Modelle laden
+                                                {isLoadingModels && <Loader2 className={`${ICON_SIZES[14]} animate-spin`} />}
+                                                {isLoadingModels ? 'Lade Modelle...' : 'Modelle laden'}
                                             </button>
+                                            {loadState && (
+                                                <div
+                                                    className={`mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] ${
+                                                        loadState.status === 'success'
+                                                            ? 'border-emerald-900/50 bg-emerald-900/20 text-emerald-300'
+                                                            : loadState.status === 'error'
+                                                                ? 'border-red-900/50 bg-red-900/20 text-red-300'
+                                                                : 'border-slate-700 bg-slate-900/40 text-slate-300'
+                                                    }`}
+                                                    title={loadState.message}
+                                                >
+                                                    {loadState.status === 'success' && <CheckCircle2 className={ICON_SIZES[12]} />}
+                                                    {loadState.status === 'error' && <XCircle className={ICON_SIZES[12]} />}
+                                                    {loadState.status === 'loading' && <Loader2 className={`${ICON_SIZES[12]} animate-spin`} />}
+                                                    <span className="truncate">{loadState.message}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
 
                             <div className="rounded-xl border border-slate-700 p-4 bg-slate-800/40 space-y-3">
@@ -403,6 +457,26 @@ export const SettingsView: React.FC = () => {
                                         </button>
                                     )}
                                 </div>
+                                {aiProvider === 'local' && (
+                                    <div className="mt-2 min-h-5">
+                                        {providerModelsError ? (
+                                            <div
+                                                className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-red-900/50 bg-red-900/20 px-2 py-1 text-[11px] text-red-300"
+                                                title={providerModelsError}
+                                            >
+                                                <XCircle className={ICON_SIZES[12]} />
+                                                <span className="max-w-[28rem] truncate">{providerModelsError}</span>
+                                            </div>
+                                        ) : detectedProviderModels.length > 0 ? (
+                                            <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-900/50 bg-emerald-900/20 px-2 py-1 text-[11px] text-emerald-300">
+                                                <CheckCircle2 className={ICON_SIZES[12]} />
+                                                <span>{detectedProviderModels.length} lokale Modelle geladen</span>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-slate-400">LM Studio starten, Server aktivieren und dann lokale Modelle aktualisieren.</p>
+                                        )}
+                                    </div>
+                                )}
                                 <p className="mt-2 text-xs text-slate-400">Aktiv für den Chat: {effectiveChatModel}</p>
                             </div>
 

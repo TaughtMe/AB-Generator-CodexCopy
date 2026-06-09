@@ -675,6 +675,33 @@ export interface AIModel {
     providerId: string;
 }
 
+function normalizeOpenAICompatibleProviderBaseUrl(baseUrl: string): string {
+    const trimmed = baseUrl.trim().replace(/\/+$/, '');
+    if (!trimmed) return '';
+    if (/\/v1$/i.test(trimmed)) return trimmed;
+    return `${trimmed}/v1`;
+}
+
+function getModelEndpointBaseUrlCandidates(baseUrl: string): string[] {
+    const normalized = normalizeOpenAICompatibleProviderBaseUrl(baseUrl);
+    if (!normalized) return [];
+
+    const candidates = [normalized];
+
+    try {
+        const url = new URL(normalized);
+        if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+            const dockerHostUrl = new URL(normalized);
+            dockerHostUrl.hostname = 'host.docker.internal';
+            candidates.push(dockerHostUrl.toString().replace(/\/+$/, ''));
+        }
+    } catch {
+        return candidates;
+    }
+
+    return Array.from(new Set(candidates));
+}
+
 interface WorkspaceState {
     recentWorksheets: WorksheetMeta[];
     trashedWorksheets: WorksheetMeta[];
@@ -784,7 +811,7 @@ interface WorkspaceActions {
     removeProvider: (id: string) => void;
     toggleQuickAccessModel: (modelId: string) => void;
     setActiveModel: (modelId: string) => void;
-    fetchModelsForProvider: (providerId: string) => Promise<void>;
+    fetchModelsForProvider: (providerId: string) => Promise<AIModel[]>;
     /** Speichert das aktuelle Arbeitsblatt in Dexie.
      *  Optionaler `thumbnail`-Blob wird direkt mitgespeichert.
      *  Wird kein Blob übergeben, bleibt das alte Thumbnail erhalten. */
@@ -1413,45 +1440,72 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
     fetchModelsForProvider: async (providerId) => {
         const provider = get().providers.find((p) => p.id === providerId);
-        if (!provider) return;
-
-        const baseUrl = provider.baseUrl.replace(/\/+$/, '');
-        try {
-            const response = await fetch(`${baseUrl}/models`, {
-                headers: provider.apiKey
-                    ? { Authorization: `Bearer ${provider.apiKey}` }
-                    : {},
-            });
-            if (!response.ok) {
-                throw new Error(`Modelle konnten nicht geladen werden (HTTP ${response.status}).`);
-            }
-            const json = (await response.json()) as { data?: Array<{ id?: string; name?: string }> };
-            const models: AIModel[] = (json.data ?? [])
-                .map((entry) => ({
-                    id: entry.id?.trim() ?? '',
-                    name: entry.name?.trim() || entry.id?.trim() || '',
-                    providerId,
-                }))
-                .filter((model) => Boolean(model.id));
-
-            set((state) => {
-                const otherModels = state.availableModels.filter((m) => m.providerId !== providerId);
-                const availableModels = [...otherModels, ...models];
-                const availableIds = new Set(availableModels.map((m) => m.id));
-                const quickAccessModels = state.quickAccessModels.filter((mid) => availableIds.has(mid));
-                const activeModel = quickAccessModels.includes(state.activeModel)
-                    ? state.activeModel
-                    : (quickAccessModels[0] ?? '');
-                return {
-                    availableModels,
-                    quickAccessModels,
-                    activeModel,
-                    aiModel: activeModel,
-                };
-            });
-        } catch (error) {
-            console.error(`[workspaceStore] fetchModelsForProvider failed for ${providerId}:`, error);
+        if (!provider) {
+            throw new Error('Anbieter wurde nicht gefunden.');
         }
+
+        const candidateBaseUrls = getModelEndpointBaseUrlCandidates(provider.baseUrl);
+        if (candidateBaseUrls.length === 0) {
+            throw new Error('Bitte eine Base-URL eintragen. Für LM Studio ist meist http://localhost:1234/v1 richtig.');
+        }
+
+        let lastHttpStatus: number | null = null;
+
+        for (const candidateBaseUrl of candidateBaseUrls) {
+            try {
+                const response = await fetch(`${candidateBaseUrl}/models`, {
+                    headers: provider.apiKey.trim()
+                        ? { Authorization: `Bearer ${provider.apiKey.trim()}` }
+                        : undefined,
+                });
+
+                if (!response.ok) {
+                    lastHttpStatus = response.status;
+                    continue;
+                }
+
+                const json = (await response.json()) as { data?: Array<{ id?: string; name?: string }> };
+                const models: AIModel[] = (json.data ?? [])
+                    .map((entry) => ({
+                        id: entry.id?.trim() ?? '',
+                        name: entry.name?.trim() || entry.id?.trim() || '',
+                        providerId,
+                    }))
+                    .filter((model) => Boolean(model.id));
+
+                if (models.length === 0) {
+                    throw new Error('Der Anbieter ist erreichbar, liefert aber keine Modelle zurück.');
+                }
+
+                set((state) => {
+                    const otherModels = state.availableModels.filter((m) => m.providerId !== providerId);
+                    const availableModels = [...otherModels, ...models];
+                    const availableIds = new Set(availableModels.map((m) => m.id));
+                    const quickAccessModels = state.quickAccessModels.filter((mid) => availableIds.has(mid));
+                    const activeModel = quickAccessModels.includes(state.activeModel)
+                        ? state.activeModel
+                        : (quickAccessModels[0] ?? '');
+                    return {
+                        availableModels,
+                        quickAccessModels,
+                        activeModel,
+                        aiModel: activeModel,
+                    };
+                });
+
+                return models;
+            } catch (error) {
+                if (error instanceof Error && error.message === 'Der Anbieter ist erreichbar, liefert aber keine Modelle zurück.') {
+                    throw error;
+                }
+            }
+        }
+
+        if (lastHttpStatus !== null) {
+            throw new Error(`Modelle konnten nicht geladen werden (HTTP ${lastHttpStatus}). Bitte Base-URL und API-Key prüfen.`);
+        }
+
+        throw new Error('Modelle konnten nicht geladen werden. Prüfe, ob LM Studio läuft, der Server gestartet ist und Browser/CORS-Zugriff erlaubt.');
     },
 
     setAiModel: (model) => {
