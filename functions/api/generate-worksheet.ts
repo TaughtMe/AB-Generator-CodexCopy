@@ -4,6 +4,8 @@ import {
   generateId,
   generateObject,
   generateText,
+  NoObjectGeneratedError,
+  type LanguageModel,
 } from 'ai';
 import { z } from 'zod';
 import {
@@ -59,9 +61,11 @@ const taskItemSchema = z.object({
   title: z.string().min(1),
 }).passthrough();
 
+const taskArraySchema = z.array(taskItemSchema).min(1);
+
 const workflowResultSchema = z.object({
   planner: plannerOutputSchema,
-  tasks: z.array(taskItemSchema).min(1),
+  tasks: taskArraySchema,
   validation: validatorOutputSchema,
   afbConfig: afbConfigSchema,
 }).strict();
@@ -118,20 +122,193 @@ function createDataStreamResponse(options: {
 
 const MAX_CREATOR_RETRIES = 2;
 const DEFAULT_API_MAX_TOKENS = 1500;
+const CREATOR_API_MAX_TOKENS = 4000;
 
-function extractJsonArray(text: string): unknown[] {
-  let cleaned = text.trim();
-  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) cleaned = codeBlockMatch[1].trim();
+type CreatorTask = z.infer<typeof taskItemSchema>;
 
-  const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
-  if (arrayMatch) cleaned = arrayMatch[0];
+function sanitizeJsonPayload(rawPayload: string): string {
+  return rawPayload
+    .replace(/^\uFEFF/, '')
+    .replace(/```(?:json)?/gi, '')
+    .replace(/```/g, '')
+    .trim();
+}
 
-  const parsed = JSON.parse(cleaned);
-  if (!Array.isArray(parsed)) {
-    throw new Error('Creator output is not a JSON array.');
+function extractJsonArrayCandidates(rawText: string): string[] {
+  const candidates: string[] = [];
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < rawText.length; index += 1) {
+    const char = rawText[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === '[') {
+      if (depth === 0) {
+        start = index;
+      }
+      depth += 1;
+      continue;
+    }
+
+    if (char === ']' && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        candidates.push(rawText.slice(start, index + 1));
+        start = -1;
+      }
+    }
   }
-  return parsed;
+
+  return candidates;
+}
+
+function isRecordObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function tryParseJson(payload: string): unknown | null {
+  const cleaned = sanitizeJsonPayload(payload);
+  if (!cleaned) return null;
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    return null;
+  }
+}
+
+function findCreatorTasks(candidate: unknown): CreatorTask[] | null {
+  const parsedTasks = taskArraySchema.safeParse(candidate);
+  if (parsedTasks.success) {
+    return parsedTasks.data;
+  }
+
+  if (typeof candidate === 'string') {
+    const parsedCandidate = tryParseJson(candidate);
+    if (parsedCandidate !== null) {
+      const tasks = findCreatorTasks(parsedCandidate);
+      if (tasks) return tasks;
+    }
+
+    const arrayCandidates = extractJsonArrayCandidates(sanitizeJsonPayload(candidate));
+    for (let index = arrayCandidates.length - 1; index >= 0; index -= 1) {
+      const parsedArrayCandidate = tryParseJson(arrayCandidates[index]);
+      if (parsedArrayCandidate === null) continue;
+      const tasks = findCreatorTasks(parsedArrayCandidate);
+      if (tasks) return tasks;
+    }
+
+    return null;
+  }
+
+  if (Array.isArray(candidate)) {
+    for (const entry of candidate) {
+      const tasks = findCreatorTasks(entry);
+      if (tasks) return tasks;
+    }
+    return null;
+  }
+
+  if (!isRecordObject(candidate)) {
+    return null;
+  }
+
+  for (const key of ['tasks', 'aufgaben', 'items', 'result', 'data']) {
+    if (key in candidate) {
+      const tasks = findCreatorTasks(candidate[key]);
+      if (tasks) return tasks;
+    }
+  }
+
+  for (const value of Object.values(candidate)) {
+    const tasks = findCreatorTasks(value);
+    if (tasks) return tasks;
+  }
+
+  return null;
+}
+
+function extractJsonArray(text: string): CreatorTask[] {
+  const tasks = findCreatorTasks(text);
+  if (!tasks) {
+    throw new Error('Creator output is not a valid task JSON array.');
+  }
+  return tasks;
+}
+
+function stringifyRepairableCreatorTasks(text: string): string | null {
+  const tasks = findCreatorTasks(text);
+  return tasks ? JSON.stringify(tasks) : null;
+}
+
+function getGeneratedTextFromError(error: unknown): string | null {
+  if (NoObjectGeneratedError.isInstance(error) && typeof error.text === 'string') {
+    const text = error.text.trim();
+    return text.length > 0 ? text : null;
+  }
+
+  return null;
+}
+
+async function generateCreatorTasks(options: {
+  model: LanguageModel;
+  system: string;
+  prompt: string;
+}): Promise<CreatorTask[]> {
+  try {
+    const creatorResult = await generateObject({
+      model: options.model,
+      schema: taskItemSchema,
+      output: 'array',
+      system: options.system,
+      prompt: options.prompt,
+      maxOutputTokens: CREATOR_API_MAX_TOKENS,
+      experimental_repairText: async ({ text }) => stringifyRepairableCreatorTasks(text),
+    });
+
+    return taskArraySchema.parse(creatorResult.object);
+  } catch (error) {
+    const generatedText = getGeneratedTextFromError(error);
+    if (generatedText) {
+      const repairedTasks = findCreatorTasks(generatedText);
+      if (repairedTasks) return repairedTasks;
+    }
+
+    if (!NoObjectGeneratedError.isInstance(error)) {
+      throw error;
+    }
+  }
+
+  const creatorResult = await generateText({
+    model: options.model,
+    system: options.system,
+    prompt: options.prompt,
+    maxOutputTokens: CREATOR_API_MAX_TOKENS,
+  });
+
+  return extractJsonArray(creatorResult.text);
 }
 
 async function runAgentWorkflow(
@@ -162,7 +339,7 @@ async function runAgentWorkflow(
   });
 
   // ── Phase 2+3: Creator → Validator Loop (max MAX_CREATOR_RETRIES Iterationen) ──
-  let tasks: unknown[] = [];
+  let tasks: CreatorTask[] = [];
   let validatorResult: z.infer<typeof validatorOutputSchema> = { isValid: false, score: 0, errors: ['Nicht gestartet'] };
   let correctionErrors: string[] = [];
 
@@ -187,15 +364,12 @@ async function runAgentWorkflow(
         'Der Validator hat Fehler gemeldet. Korrigiere die Aufgaben und gib erneut ein valides JSON-Array zurueck.';
     }
 
-    const creatorResult = await generateText({
-      model,
-      system: getCreatorPrompt(afbConfig as AfbPromptConfig),
-      prompt: JSON.stringify(creatorPromptPayload),
-      maxOutputTokens: DEFAULT_API_MAX_TOKENS,
-    });
-
     try {
-      tasks = extractJsonArray(creatorResult.text);
+      tasks = await generateCreatorTasks({
+        model,
+        system: getCreatorPrompt(afbConfig as AfbPromptConfig),
+        prompt: JSON.stringify(creatorPromptPayload),
+      });
     } catch {
       const parseError = 'CREATOR_PARSE_FAIL: Antwort war kein valides JSON-Array.';
       onEvent?.({
@@ -253,7 +427,7 @@ async function runAgentWorkflow(
     }
   }
 
-  const parsedTasks = z.array(taskItemSchema).parse(tasks);
+  const parsedTasks = taskArraySchema.parse(tasks);
 
   return workflowResultSchema.parse({
     planner: plannerResult.object,
