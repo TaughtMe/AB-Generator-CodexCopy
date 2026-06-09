@@ -63,6 +63,10 @@ const taskItemSchema = z.object({
 
 const taskArraySchema = z.array(taskItemSchema).min(1);
 
+const creatorTaskEnvelopeSchema = z.object({
+  tasks: taskArraySchema,
+}).strict();
+
 const workflowResultSchema = z.object({
   planner: plannerOutputSchema,
   tasks: taskArraySchema,
@@ -123,6 +127,15 @@ function createDataStreamResponse(options: {
 const MAX_CREATOR_RETRIES = 2;
 const DEFAULT_API_MAX_TOKENS = 1500;
 const CREATOR_API_MAX_TOKENS = 4000;
+
+const CREATOR_REPAIR_PROMPT = [
+  'ROLE: JSON-REPAIR FUER ARBEITSBLATT-AUFGABEN.',
+  'AUFGABE: REKONSTRUIERE AUS ORIGINAL-PROMPT UND FEHLERHAFTER CREATOR-ANTWORT EIN VALIDES JSON-OBJEKT.',
+  'AUSGABEFORMAT ZWINGEND: { "tasks": [ ... ] }.',
+  'JEDES TASK-ELEMENT MUSS MINDESTENS "type" UND "title" ENTHALTEN.',
+  'ERLAUBTE TYPEN: information, multiple-choice, cloze, math, instruction.',
+  'KEINE MARKDOWN-CODEBLOECKE. KEIN ERKLAERTEXT.',
+].join('\n');
 
 type CreatorTask = z.infer<typeof taskItemSchema>;
 
@@ -272,6 +285,34 @@ function getGeneratedTextFromError(error: unknown): string | null {
   return null;
 }
 
+async function repairCreatorTasksWithModel(options: {
+  model: LanguageModel;
+  originalPrompt: string;
+  invalidResponse: string;
+}): Promise<CreatorTask[] | null> {
+  try {
+    const repairResult = await generateObject({
+      model: options.model,
+      schema: creatorTaskEnvelopeSchema,
+      system: CREATOR_REPAIR_PROMPT,
+      prompt: JSON.stringify({
+        originalPrompt: options.originalPrompt,
+        invalidCreatorResponse: options.invalidResponse.slice(0, 12000),
+      }),
+      maxOutputTokens: CREATOR_API_MAX_TOKENS,
+      experimental_repairText: async ({ text }) => {
+        const tasks = findCreatorTasks(text);
+        return tasks ? JSON.stringify({ tasks }) : null;
+      },
+    });
+
+    return repairResult.object.tasks;
+  } catch (error) {
+    console.error('[functions/api/generate-worksheet] Creator repair failed:', error);
+    return null;
+  }
+}
+
 async function generateCreatorTasks(options: {
   model: LanguageModel;
   system: string;
@@ -296,9 +337,7 @@ async function generateCreatorTasks(options: {
       if (repairedTasks) return repairedTasks;
     }
 
-    if (!NoObjectGeneratedError.isInstance(error)) {
-      throw error;
-    }
+    console.error('[functions/api/generate-worksheet] Structured creator generation failed, falling back to text:', error);
   }
 
   const creatorResult = await generateText({
@@ -308,7 +347,18 @@ async function generateCreatorTasks(options: {
     maxOutputTokens: CREATOR_API_MAX_TOKENS,
   });
 
-  return extractJsonArray(creatorResult.text);
+  try {
+    return extractJsonArray(creatorResult.text);
+  } catch (error) {
+    const repairedTasks = await repairCreatorTasksWithModel({
+      model: options.model,
+      originalPrompt: options.prompt,
+      invalidResponse: creatorResult.text,
+    });
+    if (repairedTasks) return repairedTasks;
+
+    throw error;
+  }
 }
 
 async function runAgentWorkflow(
