@@ -316,7 +316,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                 )}
             </div>
 
-            <div className="relative z-10 shrink-0 space-y-2 border-t border-slate-200 p-4 pb-20 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
+            <div className="relative z-10 shrink-0 space-y-2 border-t border-slate-200 p-3 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
                 {!providerReady && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-[11px] text-red-700">
                         KI nicht konfiguriert. Bitte Einstellungen für {getActiveProviderLabel()} prüfen.

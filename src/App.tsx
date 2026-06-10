@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 
@@ -84,6 +84,15 @@ function App() {
   const [activeLegalModal, setActiveLegalModal] = useState<LegalModalType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  /**
+   * Gemessene Höhe des Editor-Headers (Ribbon + Variantenleiste).
+   * Die Sidebars (Outline, KI-Chat) nutzen sie als CSS-Variable für
+   * sticky-Offset und Höhe — vorher war "90px" hartkodiert, real sind es
+   * je nach Umbruch ~200px, wodurch die Chat-Eingabe unter den Viewport
+   * rutschte und nur per Scrollen erreichbar war.
+   */
+  const editorHeaderRef = useRef<HTMLDivElement | null>(null);
+  const [editorHeaderHeight, setEditorHeaderHeight] = useState(90);
   const [printVariant, setPrintVariant] = useState<ExportVariant | null>(null);
   /** Ausstehender Export, der wegen Validierungswarnungen auf Bestätigung wartet. */
   const [pendingExport, setPendingExport] = useState<{
@@ -104,6 +113,16 @@ function App() {
   useEffect(() => {
     void loadCustomFonts();
   }, [loadCustomFonts]);
+
+  useEffect(() => {
+    const el = editorHeaderRef.current;
+    if (!el) return;
+    const update = () => setEditorHeaderHeight(Math.ceil(el.getBoundingClientRect().height));
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [currentView]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -368,7 +387,10 @@ function App() {
 
   /* ── Editor View ── */
   return (
-    <div className="min-h-screen pb-32 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div
+      className="min-h-screen pb-32 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+      style={{ ['--editor-header-h' as string]: `${editorHeaderHeight}px` }}
+    >
       {onboardingElement}
       {printVariant && <PrintWorksheet />}
       {pendingExport && (
@@ -384,32 +406,34 @@ function App() {
           onCancel={() => setPendingExport(null)}
         />
       )}
-      <RibbonToolbar
-        onBackToDashboard={handleBackToDashboard}
-        onSave={handleSave}
-        isSaving={isSaving}
-        hasTasks={taskIds.length > 0}
-        isExporting={isExporting}
-        onExportPdf={handlePdfExportGuarded}
-        onExportDocx={handleDocxExportGuarded}
-        onExportAbgen={handleAbgenExport}
-        onOpenSources={() => setShowSourcesManager(true)}
-      />
+      <div ref={editorHeaderRef}>
+        <RibbonToolbar
+          onBackToDashboard={handleBackToDashboard}
+          onSave={handleSave}
+          isSaving={isSaving}
+          hasTasks={taskIds.length > 0}
+          isExporting={isExporting}
+          onExportPdf={handlePdfExportGuarded}
+          onExportDocx={handleDocxExportGuarded}
+          onExportAbgen={handleAbgenExport}
+          onOpenSources={() => setShowSourcesManager(true)}
+        />
 
-      <VariantTabs
-        variants={variants}
-        activeVariantId={activeVariantId}
-        onSelectVariant={setActiveVariant}
-        onAddVariant={handleAddVariant}
-        onRenameVariant={renameVariant}
-        onReorderVariants={reorderVariants}
-        onRemoveVariant={removeVariant}
-      />
+        <VariantTabs
+          variants={variants}
+          activeVariantId={activeVariantId}
+          onSelectVariant={setActiveVariant}
+          onAddVariant={handleAddVariant}
+          onRenameVariant={renameVariant}
+          onReorderVariants={reorderVariants}
+          onRemoveVariant={removeVariant}
+        />
+      </div>
 
       <div className="lg:flex lg:items-stretch">
         {/* Outline-Navigator (linke Sidebar) */}
         <div
-          className={`no-print hidden lg:block shrink-0 h-[calc(100vh-90px)] sticky top-[90px] transition-all duration-200 ease-in-out overflow-hidden ${
+          className={`no-print hidden lg:block shrink-0 h-[calc(100dvh-var(--editor-header-h))] sticky top-[var(--editor-header-h)] transition-all duration-200 ease-in-out overflow-hidden ${
             isOutlineOpen ? 'w-60 border-r border-slate-200/80 dark:border-slate-800/80' : 'w-0'
           }`}
         >
@@ -450,7 +474,7 @@ function App() {
         </div>
 
         {isAiSidebarOpen && (
-          <div className="no-print hidden lg:flex w-80 xl:w-96 shrink-0 min-h-0 h-[calc(100vh-90px)] sticky top-[90px] pl-2 pr-2 pb-2">
+          <div className="no-print hidden lg:flex w-80 xl:w-96 shrink-0 min-h-0 h-[calc(100dvh-var(--editor-header-h))] sticky top-[var(--editor-header-h)] pl-2 pr-2 pb-2">
             <EditorChatSidebar onOpenSources={() => setShowSourcesManager(true)} />
           </div>
         )}
