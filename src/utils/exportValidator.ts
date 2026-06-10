@@ -9,10 +9,17 @@ import type { Task, ColumnsTask } from '../types/worksheet';
 
 // ── Types ────────────────────────────────────────────────────
 
+/**
+ * 'warning' = Export wahrscheinlich fehlerhaft/unvollständig.
+ * 'info'    = Hinweis, kann beabsichtigt sein (z. B. leerer Bildrahmen).
+ */
+export type ValidationSeverity = 'warning' | 'info';
+
 export interface ValidationWarning {
     taskId: string;
     taskTitle: string;
     message: string;
+    severity?: ValidationSeverity; // default: 'warning'
 }
 
 // ── Validation Logic ─────────────────────────────────────────
@@ -68,6 +75,14 @@ export function validateForExport(
                         message: 'Alle Antwortmöglichkeiten sind leer.',
                     });
                 }
+                // Keine richtige Antwort markiert → Lehrerexport zeigt keine Lösung
+                if (task.options && task.options.length >= 2 && !task.options.some((opt) => opt.isCorrect)) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Keine Antwort ist als richtig markiert – im Lehrerexport fehlt die Lösung.',
+                    });
+                }
                 break;
 
             case 'cloze':
@@ -76,6 +91,12 @@ export function validateForExport(
                         taskId: id,
                         taskTitle: task.title,
                         message: 'Lückentext hat keinen Inhalt.',
+                    });
+                } else if (!/\[[^\]]+\]/.test(task.content)) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Lückentext enthält keine Lücken – setze Wörter in [eckige Klammern].',
                     });
                 }
                 break;
@@ -91,7 +112,15 @@ export function validateForExport(
                 break;
 
             case 'image-placeholder':
-                // No specific validation needed
+                // Leerer Rahmen kann beabsichtigt sein (z. B. zum Einzeichnen) → nur Hinweis.
+                if (!task.imageId && !(task as { src?: string }).src) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Bild-Platzhalter ohne Bild – im Export erscheint ein leerer Rahmen.',
+                        severity: 'info',
+                    });
+                }
                 break;
 
             case 'page-break':
@@ -130,6 +159,14 @@ export function validateForExport(
                         taskId: id,
                         taskTitle: task.title,
                         message: 'Tabelle enthält noch keine Tabellenstruktur. Nutze "Tabelle anwenden".',
+                    });
+                }
+                // Verbundene Zellen überleben den DOCX-Export derzeit nicht
+                if (task.content && /\b(colspan|rowspan)\s*=\s*["']?[2-9]/i.test(task.content)) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Tabelle nutzt verbundene Zellen – diese gehen im Word-Export derzeit verloren.',
                     });
                 }
                 break;

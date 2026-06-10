@@ -65,6 +65,12 @@ export function ExportWarningsDialog({
                 <ul className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                     {warnings.map((warning, index) => (
                         <li key={`${warning.taskId}-${index}`} className="flex items-center gap-3 px-5 py-3">
+                            <span
+                                className={`shrink-0 h-2 w-2 rounded-full ${
+                                    warning.severity === 'info' ? 'bg-blue-400' : 'bg-amber-400'
+                                }`}
+                                title={warning.severity === 'info' ? 'Hinweis' : 'Warnung'}
+                            />
                             <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
                                     {warning.taskTitle || 'Unbenannte Aufgabe'}
