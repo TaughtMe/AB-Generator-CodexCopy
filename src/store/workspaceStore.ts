@@ -2060,14 +2060,14 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                     ? crypto.randomUUID()
                     : Date.now().toString());
             const lastModified = new Date().toISOString();
+            // Bewusst KEINE Task-Kopien: volle Tasks in localStorage sprengen das
+            // 5-MB-Quota und divergieren von Dexie (dem einzigen Persistenz-Ort).
             const nextSavedFiles = [
                 {
                     id: savedFileId,
                     meta: nextMeta,
                     lastModified,
-                    tasks: [...ws.taskIds.map((taskId) => ({ ...ws.tasksById[taskId] }))],
                     taskCount: ws.taskIds.length,
-                    variations: ws.variants.map((variant) => ({ id: variant.id, label: variant.label })),
                     variationCount: Math.max(1, ws.variants.length),
                 },
                 ...state.savedFiles.filter((file) => file.id !== savedFileId),
@@ -2090,13 +2090,12 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                 ?? crypto.randomUUID();
             const actualVariationCount = ws.variants?.length || 1;
 
+            // Leichtgewichtiger Snapshot ohne Task-Kopien (siehe updateDocumentMeta).
             const currentSnapshot = {
                 id: docId,
                 meta: { ...state.documentMeta },
                 lastModified: now,
-                tasks: [...ws.taskIds.map((tid) => ({ ...ws.tasksById[tid] }))],
                 taskCount: ws.taskIds.length,
-                variations: ws.variants.map((variant) => ({ id: variant.id, label: variant.label })),
                 variationCount: actualVariationCount,
             };
 

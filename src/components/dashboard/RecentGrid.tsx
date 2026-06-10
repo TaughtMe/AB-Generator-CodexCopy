@@ -1,8 +1,9 @@
-import { useWorkspaceStore } from '../../store/workspaceStore';
+import type { WorksheetMeta } from '../../store/dexieStore';
 import { WorksheetCard } from './WorksheetCard';
 
 interface RecentGridProps {
-  items: unknown[];
+  /** Dexie-basierte Worksheet-Metadaten (einzige Wahrheitsquelle, identisch zur Liste). */
+  items: WorksheetMeta[];
   subjectNameById: Record<string, string>;
   onOpenWorksheet?: (id: string) => void;
   onRenameWorksheet?: (id: string) => Promise<void> | void;
@@ -13,8 +14,8 @@ interface RecentGridProps {
   onDeleteWorksheet?: (id: string) => Promise<void> | void;
 }
 
-function formatUpdatedLabel(date: string): string {
-  const parsed = new Date(date);
+function formatUpdatedLabel(date: Date | string): string {
+  const parsed = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(parsed.getTime())) return 'Unbekannt';
 
   const diff = Date.now() - parsed.getTime();
@@ -33,9 +34,8 @@ function formatUpdatedLabel(date: string): string {
 }
 
 export function RecentGrid(props: RecentGridProps) {
-  const savedFiles = useWorkspaceStore((state) => state.savedFiles);
-  const cards = [...savedFiles]
-    .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
+  const cards = [...props.items]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 4);
 
   return (
@@ -56,22 +56,26 @@ export function RecentGrid(props: RecentGridProps) {
         </div>
       ) : (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {cards.map((file) => (
+        {cards.map((meta) => (
           <WorksheetCard
-            key={`${file.id}-${file.tasks?.length || file.taskCount || 0}`}
-            title={file.meta.title || 'Unbenannt'}
-            subject={file.meta.subject || 'Kein Fach zugeordnet'}
-            date={formatUpdatedLabel(file.lastModified)}
-            taskCount={file.tasks?.length || file.taskCount || 0}
-            tasks={file.tasks || []}
-            onOpen={() => props.onOpenWorksheet?.(file.id)}
-            onRenameAction={() => props.onRenameWorksheet?.(file.id)}
-            onAssignAction={() => props.onAssignWorksheet?.(file.id)}
-            onDuplicateAction={() => props.onDuplicateWorksheet?.(file.id)}
-            onDeleteAction={() => props.onDeleteWorksheet?.(file.id)}
-            onDownloadStudentAction={() => props.onDownloadWorksheet?.(file.id, 'student')}
-            onDownloadTeacherAction={() => props.onDownloadWorksheet?.(file.id, 'teacher')}
-            onDownloadAbgenAction={() => props.onExportAbgenWorksheet?.(file.id)}
+            key={meta.id}
+            title={meta.title || 'Unbenannt'}
+            subject={
+              (meta.subjectId ? props.subjectNameById[meta.subjectId] : undefined)
+                ?? meta.documentSubject
+                ?? 'Kein Fach zugeordnet'
+            }
+            date={formatUpdatedLabel(meta.updatedAt)}
+            taskCount={meta.taskCount}
+            tasks={meta.taskPreview.map((item) => ({ type: item.type, content: item.label }))}
+            onOpen={() => props.onOpenWorksheet?.(meta.id)}
+            onRenameAction={() => props.onRenameWorksheet?.(meta.id)}
+            onAssignAction={() => props.onAssignWorksheet?.(meta.id)}
+            onDuplicateAction={() => props.onDuplicateWorksheet?.(meta.id)}
+            onDeleteAction={() => props.onDeleteWorksheet?.(meta.id)}
+            onDownloadStudentAction={() => props.onDownloadWorksheet?.(meta.id, 'student')}
+            onDownloadTeacherAction={() => props.onDownloadWorksheet?.(meta.id, 'teacher')}
+            onDownloadAbgenAction={() => props.onExportAbgenWorksheet?.(meta.id)}
           />
         ))}
       </div>
