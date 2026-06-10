@@ -82,6 +82,8 @@ interface WorksheetCanvasProps {
     isPlacingNewTask: boolean;
     /** Beendet den Placement-Modus */
     onCancelPlacing: () => void;
+    /** Wird auf der A4-Seite gerendert, wenn keine Aufgaben existieren (Empty State). */
+    emptySlot?: React.ReactNode;
 }
 
 export const WorksheetCanvas = React.memo(function WorksheetCanvas({
@@ -99,6 +101,7 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
     onInsertTaskAt,
     isPlacingNewTask,
     onCancelPlacing,
+    emptySlot,
 }: WorksheetCanvasProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const activeTaskId = useWorksheetStore((state) => state.activeTaskId);
@@ -349,6 +352,8 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
                     >
                         <MultiPageContainer fontFamily={fontFamily} brandColor={brandColor}>
                             <WorksheetHeader />
+
+                            {taskIds.length === 0 && emptySlot}
 
                             {taskIds.map((id, idx) => {
                                 const task = tasksById[id];

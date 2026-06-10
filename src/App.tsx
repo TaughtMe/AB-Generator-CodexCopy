@@ -28,6 +28,7 @@ import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import type { SidebarView } from './components/layout/Sidebar';
 import { PrintWorksheet } from './components/print/PrintWorksheet';
 import { ExportWarningsDialog } from './components/editor/ExportWarningsDialog';
+import { EmptyWorksheetState } from './components/editor/EmptyWorksheetState';
 import { validateForExport, type ValidationWarning } from './utils/exportValidator';
 import './styles/PrintStyles.css';
 
@@ -69,6 +70,7 @@ function App() {
   const startPlacingTask = useWorkspaceStore((s) => s.startPlacingTask);
   const cancelPlacingTask = useWorkspaceStore((s) => s.cancelPlacingTask);
   const isTemplateGalleryOpen = useWorkspaceStore((s) => s.isTemplateGalleryOpen);
+  const openTemplateGallery = useWorkspaceStore((s) => s.openTemplateGallery);
   const closeTemplateGallery = useWorkspaceStore((s) => s.closeTemplateGallery);
   const clearTemplateEdit = useWorkspaceStore((s) => s.clearTemplateEdit);
   const fontFamily = useSettingsStore((state) => state.fontFamily);
@@ -437,16 +439,14 @@ function App() {
             onInsertTaskAt={insertTaskAt}
             isPlacingNewTask={isPlacingNewTask}
             onCancelPlacing={cancelPlacingTask}
+            emptySlot={
+              <EmptyWorksheetState
+                onAddFirstTask={startPlacingTask}
+                onOpenAiChat={() => { if (!isAiSidebarOpen) toggleAiSidebar(); }}
+                onOpenTemplates={openTemplateGallery}
+              />
+            }
           />
-
-          {/* Empty state */}
-          {taskIds.length === 0 && (
-            <div className="no-print text-center py-16 mx-auto max-w-[210mm] border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl mt-8">
-              <p className="text-slate-400 dark:text-slate-500 text-sm" style={{ whiteSpace: 'pre-line' }}>
-                {t('editor.noTasks')}
-              </p>
-            </div>
-          )}
         </div>
 
         {isAiSidebarOpen && (
