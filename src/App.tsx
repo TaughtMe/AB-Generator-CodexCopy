@@ -27,6 +27,8 @@ import { SettingsView } from './components/settings/SettingsView';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import type { SidebarView } from './components/layout/Sidebar';
 import { PrintWorksheet } from './components/print/PrintWorksheet';
+import { ExportWarningsDialog } from './components/editor/ExportWarningsDialog';
+import { validateForExport, type ValidationWarning } from './utils/exportValidator';
 import './styles/PrintStyles.css';
 
 function App() {
@@ -49,6 +51,7 @@ function App() {
   const removeVariant = useWorksheetStore((state) => state.removeVariant);
   const showHeader = useWorksheetStore((state) => state.showHeader);
   const setShowHeader = useWorksheetStore((state) => state.setShowHeader);
+  const setActiveTask = useWorksheetStore((state) => state.setActiveTask);
 
   const saveCurrentWorksheet = useWorkspaceStore((s) => s.saveCurrentWorksheet);
   const exportWorksheet = useWorkspaceStore((s) => s.exportWorksheet);
@@ -80,6 +83,12 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [printVariant, setPrintVariant] = useState<ExportVariant | null>(null);
+  /** Ausstehender Export, der wegen Validierungswarnungen auf Bestätigung wartet. */
+  const [pendingExport, setPendingExport] = useState<{
+    label: string;
+    warnings: ValidationWarning[];
+    run: () => Promise<void> | void;
+  } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
@@ -204,6 +213,42 @@ function App() {
     }
   };
 
+  /**
+   * Validiert das Arbeitsblatt vor dem Export. Bei Warnungen öffnet sich der
+   * ExportWarningsDialog (Liste + "Zur Aufgabe springen" + "Trotzdem
+   * exportieren") statt eines window.confirm. Ohne Warnungen läuft der Export
+   * direkt. Gilt für PDF und DOCX; .abgen ist eine Rohdatendatei und wird
+   * bewusst nicht validiert.
+   */
+  const runGuardedExport = (label: string, run: () => Promise<void> | void) => {
+    const warnings = validateForExport(tasksById, taskIds);
+    if (warnings.length === 0) {
+      void run();
+      return;
+    }
+    setPendingExport({ label, warnings, run });
+  };
+
+  const variantLabel = (variants: ExportVariant[]) =>
+    variants.map((v) => (v === 'teacher' ? 'Lehrer' : 'Schüler')).join(' + ');
+
+  const handlePdfExportGuarded = (variants: ExportVariant[]) =>
+    runGuardedExport(`PDF ${variantLabel(variants)}`, () => handlePdfExport(variants));
+
+  const handleDocxExportGuarded = (variants: ExportVariant[]) =>
+    runGuardedExport(`Word ${variantLabel(variants)}`, () => handleDocxExport(variants));
+
+  const handleJumpToWarnedTask = (taskId: string) => {
+    setPendingExport(null);
+    setActiveTask(taskId);
+    // Nach dem Schließen des Dialogs zur Aufgabe scrollen.
+    window.setTimeout(() => {
+      document
+        .querySelector(`[data-task-id="${taskId}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
+
   const handleToggleHeaderDesign = () => {
     setShowHeader(!showHeader);
     if (!showHeader) setShowDesignEditor(true);
@@ -324,14 +369,27 @@ function App() {
     <div className="min-h-screen pb-32 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       {onboardingElement}
       {printVariant && <PrintWorksheet />}
+      {pendingExport && (
+        <ExportWarningsDialog
+          warnings={pendingExport.warnings}
+          exportLabel={pendingExport.label}
+          onJumpToTask={handleJumpToWarnedTask}
+          onExportAnyway={() => {
+            const run = pendingExport.run;
+            setPendingExport(null);
+            void run();
+          }}
+          onCancel={() => setPendingExport(null)}
+        />
+      )}
       <RibbonToolbar
         onBackToDashboard={handleBackToDashboard}
         onSave={handleSave}
         isSaving={isSaving}
         hasTasks={taskIds.length > 0}
         isExporting={isExporting}
-        onExportPdf={handlePdfExport}
-        onExportDocx={handleDocxExport}
+        onExportPdf={handlePdfExportGuarded}
+        onExportDocx={handleDocxExportGuarded}
         onExportAbgen={handleAbgenExport}
         onOpenSources={() => setShowSourcesManager(true)}
       />

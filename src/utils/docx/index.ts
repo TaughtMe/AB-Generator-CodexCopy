@@ -8,7 +8,6 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 import type { Task, ColumnsTask } from '../../types/worksheet';
-import { validateForExport, formatWarnings } from '../exportValidator';
 import { useSettingsStore } from '../../store/settingsStore';
 import { createHeaderTable } from './headerGenerator';
 import { renderTaskContent, renderColumnsTask, wrapTaskInGrid } from './taskRenderer';
@@ -83,13 +82,8 @@ export async function exportToDocx(
     const { fontFamily: userFont, brandColor, applyColorToTasks } = useSettingsStore.getState();
     const fontFamily = toDocxFontFamily(userFont);
 
-    const warnings = validateForExport(tasksById, taskIds);
-    if (warnings.length > 0) {
-        const proceed = window.confirm(
-            formatWarnings(warnings) + '\n\nTrotzdem exportieren?',
-        );
-        if (!proceed) return;
-    }
+    // Validierung passiert zentral VOR dem Aufruf (App → ExportWarningsDialog).
+    // Hier bewusst keine zweite window.confirm-Abfrage mehr.
 
     try {
         const allChildren: (Paragraph | Table)[] = [];
