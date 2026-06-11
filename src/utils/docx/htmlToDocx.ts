@@ -56,7 +56,10 @@ interface HtmlToDocxParagraphOptions {
 
 /**
  * Konvertiert HTML-String aus Tiptap in docx.js Paragraph-Array.
- * Verwendet einen einfachen Regex-basierten Parser (kein DOM nötig).
+ *
+ * Block-Ebene: DOMParser (korrekt bei verschachtelten Listen, erhält
+ * Leerabsätze). Inline-Ebene: bewährter tokenizeInline-Parser mit
+ * vollem Feature-Set (s/mark/a/sub/sup/h1-6/span-Styles).
  */
 export function htmlToDocxParagraphs(
     html: string,
@@ -71,50 +74,124 @@ export function htmlToDocxParagraphs(
         return plainTextToParagraphs(html, style, spacingAfter, options.defaultAlignment);
     }
 
+    const body = new DOMParser().parseFromString(html, 'text/html').body;
     const paragraphs: Paragraph[] = [];
 
-    // Listen extrahieren und separat behandeln
-    const blocks = splitIntoBlocks(html);
+    /** Lose Inline-Knoten auf Body-Ebene (Text, <strong>, …) sammeln. */
+    let looseHtml = '';
+    const flushLoose = () => {
+        const chunk = looseHtml.trim();
+        looseHtml = '';
+        if (!chunk) return;
+        const runs = parseInlineRuns(chunk, style);
+        if (runs.length > 0) {
+            paragraphs.push(new Paragraph({
+                children: runs,
+                spacing: { after: spacingAfter },
+                alignment: options.defaultAlignment,
+            }));
+        }
+    };
 
-    for (const block of blocks) {
-        if (block.type === 'list') {
-            const items = extractListItems(block.html);
-            const isOrdered = block.html.trimStart().startsWith('<ol');
-            items.forEach((itemHtml, idx) => {
-                const runs = parseInlineRuns(itemHtml, style);
-                const prefix = isOrdered ? `${idx + 1}. ` : '• ';
-                paragraphs.push(
-                    new Paragraph({
-                        children: [
-                            new TextRun({
-                                text: prefix,
-                                font: style.fontFamily,
-                                size: style.fontSizePt * 2,
-                                color: style.color,
-                            }),
-                            ...runs,
-                        ],
-                        spacing: { after: 40 },
-                        indent: { left: 360 }, // ~0.25 inch indent
-                        alignment: options.defaultAlignment,
+    const emitParagraphElement = (el: Element) => {
+        const styleAttr = el.getAttribute('style') ?? '';
+        const alignMatch = /text-align\s*:\s*(left|center|right|justify)/i.exec(styleAttr);
+        const alignment = (alignMatch ? cssAlignToDocx(alignMatch[1]) : undefined) ?? options.defaultAlignment;
+        const runs = parseInlineRuns(el.innerHTML, style);
+        // Leere <p></p> (Tiptap-Leerzeilen) bewusst als Leerabsatz erhalten.
+        paragraphs.push(new Paragraph({
+            children: runs,
+            spacing: { after: spacingAfter },
+            alignment,
+        }));
+    };
+
+    /** Verschachtelte Listen rekursiv, Einrückung pro Ebene. */
+    const emitList = (listEl: Element, level: number) => {
+        const isOrdered = listEl.tagName.toLowerCase() === 'ol';
+        let index = 0;
+        for (const li of listEl.children) {
+            if (li.tagName.toLowerCase() !== 'li') continue;
+            index += 1;
+
+            // Inline-Inhalt des <li> OHNE die verschachtelten Listen
+            const liClone = li.cloneNode(true) as Element;
+            liClone.querySelectorAll('ul, ol').forEach((nested) => nested.remove());
+            const runs = parseInlineRuns(liClone.innerHTML, style);
+            const prefix = isOrdered ? `${index}. ` : '• ';
+
+            paragraphs.push(new Paragraph({
+                children: [
+                    new TextRun({
+                        text: prefix,
+                        font: style.fontFamily,
+                        size: style.fontSizePt * 2,
+                        color: style.color,
                     }),
-                );
-            });
-        } else {
-            // Normaler Absatz (<p>...</p> oder loser Text)
-            const innerHtml = stripTag(block.html, 'p');
-            const runs = parseInlineRuns(innerHtml, style);
-            if (runs.length > 0) {
-                paragraphs.push(
-                    new Paragraph({
-                        children: runs,
-                        spacing: { after: spacingAfter },
-                        alignment: block.align ?? options.defaultAlignment,
-                    }),
-                );
+                    ...runs,
+                ],
+                spacing: { after: 40 },
+                indent: { left: 360 * (level + 1) },
+                alignment: options.defaultAlignment,
+            }));
+
+            // Direkt verschachtelte Listen dieses <li> eine Ebene tiefer
+            for (const child of li.children) {
+                const tag = child.tagName.toLowerCase();
+                if (tag === 'ul' || tag === 'ol') emitList(child, level + 1);
             }
         }
+    };
+
+    for (const node of body.childNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as Element;
+            const tag = el.tagName.toLowerCase();
+
+            if (tag === 'ul' || tag === 'ol') {
+                flushLoose();
+                emitList(el, 0);
+                continue;
+            }
+            if (tag === 'p' || tag === 'div') {
+                flushLoose();
+                emitParagraphElement(el);
+                continue;
+            }
+            if (/^h[1-6]$/.test(tag)) {
+                // outerHTML, damit tokenizeInline das h-Tag (bold + Größe) auswertet
+                flushLoose();
+                const runs = parseInlineRuns(el.outerHTML, style);
+                if (runs.length > 0) {
+                    paragraphs.push(new Paragraph({
+                        children: runs,
+                        spacing: { after: spacingAfter },
+                        alignment: options.defaultAlignment,
+                    }));
+                }
+                continue;
+            }
+            if (tag === 'table') {
+                // Tabellen im Fließtext: zu Plaintext abflachen — echte
+                // Tabellen laufen über den table-Task-Renderer.
+                flushLoose();
+                const text = (el.textContent ?? '').trim();
+                if (text) {
+                    paragraphs.push(...plainTextToParagraphs(text, style, spacingAfter, options.defaultAlignment));
+                }
+                continue;
+            }
+
+            // Sonstige Inline-Elemente auf Body-Ebene → in den Lose-Puffer
+            looseHtml += el.outerHTML;
+            continue;
+        }
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            looseHtml += node.textContent ?? '';
+        }
     }
+    flushLoose();
 
     return paragraphs.length > 0
         ? paragraphs
@@ -192,89 +269,6 @@ function parseCssFontSizeToHalfPoints(value: string): number | undefined {
     return undefined;
 }
 
-/* ── Block-Splitter ── */
-
-interface Block {
-    type: 'paragraph' | 'list';
-    html: string;
-    /** text-align aus dem <p>-Tag, falls vorhanden */
-    align?: DocxAlignment;
-}
-
-function splitIntoBlocks(html: string): Block[] {
-    const blocks: Block[] = [];
-    // Regex: Finde <ul>...</ul> und <ol>...</ol> als List-Blöcke, alles andere als Paragraphen
-    const listPattern = /<(ul|ol)[\s>][\s\S]*?<\/\1>/gi;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = listPattern.exec(html)) !== null) {
-        // Text vor der Liste
-        if (match.index > lastIndex) {
-            const before = html.slice(lastIndex, match.index).trim();
-            if (before) {
-                pushParagraphBlocks(blocks, before);
-            }
-        }
-        blocks.push({ type: 'list', html: match[0] });
-        lastIndex = match.index + match[0].length;
-    }
-
-    // Rest nach der letzten Liste
-    if (lastIndex < html.length) {
-        const rest = html.slice(lastIndex).trim();
-        if (rest) {
-            pushParagraphBlocks(blocks, rest);
-        }
-    }
-
-    return blocks;
-}
-
-function pushParagraphBlocks(blocks: Block[], html: string): void {
-    // Teile an <p>...<p> Grenzen
-    const pPattern = /<p[\s>][\s\S]*?<\/p>/gi;
-    let lastIdx = 0;
-    let m: RegExpExecArray | null;
-
-    while ((m = pPattern.exec(html)) !== null) {
-        if (m.index > lastIdx) {
-            const loose = html.slice(lastIdx, m.index).trim();
-            if (loose) blocks.push({ type: 'paragraph', html: loose });
-        }
-        // Alignment aus dem öffnenden <p>-Tag extrahieren
-        const align = (() => {
-            const openTag = /^<p(\s[^>]*)?>/.exec(m[0]);
-            if (!openTag) return undefined;
-            const props = extractStyleProps(openTag[0]);
-            return props['text-align'] ? cssAlignToDocx(props['text-align']) : undefined;
-        })();
-        blocks.push({ type: 'paragraph', html: m[0], align });
-        lastIdx = m.index + m[0].length;
-    }
-
-    if (lastIdx < html.length) {
-        const rest = html.slice(lastIdx).trim();
-        if (rest) blocks.push({ type: 'paragraph', html: rest });
-    }
-
-    if (lastIdx === 0 && html.trim()) {
-        blocks.push({ type: 'paragraph', html });
-    }
-}
-
-/* ── List-Item-Extraktor ── */
-
-function extractListItems(listHtml: string): string[] {
-    const items: string[] = [];
-    const liPattern = /<li[\s>][\s\S]*?<\/li>/gi;
-    let m: RegExpExecArray | null;
-    while ((m = liPattern.exec(listHtml)) !== null) {
-        items.push(stripTag(m[0], 'li'));
-    }
-    return items;
-}
-
 /* ── Inline-Run-Parser ── */
 
 function parseInlineRuns(html: string, style: DocxTextStyle): ParagraphChild[] {
@@ -327,8 +321,13 @@ interface InlineFragment {
 function tokenizeInline(html: string): InlineFragment[] {
     const fragments: InlineFragment[] = [];
 
-    // Einfacher Stack-basierter Parser für verschachtelte Inline-Tags
-    const tagPattern = /<\/?(?:strong|b|em|i|u|s|strike|del|mark|a|sub|sup|h[1-6]|br|p|span)[\s>/][^>]*>|<\/?(?:strong|b|em|i|u|s|strike|del|mark|a|sub|sup|h[1-6]|br|p|span)>/gi;
+    // Einfacher Stack-basierter Parser für verschachtelte Inline-Tags.
+    // WICHTIG: Attribut-Teil nur nach Whitespace — die frühere Form
+    // `[\s>/][^>]*>` hat bei attributlosen Tags (<strong>, <s>, <mark>)
+    // das '>' konsumiert und dann Inhalt + Folge-Tag mitverschluckt,
+    // wodurch fett/durchgestrichen/markierter Text im DOCX verloren ging.
+    // Längere Tag-Namen stehen vor ihren Präfixen (strike vor s, br vor b).
+    const tagPattern = /<\/?(?:strong|strike|span|sub|sup|mark|del|br|h[1-6]|em|b|i|u|s|a|p)(?:\s[^>]*)?\/?>/gi;
     const styleStack: InlineStyle[] = [{
         bold: false,
         italic: false,
@@ -469,12 +468,6 @@ function tokenizeInline(html: string): InlineFragment[] {
 }
 
 /* ── Hilfsfunktionen ── */
-
-function stripTag(html: string, tagName: string): string {
-    const openPattern = new RegExp(`^\\s*<${tagName}[\\s>][^>]*>`, 'i');
-    const closePattern = new RegExp(`</${tagName}>\\s*$`, 'i');
-    return html.replace(openPattern, '').replace(closePattern, '');
-}
 
 function stripAllTags(html: string): string {
     return html.replace(/<[^>]*>/g, '');
