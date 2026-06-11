@@ -15,6 +15,13 @@ const App = React.lazy(() => import('./App'))
 const currentFont = useSettingsStore.getState().fontFamily;
 if (currentFont) loadGoogleFont(currentFont);
 
+// DEV: Referenz-Arbeitsblatt für Export-Regressionstests per Konsole laden.
+if (import.meta.env.DEV) {
+  void import('./fixtures/exampleWorksheet').then((m) => {
+    (window as unknown as Record<string, unknown>).__loadExampleWorksheet = m.loadExampleWorksheet;
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()}>
