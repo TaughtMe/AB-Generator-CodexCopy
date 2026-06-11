@@ -37,7 +37,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useFontStore } from '../../store/fontStore';
 import type { ImagePlaceholderTask } from '../../types/worksheet';
 import { FONT_SIZE_OPTIONS } from '../editor/tiptapFontSize';
-import type { ExportVariant } from '../editor/ExportMenu';
+import type { ExportVariant } from '../../types/export';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { ColorPickerButton } from '../ui/ColorPickerButton';
 import { SaveAsModal } from '../ui/SaveAsModal';

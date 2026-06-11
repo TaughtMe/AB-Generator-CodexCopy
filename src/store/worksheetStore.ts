@@ -40,10 +40,6 @@ interface WorksheetStore extends Worksheet {
     saveStatus: WorksheetSaveStatus;
     showHeader: boolean;
     activeTaskId: string | null;
-    /** @internal Undo-Stack (Task-Snapshots) */
-    _undoStack: WorksheetTaskState[];
-    /** @internal Redo-Stack (Task-Snapshots) */
-    _redoStack: WorksheetTaskState[];
     // Actions
     addTask: (type: TaskType) => void;
     /** Fügt einen neuen Task an einer bestimmten Position ein */
@@ -73,10 +69,6 @@ interface WorksheetStore extends Worksheet {
     assignToColumn: (columnsId: string, slotIndex: 0 | 1, taskId: string | null) => void;
     /** Remove a child from its column and place it back in the root list */
     detachFromColumn: (columnsId: string, slotIndex: 0 | 1) => void;
-    /** Undo letzte Task-Mutation */
-    undo: () => void;
-    /** Redo letzte rückgängig gemachte Task-Mutation */
-    redo: () => void;
     /** Lädt ein gespeichertes Arbeitsblatt (aus Dexie) */
     loadFromRecord: (
         id: string,
@@ -926,7 +918,6 @@ function syncActiveVariantTaskState(
 }
 
 const TEMPORAL_HISTORY_LIMIT = 50;
-const MAX_UNDO_STACK = TEMPORAL_HISTORY_LIMIT;
 
 function partializePersistedWorksheetSlice(state: WorksheetStore): PersistedWorksheetSlice {
     return {
@@ -952,19 +943,6 @@ function partializeTemporalWorksheetSlice(state: WorksheetStore): WorksheetTempo
         tasksById: state.tasksById,
         taskIds: state.taskIds,
     };
-}
-
-/** Push current task state to undo stack (call before mutations) */
-function pushUndoSnapshot(state: WorksheetStore): { _undoStack: WorksheetTaskState[]; _redoStack: WorksheetTaskState[] } {
-    const activeVariant = state.variants[getActiveVariantIndex(state)];
-    if (!activeVariant) return { _undoStack: state._undoStack, _redoStack: [] };
-    const snapshot: WorksheetTaskState = {
-        tasksById: activeVariant.tasksById,
-        taskIds: activeVariant.taskIds,
-    };
-    const stack = [...state._undoStack, snapshot];
-    if (stack.length > MAX_UNDO_STACK) stack.shift();
-    return { _undoStack: stack, _redoStack: [] };
 }
 
 function syncActiveVariantTaskStateUnsaved(
@@ -997,8 +975,6 @@ export const useWorksheetStore = create<WorksheetStore>()(
     classId: undefined,
     showHeader: false,
     activeTaskId: null,
-    _undoStack: [],
-    _redoStack: [],
 
     /**
      * Erstellt einen Root-Task und hängt ihn an das Ende von `taskIds`.
@@ -1011,7 +987,7 @@ export const useWorksheetStore = create<WorksheetStore>()(
             tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
             taskIds: [...activeVariant.taskIds, newTask.id],
         };
-        return { ...syncActiveVariantTaskStateUnsaved(state, nextTaskState), ...pushUndoSnapshot(state) };
+        return syncActiveVariantTaskStateUnsaved(state, nextTaskState);
     }),
 
     /**
@@ -1025,13 +1001,10 @@ export const useWorksheetStore = create<WorksheetStore>()(
         const newTaskIds = [...activeVariant.taskIds];
         const clampedIndex = Math.max(0, Math.min(index, newTaskIds.length));
         newTaskIds.splice(clampedIndex, 0, newTask.id);
-        return {
-            ...syncActiveVariantTaskStateUnsaved(state, {
-                tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
-                taskIds: newTaskIds,
-            }),
-            ...pushUndoSnapshot(state),
-        };
+        return syncActiveVariantTaskStateUnsaved(state, {
+            tasksById: { ...activeVariant.tasksById, [newTask.id]: newTask },
+            taskIds: newTaskIds,
+        });
     }),
 
     /**
@@ -1062,7 +1035,6 @@ export const useWorksheetStore = create<WorksheetStore>()(
         return {
             ...syncActiveVariantTaskStateUnsaved(state, replaceWithIncomingAITasks(tasks)),
             activeTaskId: null,
-            ...pushUndoSnapshot(state),
         };
     }),
 
@@ -1118,7 +1090,6 @@ export const useWorksheetStore = create<WorksheetStore>()(
     removeTask: (id) => set((state) => {
         const activeVariant = state.variants[getActiveVariantIndex(state)];
         if (!activeVariant) return state;
-        const undoData = pushUndoSnapshot(state);
         const { [id]: removed, ...remainingTasks } = activeVariant.tasksById;
         const removedTaskIds = new Set<string>([id]);
 
@@ -1161,16 +1132,12 @@ export const useWorksheetStore = create<WorksheetStore>()(
         return {
             ...nextState,
             activeTaskId: nextActiveTaskId,
-            ...undoData,
         };
     }),
 
-    reorderTasks: (taskIds) => set((state) => ({
-        ...syncActiveVariantTaskStateUnsaved(state, {
-            tasksById: state.tasksById,
-            taskIds,
-        }),
-        ...pushUndoSnapshot(state),
+    reorderTasks: (taskIds) => set((state) => syncActiveVariantTaskStateUnsaved(state, {
+        tasksById: state.tasksById,
+        taskIds,
     })),
 
     moveTask: (taskId, sourceContainerId, targetContainerId, newIndex) => set((state) => {
@@ -1295,8 +1262,6 @@ export const useWorksheetStore = create<WorksheetStore>()(
             classId: typeof classId === 'string' && classId.trim() ? classId : undefined,
             saveStatus: 'saved',
             activeTaskId: null,
-            _undoStack: [],
-            _redoStack: [],
         };
     }),
 
@@ -1314,40 +1279,6 @@ export const useWorksheetStore = create<WorksheetStore>()(
             classId: undefined,
             saveStatus: 'unsaved',
             activeTaskId: null,
-            _undoStack: [],
-            _redoStack: [],
-        };
-    }),
-
-    undo: () => set((state) => {
-        if (state._undoStack.length === 0) return state;
-        const stack = [...state._undoStack];
-        const prev = stack.pop()!;
-        const activeVariant = state.variants[getActiveVariantIndex(state)];
-        const currentSnapshot: WorksheetTaskState = activeVariant
-            ? { tasksById: activeVariant.tasksById, taskIds: activeVariant.taskIds }
-            : { tasksById: state.tasksById, taskIds: state.taskIds };
-        return {
-            ...syncActiveVariantTaskState(state, prev),
-            _undoStack: stack,
-            _redoStack: [...state._redoStack, currentSnapshot],
-            saveStatus: 'unsaved',
-        };
-    }),
-
-    redo: () => set((state) => {
-        if (state._redoStack.length === 0) return state;
-        const stack = [...state._redoStack];
-        const next = stack.pop()!;
-        const activeVariant = state.variants[getActiveVariantIndex(state)];
-        const currentSnapshot: WorksheetTaskState = activeVariant
-            ? { tasksById: activeVariant.tasksById, taskIds: activeVariant.taskIds }
-            : { tasksById: state.tasksById, taskIds: state.taskIds };
-        return {
-            ...syncActiveVariantTaskState(state, next),
-            _undoStack: [...state._undoStack, currentSnapshot],
-            _redoStack: stack,
-            saveStatus: 'unsaved',
         };
     }),
 
@@ -1364,7 +1295,6 @@ export const useWorksheetStore = create<WorksheetStore>()(
         if (!activeVariant) return state;
         const original = activeVariant.tasksById[id];
         if (!original) return state;
-        const undoData = pushUndoSnapshot(state);
 
         const newId = crypto.randomUUID();
         let cloned: Task;
@@ -1405,13 +1335,10 @@ export const useWorksheetStore = create<WorksheetStore>()(
             const insertIndex = activeVariant.taskIds.indexOf(id) + 1;
             const newTaskIds = [...activeVariant.taskIds];
             newTaskIds.splice(insertIndex, 0, newId);
-            return {
-                ...syncActiveVariantTaskStateUnsaved(state, {
-                    tasksById: { ...activeVariant.tasksById, [newId]: cloned, ...extraTasks },
-                    taskIds: newTaskIds,
-                }),
-                ...undoData,
-            };
+            return syncActiveVariantTaskStateUnsaved(state, {
+                tasksById: { ...activeVariant.tasksById, [newId]: cloned, ...extraTasks },
+                taskIds: newTaskIds,
+            });
         } else {
             cloned = {
                 ...original,
@@ -1424,13 +1351,10 @@ export const useWorksheetStore = create<WorksheetStore>()(
         const newTaskIds = [...activeVariant.taskIds];
         newTaskIds.splice(insertIndex, 0, newId);
 
-        return {
-            ...syncActiveVariantTaskStateUnsaved(state, {
-                tasksById: { ...activeVariant.tasksById, [newId]: cloned },
-                taskIds: newTaskIds,
-            }),
-            ...undoData,
-        };
+        return syncActiveVariantTaskStateUnsaved(state, {
+            tasksById: { ...activeVariant.tasksById, [newId]: cloned },
+            taskIds: newTaskIds,
+        });
     }),
 
     setActiveVariant: (variantId) => set((state) => {

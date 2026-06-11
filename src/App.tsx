@@ -13,7 +13,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { TrashView } from './components/dashboard/TrashView';
 import { DesignEditor } from './components/dashboard/DesignEditor';
 import { TemplateGallery } from './components/dashboard/TemplateGallery';
-import type { ExportVariant } from './components/editor/ExportMenu';
+import type { ExportVariant } from './types/export';
 import { RibbonToolbar } from './components/layout/RibbonToolbar';
 import { VariantTabs } from './components/editor/VariantTabs';
 import { FloatingToolbar } from './components/editor/FloatingToolbar';
