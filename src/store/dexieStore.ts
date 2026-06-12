@@ -57,6 +57,21 @@ export interface WorksheetRecord {
     documentClassLevel?: string;
     /** Unix-Timestamp (ms) wenn im Papierkorb, sonst undefined */
     deletedAt?: number;
+    /** Bibliotheks-Ordner (reine Organisation — bewusst getrennt von Fach/Klasse). */
+    folderId?: string;
+    /** Freie Schlagwörter (z. B. "Klassenarbeit", "Übung"). */
+    tags?: string[];
+    /** Favoriten-Markierung für die Bibliothek. */
+    favorite?: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+/** Bibliotheks-Ordner. parentId erlaubt Verschachtelung (null = Wurzelebene). */
+export interface FolderRecord {
+    id: string;
+    name: string;
+    parentId: string | null;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -85,6 +100,10 @@ export interface WorksheetMeta {
     thumbnailUrl?: string;
     /** Unix-Timestamp (ms) wenn im Papierkorb, sonst undefined */
     deletedAt?: number;
+    /** Bibliotheks-Ordner (undefined = Unsortiert) */
+    folderId?: string;
+    tags?: string[];
+    favorite?: boolean;
 }
 
 export interface DesignTemplateRecord {
@@ -139,6 +158,7 @@ class ABGeneratorDB extends Dexie {
     worksheets!: EntityTable<WorksheetRecord, 'id'>;
     designTemplates!: EntityTable<DesignTemplateRecord, 'id'>;
     classProfiles!: EntityTable<ClassProfileRecord, 'id'>;
+    folders!: EntityTable<FolderRecord, 'id'>;
 
     constructor() {
         super('ABGeneratorDB');
@@ -190,6 +210,12 @@ class ABGeneratorDB extends Dexie {
             worksheets: 'id, title, updatedAt, subjectId, classId, deletedAt',
             designTemplates: 'id, nameLower, updatedAt, createdAt, lastUsedAt',
             classProfiles: 'id, nameLower, subjectId, updatedAt, createdAt',
+        });
+
+        // Version 8: Bibliotheks-Ordner. folderId/tags/favorite auf worksheets
+        // werden client-seitig gefiltert (Listen sind klein) → keine neuen Indizes.
+        this.version(8).stores({
+            folders: 'id, parentId, name',
         });
     }
 }
@@ -618,6 +644,9 @@ function toWorksheetMeta(rec: WorksheetRecord): WorksheetMeta {
         taskPreview,
         thumbnailUrl: rec.thumbnailBlob ? URL.createObjectURL(rec.thumbnailBlob) : undefined,
         deletedAt,
+        folderId: rec.folderId,
+        tags: rec.tags,
+        favorite: rec.favorite,
     };
 }
 
@@ -657,6 +686,11 @@ export async function saveWorksheet(
         documentClassLevel: documentClassLevel ?? existing?.documentClassLevel,
         // Soft-delete status must survive regular autosaves unless explicitly changed elsewhere.
         deletedAt: existing?.deletedAt,
+        // Bibliotheks-Metadaten überleben Autosaves — Änderungen laufen
+        // ausschließlich über die dedizierten Setter (setWorksheetFolder etc.).
+        folderId: existing?.folderId,
+        tags: existing?.tags,
+        favorite: existing?.favorite,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
     });
@@ -710,6 +744,12 @@ export async function emptyTrash(): Promise<number> {
 export interface WorksheetFilter {
     subjectId?: string;
     classId?: string;
+    /** Ordner-ID oder 'unsorted' für Arbeitsblätter ohne Ordner. */
+    folderId?: string | 'unsorted';
+    /** Nur Favoriten anzeigen. */
+    favoritesOnly?: boolean;
+    /** Nur Arbeitsblätter mit diesem Tag. */
+    tag?: string;
     sortBy?: 'updatedAt' | 'createdAt' | 'title';
 }
 
@@ -735,6 +775,17 @@ export async function listRecentWorksheets(
     if (filter?.classId) {
         records = records.filter((r) => r.classId === filter.classId);
     }
+    if (filter?.folderId) {
+        records = filter.folderId === 'unsorted'
+            ? records.filter((r) => !r.folderId)
+            : records.filter((r) => r.folderId === filter.folderId);
+    }
+    if (filter?.favoritesOnly) {
+        records = records.filter((r) => r.favorite === true);
+    }
+    if (filter?.tag) {
+        records = records.filter((r) => r.tags?.includes(filter.tag as string));
+    }
 
     // Limit nach Filter
     records = records.slice(0, limit);
@@ -757,4 +808,86 @@ export async function listTrashedWorksheets(): Promise<WorksheetMeta[]> {
 export async function cleanupTrash(): Promise<number> {
     const cutoff = Date.now() - TRASH_RETENTION_MS;
     return db.worksheets.where('deletedAt').belowOrEqual(cutoff).delete();
+}
+
+/* ══════════════════════════════════════════════════
+   Bibliotheks-Ordner & Organisation (Phase 7)
+
+   Konzepttrennung (Spec §5): Ordner = Organisation, Fach = fachlicher
+   Kontext, Klasse = Lerngruppe/KI-Kontext, Tags = flexible Suche.
+   Die Organisations-Setter bumpen updatedAt bewusst NICHT — Einsortieren
+   soll die "Zuletzt bearbeitet"-Reihenfolge nicht verfälschen.
+   ══════════════════════════════════════════════════ */
+
+/** Alle Ordner, alphabetisch. */
+export async function listFolders(): Promise<FolderRecord[]> {
+    const folders = await db.folders.toArray();
+    return folders.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+}
+
+export async function createFolder(name: string, parentId: string | null = null): Promise<FolderRecord> {
+    const now = new Date();
+    const folder: FolderRecord = {
+        id: crypto.randomUUID(),
+        name: name.trim() || 'Neuer Ordner',
+        parentId,
+        createdAt: now,
+        updatedAt: now,
+    };
+    await db.folders.put(folder);
+    notifyDataChanged(`Ordner erstellt: ${folder.name}`);
+    return folder;
+}
+
+export async function renameFolder(id: string, name: string): Promise<FolderRecord | undefined> {
+    const existing = await db.folders.get(id);
+    if (!existing) return undefined;
+    const next: FolderRecord = { ...existing, name: name.trim() || existing.name, updatedAt: new Date() };
+    await db.folders.put(next);
+    notifyDataChanged(`Ordner umbenannt: ${next.name}`);
+    return next;
+}
+
+/**
+ * Löscht einen Ordner. Enthaltene Arbeitsblätter wandern nach "Unsortiert"
+ * (folderId = undefined), Unterordner rücken auf die Elternebene des
+ * gelöschten Ordners — es geht nie Inhalt verloren.
+ */
+export async function deleteFolder(id: string): Promise<void> {
+    const folder = await db.folders.get(id);
+    if (!folder) return;
+
+    await db.transaction('rw', db.folders, db.worksheets, async () => {
+        // folderId ist bewusst unindiziert (client-seitige Filterung) → Scan statt where().
+        await db.worksheets.filter((w) => w.folderId === id).modify({ folderId: undefined });
+        await db.folders.where('parentId').equals(id).modify({ parentId: folder.parentId });
+        await db.folders.delete(id);
+    });
+    notifyDataChanged(`Ordner gelöscht: ${folder.name}`);
+}
+
+/** Verschiebt ein Arbeitsblatt in einen Ordner (undefined = Unsortiert). */
+export async function setWorksheetFolder(id: string, folderId: string | undefined): Promise<boolean> {
+    const existing = await db.worksheets.get(id);
+    if (!existing) return false;
+    await db.worksheets.put({ ...existing, folderId });
+    notifyDataChanged('Arbeitsblatt einsortiert');
+    return true;
+}
+
+export async function setWorksheetTags(id: string, tags: string[]): Promise<boolean> {
+    const existing = await db.worksheets.get(id);
+    if (!existing) return false;
+    const normalized = [...new Set(tags.map((t) => t.trim()).filter(Boolean))];
+    await db.worksheets.put({ ...existing, tags: normalized });
+    notifyDataChanged('Tags aktualisiert');
+    return true;
+}
+
+export async function setWorksheetFavorite(id: string, favorite: boolean): Promise<boolean> {
+    const existing = await db.worksheets.get(id);
+    if (!existing) return false;
+    await db.worksheets.put({ ...existing, favorite });
+    notifyDataChanged(favorite ? 'Als Favorit markiert' : 'Favorit entfernt');
+    return true;
 }
