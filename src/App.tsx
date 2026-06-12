@@ -29,6 +29,7 @@ import type { SidebarView } from './components/layout/Sidebar';
 import { PrintWorksheet } from './components/print/PrintWorksheet';
 import { ExportWarningsDialog } from './components/editor/ExportWarningsDialog';
 import { EmptyWorksheetState } from './components/editor/EmptyWorksheetState';
+import { PatchPreviewDialog } from './components/ai/PatchPreviewDialog';
 import { validateForExport, type ValidationWarning } from './utils/exportValidator';
 import './styles/PrintStyles.css';
 
@@ -393,6 +394,7 @@ function App() {
     >
       {onboardingElement}
       {printVariant && <PrintWorksheet />}
+      <PatchPreviewDialog />
       {pendingExport && (
         <ExportWarningsDialog
           warnings={pendingExport.warnings}

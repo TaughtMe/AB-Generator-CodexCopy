@@ -42,6 +42,8 @@ import {
     generateTaskRevisionResult,
     type AIClassContext,
 } from '../services/aiService';
+import { parseOperations, validateOperations } from '../features/ai/operations';
+import { usePatchStore } from '../features/ai/patchStore';
 import type { Editor } from '@tiptap/react';
 import type { Task, WorksheetSource, WorksheetVariant } from '../types/worksheet';
 import type { ClassProfile } from '../types/profiles';
@@ -58,67 +60,6 @@ function hasLegacyClassMigrationRun(): boolean {
 function markLegacyClassMigrationDone(): void {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(LEGACY_CLASS_MIGRATION_FLAG, '1');
-}
-
-function getVisibleTaskNumberById(
-    taskId: string,
-    tasksById: Record<string, Task>,
-    taskIds: string[],
-): number | null | undefined {
-    if (!tasksById[taskId]) return undefined;
-
-    let counter = 0;
-    for (const id of taskIds) {
-        const task = tasksById[id];
-        if (!task || task.type === 'page-break') continue;
-
-        if (task.showNumber === false) {
-            if (id === taskId) return null;
-            continue;
-        }
-
-        counter += 1;
-        if (id === taskId) return counter;
-    }
-
-    return undefined;
-}
-
-function buildRevisionConfirmationMessage(updatedCount: number, addedCount: number): string {
-    const parts: string[] = [];
-
-    if (updatedCount > 0) {
-        parts.push(`${updatedCount} Aufgabe${updatedCount === 1 ? '' : 'n'} aktualisiert`);
-    }
-    if (addedCount > 0) {
-        parts.push(`${addedCount} Aufgabe${addedCount === 1 ? '' : 'n'} hinzugefügt`);
-    }
-
-    if (parts.length === 0) return 'Änderungen übernommen.';
-    return `Erledigt: Insgesamt ${parts.join(', ')}.`;
-}
-
-function buildPreciseRevisionConfirmationMessage(
-    updatedTaskIds: string[],
-    addedCount: number,
-    tasksById: Record<string, Task>,
-    taskIds: string[],
-): string {
-    if (updatedTaskIds.length === 1 && addedCount === 0) {
-        const taskNumber = getVisibleTaskNumberById(updatedTaskIds[0], tasksById, taskIds);
-
-        if (typeof taskNumber === 'number') {
-            return `Erledigt: Aufgabe ${taskNumber} wurde aktualisiert.`;
-        }
-
-        if (taskNumber === null) {
-            return 'Erledigt: Eine unnummerierte Aufgabe wurde aktualisiert.';
-        }
-
-        return 'Erledigt: Eine Aufgabe wurde aktualisiert.';
-    }
-
-    return buildRevisionConfirmationMessage(updatedTaskIds.length, addedCount);
 }
 
 function buildAIClassContextFromProfile(profile?: ClassProfile): AIClassContext | undefined {
@@ -1651,10 +1592,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             if (requestId !== latestChatRequestId) return;
 
             let assistantMessageContent = '';
-            let revisionApplied = false;
-            let updatedCount = 0;
-            let addedCount = 0;
-            const updatedTaskIds: string[] = [];
+            let revisionStaged = false;
 
             const tryRevision = shouldAttemptTaskRevision(
                 trimmed,
@@ -1673,40 +1611,19 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                     signal,
                 );
 
-                for (const operation of revision.operations) {
-                    if (operation.action === 'update_task') {
-                        const currentWs = useWorksheetStore.getState();
-                        if (!currentWs.tasksById[operation.taskId]) continue;
+                // KI-Operationen werden NICHT mehr direkt angewendet, sondern
+                // typisiert, gegen den echten Bestand validiert und als Patch
+                // gestaged — der Nutzer bestätigt in der Vorschau (Spec §3.3).
+                const parsed = parseOperations(revision.operations as unknown[]);
+                const currentWs = useWorksheetStore.getState();
+                const validated = validateOperations(parsed.operations, currentWs.tasksById, currentWs.taskIds);
 
-                        currentWs.updateTask(operation.taskId, operation.updates as Partial<Task>);
-                        updatedTaskIds.push(operation.taskId);
-                        updatedCount += 1;
-                        continue;
-                    }
-
-                    if (operation.action === 'add_task') {
-                        const currentWs = useWorksheetStore.getState();
-
-                        if (operation.payload) {
-                            currentWs.addTasksFromAI([operation.payload]);
-                            addedCount += 1;
-                            continue;
-                        }
-
-                        currentWs.addTask(operation.type);
-                        addedCount += 1;
-                    }
-                }
-
-                if (updatedCount + addedCount > 0) {
-                    revisionApplied = true;
-                    const currentWs = useWorksheetStore.getState();
-                    assistantMessageContent = buildPreciseRevisionConfirmationMessage(
-                        updatedTaskIds,
-                        addedCount,
-                        currentWs.tasksById,
-                        currentWs.taskIds,
-                    );
+                if (validated.operations.length > 0) {
+                    usePatchStore.getState().stagePatch(validated.operations, validated.errors, 'chat');
+                    revisionStaged = true;
+                    assistantMessageContent = validated.operations.length === 1
+                        ? 'Ich habe einen Änderungsvorschlag vorbereitet. Prüfe ihn in der Vorschau und übernimm ihn dort.'
+                        : `Ich habe ${validated.operations.length} Änderungsvorschläge vorbereitet. Prüfe sie in der Vorschau und übernimm sie dort.`;
                 }
             } catch (revisionError) {
                 if (revisionError instanceof Error && revisionError.message === AI_JSON_TRUNCATED_USER_MESSAGE) {
@@ -1715,13 +1632,13 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                 if (isUnexpectedRevisionProgrammingError(revisionError)) {
                     throw revisionError;
                 }
-                revisionApplied = false;
+                revisionStaged = false;
             }
             } // end tryRevision
 
             if (requestId !== latestChatRequestId) return;
 
-            if (!revisionApplied) {
+            if (!revisionStaged) {
                 const reply = await generateChatAssistantReply(nextMessages, aiClassContext, signal);
                 assistantMessageContent =
                     reply || 'Ich habe dazu gerade keine gute Antwort. Kannst du es bitte anders formulieren?';
@@ -1738,7 +1655,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             set({
                 chatMessages: finalMessages,
                 isChatLoading: false,
-                chatStatusNotice: revisionApplied ? 'Änderungen wurden ins Arbeitsblatt übernommen.' : null,
+                chatStatusNotice: revisionStaged ? 'Vorschläge warten in der Vorschau auf deine Bestätigung.' : null,
             });
 
             await persistCurrentWorksheetWithStatus();
