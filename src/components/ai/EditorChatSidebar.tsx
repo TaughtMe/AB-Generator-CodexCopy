@@ -11,6 +11,7 @@ import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { ChatContextCard } from './ChatContextCard';
+import { estimateChatTokens, formatTokenCount } from '../../features/ai/tokenEstimate';
 
 type VariantDifferentiationPreset = 'simplify' | 'standard' | 'deepen';
 
@@ -53,6 +54,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
     const setAiSidebarDraft = useWorkspaceStore((s) => s.setAiSidebarDraft);
     const variants = useWorksheetStore((s) => s.variants);
     const activeVariantId = useWorksheetStore((s) => s.activeVariantId);
+    const tasksById = useWorksheetStore((s) => s.tasksById);
     const aiProvider = useSettingsStore((s) => s.aiProvider);
     const chatModelPreferences = useSettingsStore((s) => s.chatModelPreferences);
     const aiConnectionStatusByProvider = useSettingsStore((s) => s.aiConnectionStatusByProvider);
@@ -68,6 +70,11 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
     const setInput = setAiSidebarDraft;
 
     const providerReady = isActiveProviderConfigured();
+    /** §7.1/7.2: Heuristische Token-Schätzung (Chat + Entwurf + Arbeitsblatt-JSON). */
+    const tokenEstimate = useMemo(
+        () => estimateChatTokens(chatMessages, input, tasksById),
+        [chatMessages, input, tasksById],
+    );
     const activeVariantLabel = useMemo(
         () => variants.find((variant) => variant.id === activeVariantId)?.label ?? 'Standard',
         [variants, activeVariantId],
@@ -337,6 +344,25 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                         {chatStatusNotice}
                     </div>
                 )}
+
+                {tokenEstimate.isLong && (
+                    <div
+                        data-token-warning
+                        className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300"
+                    >
+                        Der Chat ist lang (≈ {formatTokenCount(tokenEstimate.chatTokens)} Tokens) — das kostet
+                        mehr und kann die KI verwirren. Starte ggf. mit „Neu" ein frisches Gespräch.
+                    </div>
+                )}
+
+                <p
+                    data-token-estimate
+                    className="px-1 text-[10px] tabular-nums text-slate-400 dark:text-slate-500"
+                    title="Heuristische Schätzung (≈ Zeichen ÷ 4). Provider melden echte Tokens erst nach der Antwort."
+                >
+                    ≈ {formatTokenCount(tokenEstimate.totalTokens)} Tokens pro Anfrage
+                    (Chat {formatTokenCount(tokenEstimate.chatTokens)} + Arbeitsblatt {formatTokenCount(tokenEstimate.worksheetTokens)})
+                </p>
 
                 <form onSubmit={handleSend} className="flex items-end gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-2 py-2 shadow-sm backdrop-blur dark:border-slate-700/80 dark:bg-slate-800/90">
                     <textarea
