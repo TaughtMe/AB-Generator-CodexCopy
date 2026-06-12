@@ -21,6 +21,9 @@ import {
     Download,
     ChevronLeft,
     FileText,
+    Star,
+    Folder,
+    Tag,
 } from 'lucide-react';
 import { useProfileStore } from '../../store/profileStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
@@ -63,6 +66,14 @@ interface WorksheetCardProps {
     onDownloadStudentAction?: () => Promise<void> | void;
     onDownloadTeacherAction?: () => Promise<void> | void;
     onDownloadAbgenAction?: () => Promise<void> | void;
+    /* ── Bibliothek (Phase 7) ── */
+    favorite?: boolean;
+    tags?: string[];
+    /** Verfügbare Ordner für das "Verschieben"-Untermenü. */
+    folders?: { id: string; name: string; parentId: string | null }[];
+    onToggleFavoriteAction?: () => Promise<void> | void;
+    onMoveToFolderAction?: (folderId: string | undefined) => Promise<void> | void;
+    onUpdateTagsAction?: (tags: string[]) => Promise<void> | void;
 }
 
 type WorksheetCardComponentProps = LegacyWorksheetCardProps | WorksheetCardProps;
@@ -368,9 +379,16 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
     onDownloadStudentAction,
     onDownloadTeacherAction,
     onDownloadAbgenAction,
+    favorite = false,
+    tags = [],
+    folders = [],
+    onToggleFavoriteAction,
+    onMoveToFolderAction,
+    onUpdateTagsAction,
 }) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [showDownloadMenu, setShowDownloadMenu] = React.useState(false);
+    const [showMoveMenu, setShowMoveMenu] = React.useState(false);
     const menuRef = React.useRef<HTMLDivElement | null>(null);
     const previewTasks = (tasks || []).slice(0, 3);
 
@@ -388,6 +406,7 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
             if (event.key !== 'Escape') return;
             setIsMenuOpen(false);
             setShowDownloadMenu(false);
+            setShowMoveMenu(false);
         };
 
         window.addEventListener('pointerdown', handlePointerDown);
@@ -406,6 +425,7 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
         } finally {
             setIsMenuOpen(false);
             setShowDownloadMenu(false);
+            setShowMoveMenu(false);
         }
     };
 
@@ -498,7 +518,7 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
                         className="absolute top-10 right-0 w-56 bg-white border border-slate-200 shadow-xl dark:bg-slate-800 dark:border-slate-700 rounded-md z-50 overflow-hidden flex flex-col"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        {!showDownloadMenu ? (
+                        {!showDownloadMenu && !showMoveMenu ? (
                             <>
                                 <button
                                     onClick={() => {
@@ -509,6 +529,39 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
                                     <Edit2 size={16} />
                                     Umbenennen
                                 </button>
+                                <button
+                                    onClick={() => {
+                                        void runAction(onToggleFavoriteAction);
+                                    }}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <Star size={16} className={favorite ? 'fill-amber-400 text-amber-400' : ''} />
+                                    {favorite ? 'Favorit entfernen' : 'Als Favorit markieren'}
+                                </button>
+                                <button
+                                    onClick={() => setShowMoveMenu(true)}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <Folder size={16} />
+                                    In Ordner verschieben
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const input = window.prompt(
+                                            'Tags (kommagetrennt):',
+                                            tags.join(', '),
+                                        );
+                                        if (input === null) return;
+                                        void runAction(() => onUpdateTagsAction?.(
+                                            input.split(',').map((t) => t.trim()).filter(Boolean),
+                                        ));
+                                    }}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <Tag size={16} />
+                                    Tags bearbeiten…
+                                </button>
+                                <hr className="border-slate-200 dark:border-slate-700" />
                                 <button
                                     onClick={() => {
                                         void runAction(onAssignAction);
@@ -544,6 +597,38 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
                                     <Trash2 size={16} />
                                     Löschen
                                 </button>
+                            </>
+                        ) : showMoveMenu ? (
+                            <>
+                                <button
+                                    onClick={() => setShowMoveMenu(false)}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <ChevronLeft size={16} />
+                                    Zurück
+                                </button>
+                                <hr className="border-slate-200 dark:border-slate-700" />
+                                <button
+                                    onClick={() => {
+                                        void runAction(() => onMoveToFolderAction?.(undefined));
+                                    }}
+                                    className={recentMenuButtonClassName}
+                                >
+                                    <Folder size={16} className="opacity-40" />
+                                    Unsortiert
+                                </button>
+                                {folders.map((folder) => (
+                                    <button
+                                        key={folder.id}
+                                        onClick={() => {
+                                            void runAction(() => onMoveToFolderAction?.(folder.id));
+                                        }}
+                                        className={recentMenuButtonClassName}
+                                    >
+                                        <Folder size={16} className={folder.parentId ? 'ml-3' : ''} />
+                                        {folder.name}
+                                    </button>
+                                ))}
                             </>
                         ) : (
                             <>
@@ -590,7 +675,10 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
             </div>
 
             <div className="p-4 flex flex-col gap-2">
-                <h3 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h3>
+                <h3 className="flex items-center gap-1.5 text-base font-semibold text-slate-900 dark:text-white">
+                    {favorite && <Star size={15} className="shrink-0 fill-amber-400 text-amber-400" />}
+                    <span className="truncate">{title}</span>
+                </h3>
                 <div className="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
                     <span>{date}</span>
                     <span>{taskCount} {taskCount === 1 ? 'Aufgabe' : 'Aufgaben'}</span>
@@ -598,6 +686,18 @@ const RecentWorksheetCard: React.FC<WorksheetCardProps> = ({
                 <div className="text-sm text-slate-500 dark:text-slate-400">
                     {subject || 'Ohne Fach'}
                 </div>
+                {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                        {tags.map((tag) => (
+                            <span
+                                key={tag}
+                                className="rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300"
+                            >
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                )}
             </div>
         </article>
     );

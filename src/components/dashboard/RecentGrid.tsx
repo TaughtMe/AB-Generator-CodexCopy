@@ -1,10 +1,12 @@
-import type { WorksheetMeta } from '../../store/dexieStore';
+import type { FolderRecord, WorksheetMeta } from '../../store/dexieStore';
 import { WorksheetCard } from './WorksheetCard';
 
 interface RecentGridProps {
   /** Dexie-basierte Worksheet-Metadaten (einzige Wahrheitsquelle, identisch zur Liste). */
   items: WorksheetMeta[];
   subjectNameById: Record<string, string>;
+  /** Bibliotheks-Ordner für das "Verschieben"-Untermenü der Karten. */
+  folders?: FolderRecord[];
   onOpenWorksheet?: (id: string) => void;
   onRenameWorksheet?: (id: string) => Promise<void> | void;
   onAssignWorksheet?: (id: string) => Promise<void> | void;
@@ -12,6 +14,9 @@ interface RecentGridProps {
   onDownloadWorksheet?: (id: string, variant: 'student' | 'teacher') => Promise<void> | void;
   onExportAbgenWorksheet?: (id: string) => Promise<void> | void;
   onDeleteWorksheet?: (id: string) => Promise<void> | void;
+  onToggleFavorite?: (id: string, next: boolean) => Promise<void> | void;
+  onMoveToFolder?: (id: string, folderId: string | undefined) => Promise<void> | void;
+  onUpdateTags?: (id: string, tags: string[]) => Promise<void> | void;
 }
 
 function formatUpdatedLabel(date: Date | string): string {
@@ -76,6 +81,12 @@ export function RecentGrid(props: RecentGridProps) {
             onDownloadStudentAction={() => props.onDownloadWorksheet?.(meta.id, 'student')}
             onDownloadTeacherAction={() => props.onDownloadWorksheet?.(meta.id, 'teacher')}
             onDownloadAbgenAction={() => props.onExportAbgenWorksheet?.(meta.id)}
+            favorite={meta.favorite}
+            tags={meta.tags}
+            folders={props.folders}
+            onToggleFavoriteAction={() => props.onToggleFavorite?.(meta.id, !meta.favorite)}
+            onMoveToFolderAction={(folderId) => props.onMoveToFolder?.(meta.id, folderId)}
+            onUpdateTagsAction={(tags) => props.onUpdateTags?.(meta.id, tags)}
           />
         ))}
       </div>

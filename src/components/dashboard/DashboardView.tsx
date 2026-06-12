@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Upload } from 'lucide-react';
+import { Search, Upload, Star, Folder, FolderPlus, Pencil, Trash2 } from 'lucide-react';
 import { QuickActions } from './QuickActions';
 import { RecentGrid } from './RecentGrid';
 import { RecentList } from './RecentList';
@@ -30,6 +30,15 @@ export function DashboardView({
   const removeWorksheet = useWorkspaceStore((state) => state.removeWorksheet);
   const importWorksheet = useWorkspaceStore((state) => state.importWorksheet);
   const filter = useWorkspaceStore((state) => state.filter);
+  const setFilter = useWorkspaceStore((state) => state.setFilter);
+  const folders = useWorkspaceStore((state) => state.folders);
+  const loadFolders = useWorkspaceStore((state) => state.loadFolders);
+  const createLibraryFolder = useWorkspaceStore((state) => state.createLibraryFolder);
+  const renameLibraryFolder = useWorkspaceStore((state) => state.renameLibraryFolder);
+  const deleteLibraryFolder = useWorkspaceStore((state) => state.deleteLibraryFolder);
+  const moveWorksheetToFolder = useWorkspaceStore((state) => state.moveWorksheetToFolder);
+  const setWorksheetFavorite = useWorkspaceStore((state) => state.setWorksheetFavorite);
+  const updateWorksheetTags = useWorkspaceStore((state) => state.updateWorksheetTags);
   const subjects = useProfileStore((state) => state.subjects);
   const classProfiles = useWorkspaceStore((state) => state.classProfiles);
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,6 +89,53 @@ export function DashboardView({
   useEffect(() => {
     void loadRecent();
   }, [loadRecent]);
+
+  useEffect(() => {
+    void loadFolders();
+  }, [loadFolders]);
+
+  /* ── Bibliotheks-Handler (Ordner via prompt/confirm — konsistent zum Umbenennen-Flow) ── */
+  const handleCreateFolder = async () => {
+    const name = window.prompt('Name des neuen Ordners:')?.trim();
+    if (!name) return;
+    const folder = await createLibraryFolder(name);
+    await setFilter({ ...filter, folderId: folder.id, favoritesOnly: undefined });
+  };
+
+  const handleRenameFolder = async (id: string, currentName: string) => {
+    const name = window.prompt('Ordner umbenennen:', currentName)?.trim();
+    if (!name || name === currentName) return;
+    await renameLibraryFolder(id, name);
+  };
+
+  const handleDeleteFolder = async (id: string, name: string) => {
+    const ok = window.confirm(
+      `Ordner "${name}" löschen?\n\nEnthaltene Arbeitsblätter wandern nach "Unsortiert" — es geht nichts verloren.`,
+    );
+    if (!ok) return;
+    await deleteLibraryFolder(id);
+  };
+
+  /** Aktive Bibliotheks-Ansicht für die Chip-Hervorhebung. */
+  const activeView: string = filter.favoritesOnly
+    ? 'favorites'
+    : filter.folderId === 'unsorted'
+      ? 'unsorted'
+      : filter.folderId ?? 'all';
+
+  const selectView = (view: 'all' | 'favorites' | 'unsorted' | string) => {
+    if (view === 'all') return void setFilter({ ...filter, folderId: undefined, favoritesOnly: undefined });
+    if (view === 'favorites') return void setFilter({ ...filter, folderId: undefined, favoritesOnly: true });
+    if (view === 'unsorted') return void setFilter({ ...filter, folderId: 'unsorted', favoritesOnly: undefined });
+    return void setFilter({ ...filter, folderId: view, favoritesOnly: undefined });
+  };
+
+  const chipClass = (isActive: boolean) =>
+    `inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+      isActive
+        ? 'bg-blue-600 text-white'
+        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-700'
+    }`;
 
   const subjectNameById = useMemo(
     () =>
@@ -198,6 +254,58 @@ export function DashboardView({
           className="w-full max-w-xl rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-slate-500"
         />
       </div>
+
+      {/* ── Bibliothek: Ansichten + Ordner ── */}
+      <div className="mx-auto w-full max-w-[1200px] mb-8 flex flex-wrap items-center gap-2" data-library-bar>
+        <button type="button" onClick={() => selectView('all')} className={chipClass(activeView === 'all')}>
+          Alle
+        </button>
+        <button type="button" onClick={() => selectView('favorites')} className={chipClass(activeView === 'favorites')}>
+          <Star size={12} className={activeView === 'favorites' ? 'fill-white' : 'fill-amber-400 text-amber-400'} />
+          Favoriten
+        </button>
+        <button type="button" onClick={() => selectView('unsorted')} className={chipClass(activeView === 'unsorted')}>
+          Unsortiert
+        </button>
+
+        {folders.length > 0 && <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-slate-700" />}
+
+        {folders.map((folder) => {
+          const isActive = activeView === folder.id;
+          return (
+            <span key={folder.id} className={chipClass(isActive)} onClick={() => selectView(folder.id)}>
+              <Folder size={12} className={folder.parentId ? 'opacity-50' : ''} />
+              {folder.parentId ? `· ${folder.name}` : folder.name}
+              {isActive && (
+                <>
+                  <Pencil
+                    size={12}
+                    className="ml-1 opacity-70 hover:opacity-100"
+                    aria-label="Ordner umbenennen"
+                    onClick={(e) => { e.stopPropagation(); void handleRenameFolder(folder.id, folder.name); }}
+                  />
+                  <Trash2
+                    size={12}
+                    className="opacity-70 hover:opacity-100"
+                    aria-label="Ordner löschen"
+                    onClick={(e) => { e.stopPropagation(); void handleDeleteFolder(folder.id, folder.name); }}
+                  />
+                </>
+              )}
+            </span>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={() => void handleCreateFolder()}
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+        >
+          <FolderPlus size={13} />
+          Neuer Ordner
+        </button>
+      </div>
+
       <div className="mx-auto w-full max-w-[1200px] space-y-10">
         <QuickActions
           onCreateWorksheet={onCreateWorksheet}
@@ -206,6 +314,7 @@ export function DashboardView({
         <RecentGrid
           items={filteredWorksheets}
           subjectNameById={subjectNameById}
+          folders={folders}
           onOpenWorksheet={onOpenWorksheet}
           onRenameWorksheet={handleRenameWorksheet}
           onAssignWorksheet={handleAssignWorksheet}
@@ -213,6 +322,9 @@ export function DashboardView({
           onDownloadWorksheet={handleDownloadWorksheet}
           onExportAbgenWorksheet={handleExportAbgenWorksheet}
           onDeleteWorksheet={handleDeleteWorksheet}
+          onToggleFavorite={(id, next) => setWorksheetFavorite(id, next)}
+          onMoveToFolder={(id, folderId) => moveWorksheetToFolder(id, folderId)}
+          onUpdateTags={(id, tags) => updateWorksheetTags(id, tags)}
         />
         <RecentList
           items={filteredWorksheets}

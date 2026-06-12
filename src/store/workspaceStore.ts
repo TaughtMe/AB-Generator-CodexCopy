@@ -27,6 +27,14 @@ import {
     updateDesignTemplate,
     getDesignTemplateByName,
     upsertDesignTemplateByName,
+    listFolders,
+    createFolder as createFolderRecord,
+    renameFolder as renameFolderRecord,
+    deleteFolder as deleteFolderRecord,
+    setWorksheetFolder as setWorksheetFolderRecord,
+    setWorksheetTags as setWorksheetTagsRecord,
+    setWorksheetFavorite as setWorksheetFavoriteRecord,
+    type FolderRecord,
     type WorksheetMeta,
     type WorksheetFilter,
     type WorksheetRecord,
@@ -653,6 +661,8 @@ interface WorkspaceState {
     classProfilesError: string | null;
     /** Aktive Filter für die Materialien-Ansicht */
     filter: WorksheetFilter;
+    /** Bibliotheks-Ordner (Dexie folders-Tabelle) */
+    folders: FolderRecord[];
     currentView: WorkspaceView;
     providers: CustomProvider[];
     availableModels: AIModel[];
@@ -747,6 +757,15 @@ interface WorkspaceActions {
     loadTrash: () => Promise<void>;
     /** Setzt den aktiven Filter und lädt neu */
     setFilter: (filter: WorksheetFilter) => Promise<void>;
+    /* ── Bibliothek: Ordner, Tags, Favoriten (Phase 7) ── */
+    loadFolders: () => Promise<void>;
+    createLibraryFolder: (name: string, parentId?: string | null) => Promise<FolderRecord>;
+    renameLibraryFolder: (id: string, name: string) => Promise<void>;
+    /** Löscht den Ordner verlustfrei (Inhalte → Unsortiert, Kinder rücken auf). */
+    deleteLibraryFolder: (id: string) => Promise<void>;
+    moveWorksheetToFolder: (worksheetId: string, folderId: string | undefined) => Promise<void>;
+    setWorksheetFavorite: (worksheetId: string, favorite: boolean) => Promise<void>;
+    updateWorksheetTags: (worksheetId: string, tags: string[]) => Promise<void>;
     addProvider: () => void;
     updateProvider: (id: string, updates: Partial<CustomProvider>) => void;
     removeProvider: (id: string) => void;
@@ -909,6 +928,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     isClassProfilesLoading: false,
     classProfilesError: null,
     filter: {},
+    folders: [],
     currentView: 'dashboard',
     providers: [],
     availableModels: [],
@@ -1058,6 +1078,47 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     setFilter: async (filter) => {
         set({ filter });
         await get().loadRecent(filter);
+    },
+
+    loadFolders: async () => {
+        const folders = await listFolders();
+        set({ folders });
+    },
+
+    createLibraryFolder: async (name, parentId = null) => {
+        const folder = await createFolderRecord(name, parentId);
+        await get().loadFolders();
+        return folder;
+    },
+
+    renameLibraryFolder: async (id, name) => {
+        await renameFolderRecord(id, name);
+        await get().loadFolders();
+    },
+
+    deleteLibraryFolder: async (id) => {
+        await deleteFolderRecord(id);
+        // Aktiven Ordner-Filter zurücksetzen, wenn er gerade gelöscht wurde.
+        const filter = get().filter;
+        if (filter.folderId === id) {
+            set({ filter: { ...filter, folderId: undefined } });
+        }
+        await Promise.all([get().loadFolders(), get().loadRecent()]);
+    },
+
+    moveWorksheetToFolder: async (worksheetId, folderId) => {
+        await setWorksheetFolderRecord(worksheetId, folderId);
+        await get().loadRecent();
+    },
+
+    setWorksheetFavorite: async (worksheetId, favorite) => {
+        await setWorksheetFavoriteRecord(worksheetId, favorite);
+        await get().loadRecent();
+    },
+
+    updateWorksheetTags: async (worksheetId, tags) => {
+        await setWorksheetTagsRecord(worksheetId, tags);
+        await get().loadRecent();
     },
 
     saveCurrentWorksheet: async (thumbnail?: Blob) => {
