@@ -10,6 +10,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { ChatContextCard } from './ChatContextCard';
 
 type VariantDifferentiationPreset = 'simplify' | 'standard' | 'deepen';
 
@@ -280,6 +281,8 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                     </div>
                 )}
             </div>
+
+            <ChatContextCard />
 
             <div ref={historyRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                 {chatMessages.length === 0 && (
