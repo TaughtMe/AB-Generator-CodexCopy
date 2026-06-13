@@ -46,12 +46,12 @@ import { useProfileStore } from './profileStore';
 import { normalizeTemplateName, type DesignTemplate } from '../types/designTemplate';
 import {
     AI_JSON_TRUNCATED_USER_MESSAGE,
-    generateChatAssistantReply,
     generateTaskRevisionResult,
     type AIClassContext,
 } from '../services/aiService';
 import { parseOperations, validateOperations } from '../features/ai/operations';
 import { usePatchStore } from '../features/ai/patchStore';
+import { runAI } from '../features/ai/runAI';
 import type { Editor } from '@tiptap/react';
 import type { Task, WorksheetSource, WorksheetVariant } from '../types/worksheet';
 import type { ClassProfile } from '../types/profiles';
@@ -1700,7 +1700,11 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             if (requestId !== latestChatRequestId) return;
 
             if (!revisionStaged) {
-                const reply = await generateChatAssistantReply(nextMessages, aiClassContext, signal);
+                const { output: reply } = await runAI({
+                    route: 'editorChat',
+                    input: { messages: nextMessages, aiClassContext },
+                    signal,
+                });
                 assistantMessageContent =
                     reply || 'Ich habe dazu gerade keine gute Antwort. Kannst du es bitte anders formulieren?';
             }

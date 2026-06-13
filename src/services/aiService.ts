@@ -134,6 +134,15 @@ export function getActiveProviderLabel(): string {
     return PROVIDER_LABELS[provider];
 }
 
+/**
+ * Aktiver Provider + effektiv genutztes Chat-Modell – für die runAI-Telemetrie
+ * (Route → provider/model). Kapselt die internen Helfer, ohne sie zu exportieren.
+ */
+export function getActiveModelInfo(): { provider: AIProvider; model: string } {
+    const { provider } = getActiveProviderState();
+    return { provider, model: getPreferredChatModel(provider) };
+}
+
 export function isActiveProviderConfigured(): boolean {
     const { provider, config } = getActiveProviderState();
     const hasModel = Boolean(config.model?.trim());
