@@ -6,13 +6,13 @@ import {
     generateTaskRevisionResult,
     generateTasks,
     generateTasksFromCompiledPrompt,
-    getActiveModelInfo,
     type AIClassContext,
     type GenerateTasksOptions,
     type TaskRevisionResult,
 } from '../../services/aiService';
 import { estimateTokensForText } from './tokenEstimate';
 import { recordAIRun } from './aiTelemetry';
+import { resolveModelForRole } from './modelRouting';
 import { AI_ROUTES, type AIRoute, type AIRunMeta, type ModelRole } from './aiRoutes';
 
 /* ══════════════════════════════════════════════════
@@ -165,7 +165,8 @@ export async function runAI<R extends AIRoute>(request: AIRequest<R>): Promise<A
     const { route, input, preferences, signal } = request;
     const config = AI_ROUTES[route];
     const role = preferences?.role ?? config.preferredRole;
-    const { provider, model } = getActiveModelInfo();
+    // Modellwahl ausschließlich über den zentralen Resolver (Rolle → Modell).
+    const { provider, model, source: modelSource } = resolveModelForRole(role, preferences?.model);
     const startedAt = Date.now();
     const estimatedInputTokens = estimateTokensForText(serializeForEstimate(input));
 
@@ -175,8 +176,9 @@ export async function runAI<R extends AIRoute>(request: AIRequest<R>): Promise<A
         const meta: AIRunMeta = {
             route,
             provider,
-            model: preferences?.model ?? model,
+            model,
             role,
+            modelSource,
             estimatedInputTokens,
             estimatedOutputTokens,
             startedAt,
@@ -189,8 +191,9 @@ export async function runAI<R extends AIRoute>(request: AIRequest<R>): Promise<A
         recordAIRun({
             route,
             provider,
-            model: preferences?.model ?? model,
+            model,
             role,
+            modelSource,
             estimatedInputTokens,
             estimatedOutputTokens: 0,
             startedAt,

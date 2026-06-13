@@ -111,6 +111,9 @@ export const AI_ROUTES: Record<AIRoute, AIRouteConfig> = {
 
 export type AIRunStatus = 'ok' | 'error';
 
+/** Woher das tatsächlich genutzte Modell stammt (siehe modelRouting.resolveModelForRole). */
+export type ModelSource = 'override' | 'role' | 'active';
+
 /** Echte Provider-usage (falls vom Provider geliefert – aktuell optional). */
 export interface AIActualUsage {
     inputTokens?: number;
@@ -127,6 +130,8 @@ export interface AIRunMeta {
     model: string;
     /** Effektiv genutzte Rolle (Override aus preferences oder Route-Default). */
     role: ModelRole;
+    /** Woher das genutzte Modell aufgelöst wurde (Override / Rolle / aktives Modell). */
+    modelSource: ModelSource;
     estimatedInputTokens: number;
     estimatedOutputTokens: number;
     /** Vom Provider gemeldeter Verbrauch – derzeit i.d.R. undefined. */
