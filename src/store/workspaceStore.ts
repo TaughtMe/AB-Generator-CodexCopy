@@ -812,6 +812,8 @@ interface WorkspaceActions {
     seedGreetingIfEmpty: () => void;
     startNewChat: () => void;
     sendChatMessage: (text: string) => Promise<void>;
+    /** Fasst den bisherigen Chatverlauf zusammen (Route 'chatCompression') und ersetzt ihn. */
+    compressChat: () => Promise<void>;
     /** Bricht alle laufenden KI-Chat-Requests ab */
     abortChat: () => void;
     createDifferentiatedVariantFromPrompt: (instruction: string, label?: string) => Promise<boolean>;
@@ -1594,6 +1596,72 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         persistCurrentWorksheetWithStatus().catch((err) =>
             console.error('[workspaceStore] startNewChat persist failed:', err),
         );
+    },
+
+    compressChat: async () => {
+        const state = get();
+        if (state.isChatLoading || state.isChatGenerating) return;
+
+        // Die letzten Nachrichten bleiben wörtlich erhalten; nur der ältere Teil
+        // wird zusammengefasst. Unter dieser Grenze lohnt die Komprimierung nicht.
+        const KEEP_RECENT = 4;
+        const MIN_TO_COMPRESS = KEEP_RECENT + 3;
+        const messages = state.chatMessages;
+        if (messages.length < MIN_TO_COMPRESS) {
+            set({ chatStatusNotice: 'Der Chat ist noch zu kurz, um ihn sinnvoll zu komprimieren.' });
+            return;
+        }
+
+        const olderMessages = messages.slice(0, messages.length - KEEP_RECENT);
+        const recentMessages = messages.slice(messages.length - KEEP_RECENT);
+
+        chatAbortController?.abort();
+        chatAbortController = new AbortController();
+        const signal = chatAbortController.signal;
+
+        set({ isChatLoading: true, chatError: null, chatStatusNotice: null });
+
+        try {
+            const { output: summary } = await runAI({
+                route: 'chatCompression',
+                input: { messages: olderMessages },
+                signal,
+            });
+
+            const trimmedSummary = summary.trim();
+            if (!trimmedSummary) {
+                set({
+                    isChatLoading: false,
+                    chatStatusNotice: 'Komprimierung lieferte keine Zusammenfassung. Verlauf unverändert.',
+                });
+                return;
+            }
+
+            const summaryMessage: ChatMessage = {
+                role: 'assistant',
+                content: `📋 Zusammenfassung des bisherigen Verlaufs:\n${trimmedSummary}`,
+            };
+            const compressed = [summaryMessage, ...recentMessages];
+
+            useWorksheetStore.getState().setChatHistory(compressed);
+            set({
+                chatMessages: compressed,
+                isChatLoading: false,
+                chatStatusNotice: `Chat komprimiert: ${olderMessages.length} Nachrichten zusammengefasst.`,
+            });
+            await persistCurrentWorksheetWithStatus({ chatHistory: compressed });
+        } catch (err) {
+            if (err instanceof DOMException && err.name === 'AbortError') return;
+            set({
+                isChatLoading: false,
+                chatError: err instanceof Error ? err.message : 'Komprimierung fehlgeschlagen.',
+                chatStatusNotice: null,
+            });
+        } finally {
+            if (chatAbortController?.signal === signal) {
+                chatAbortController = null;
+            }
+        }
     },
 
     abortChat: () => {

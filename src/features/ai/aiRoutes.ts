@@ -89,7 +89,7 @@ export const AI_ROUTES: Record<AIRoute, AIRouteConfig> = {
         description: 'Zusammenfassung langer Chatverläufe (günstige/schnelle Route).',
         preferredRole: 'cheap',
         structuredOutput: false,
-        implemented: false,
+        implemented: true,
     },
     jsonRepair: {
         route: 'jsonRepair',

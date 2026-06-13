@@ -1658,6 +1658,59 @@ export async function generateChatAssistantReply(
     return responseText.trim();
 }
 
+const CHAT_COMPRESSION_SYSTEM_PROMPT =
+    'Du fasst den bisherigen Planungs-/Chatverlauf für ein Arbeitsblatt kompakt zusammen. '
+    + 'Bewahre alle für die weitere Arbeit wichtigen Fakten: Thema, Klassenstufe/Fach, gewünschte '
+    + 'Aufgabentypen, Schwierigkeitsgrad, besondere Vorgaben und bereits getroffene Entscheidungen. '
+    + 'Schreibe auf Deutsch, dicht und neutral, höchstens 150 Wörter, ohne Anrede und ohne Rückfragen.';
+
+/**
+ * Komprimiert einen langen Chatverlauf zu einer kompakten Zusammenfassung
+ * (Route 'chatCompression'). Bewusst eine günstige/schnelle Aufgabe – nutzt
+ * vorerst dasselbe aktive Chat-Modell wie der reguläre Chat (echtes
+ * Rollen→Modell-Routing folgt mit der Modellbibliothek).
+ */
+export async function compressChatHistory(
+    messages: ChatMessage[],
+    signal?: AbortSignal,
+): Promise<string> {
+    const cleaned = messages.filter((message) => message.content.trim().length > 0);
+    if (cleaned.length === 0) return '';
+
+    const transcript = cleaned
+        .map((message) => `${message.role === 'user' ? 'Nutzer' : 'Assistent'}: ${message.content.trim()}`)
+        .join('\n');
+    const userPrompt = `Fasse den folgenden Verlauf zusammen:\n\n${transcript}`;
+
+    const { provider } = getActiveProviderState();
+    signal?.throwIfAborted();
+
+    try {
+        if (provider === 'gemini') {
+            const model = getGeminiModel(getPreferredChatModel('gemini'));
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                systemInstruction: CHAT_COMPRESSION_SYSTEM_PROMPT,
+            });
+            signal?.throwIfAborted();
+            return result.response.text().trim();
+        }
+
+        const responseText = await requestOpenAICompatible({
+            provider,
+            userPrompt,
+            systemPrompt: CHAT_COMPRESSION_SYSTEM_PROMPT,
+            modelOverride: getPreferredChatModel(provider),
+            signal,
+        });
+        signal?.throwIfAborted();
+        return responseText.trim();
+    } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') throw error;
+        throw normalizeProviderError(provider, error);
+    }
+}
+
 export async function generateVocabularyDefinitions(
     words: Array<{ id: string; word: string }>,
 ): Promise<Array<{ id: string; pos: string; definition: string }>> {

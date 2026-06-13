@@ -50,6 +50,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
     const sendChatMessage = useWorkspaceStore((s) => s.sendChatMessage);
     const createDifferentiatedVariantFromPrompt = useWorkspaceStore((s) => s.createDifferentiatedVariantFromPrompt);
     const startNewChat = useWorkspaceStore((s) => s.startNewChat);
+    const compressChat = useWorkspaceStore((s) => s.compressChat);
     const seedGreetingIfEmpty = useWorkspaceStore((s) => s.seedGreetingIfEmpty);
     const setAiSidebarDraft = useWorkspaceStore((s) => s.setAiSidebarDraft);
     const variants = useWorksheetStore((s) => s.variants);
@@ -351,7 +352,26 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                         className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300"
                     >
                         Der Chat ist lang (≈ {formatTokenCount(tokenEstimate.chatTokens)} Tokens) — das kostet
-                        mehr und kann die KI verwirren. Starte ggf. mit „Neu" ein frisches Gespräch.
+                        mehr und kann die KI verwirren.
+                        <div className="mt-1.5 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                data-compress-chat
+                                onClick={() => { void compressChat(); }}
+                                disabled={!providerReady || isChatLoading || isChatGenerating}
+                                className="rounded-md border border-amber-300 bg-white/70 px-2 py-1 font-medium text-amber-800 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                            >
+                                Verlauf komprimieren
+                            </button>
+                            <button
+                                type="button"
+                                onClick={startNewChat}
+                                disabled={isChatLoading || isChatGenerating}
+                                className="rounded-md px-2 py-1 font-medium text-amber-700 underline-offset-2 hover:underline disabled:opacity-50 dark:text-amber-300"
+                            >
+                                oder neu starten
+                            </button>
+                        </div>
                     </div>
                 )}
 

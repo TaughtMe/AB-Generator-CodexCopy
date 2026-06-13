@@ -1,6 +1,7 @@
 import type { Task, WorksheetSource } from '../../types/worksheet';
 import type { ChatMessage } from '../../types/ai';
 import {
+    compressChatHistory,
     generateChatAssistantReply,
     generateTaskRevisionResult,
     generateTasks,
@@ -138,10 +139,13 @@ async function dispatchRoute(
                 ? generateTasks(i.options)
                 : generateTasksFromCompiledPrompt(i.compiledPrompt);
         }
+        case 'chatCompression': {
+            const i = input as RouteInputMap['chatCompression'];
+            return compressChatHistory(i.messages, signal);
+        }
         // Deklariert, aber noch nicht angeschlossen – siehe AI_ROUTES[*].implemented.
         case 'planning':
         case 'differentiation':
-        case 'chatCompression':
         case 'jsonRepair':
         case 'exportAnalysis':
             throw new RouteNotImplementedError(route);
