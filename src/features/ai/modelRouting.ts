@@ -1,4 +1,5 @@
 import type { AIProvider } from '../../store/settingsStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { getActiveModelInfo } from '../../services/aiService';
 import type { ModelRole, ModelSource } from './aiRoutes';
 
@@ -11,11 +12,11 @@ import type { ModelRole, ModelSource } from './aiRoutes';
      2. registriertes Modell für die Rolle              → source 'role'
      3. aktives Chat-Modell (Fallback)                  → source 'active'
 
-   Aktuell ist die Rollen-Registry leer, sodass jede Rolle auf das aktive
-   Modell zurückfällt – die Mechanik existiert aber bereits. Die spätere
-   Modellbibliothek befüllt die Registry (und entscheidet dann über
-   Persistenz, vermutlich im settingsStore); runAI bleibt unverändert,
-   weil es ausschließlich resolveModelForRole konsultiert.
+   Die Rollen→Modell-Zuordnung lebt persistiert im settingsStore
+   (roleModelPreferences, 'auto' = aktives Modell). Die spätere
+   Modellbibliothek-UI schreibt dorthin über setRoleModelPreference;
+   runAI bleibt unverändert, weil es ausschließlich resolveModelForRole
+   konsultiert.
 
    Der Provider bleibt vorerst der aktive Provider – providerübergreifendes
    Routing ist Sache der Modellbibliothek.
@@ -27,26 +28,22 @@ export interface ResolvedModel {
     source: ModelSource;
 }
 
-/** In-Memory-Registry Rolle → konkretes Modell (wird später von der Bibliothek befüllt). */
-const roleModelRegistry: Partial<Record<ModelRole, string>> = {};
-
-/** Setzt (oder löscht bei leerem Wert) das Modell für eine Rolle. */
-export function setRoleModel(role: ModelRole, model: string | null): void {
-    const trimmed = model?.trim();
-    if (trimmed) {
-        roleModelRegistry[role] = trimmed;
-    } else {
-        delete roleModelRegistry[role];
-    }
-}
-
+/** Konkretes (Nicht-'auto'-) Modell für eine Rolle, sonst undefined. */
 export function getRoleModel(role: ModelRole): string | undefined {
-    return roleModelRegistry[role];
+    const pref = useSettingsStore.getState().roleModelPreferences[role];
+    return pref && pref !== 'auto' ? pref : undefined;
 }
 
-/** Vollständige Registry (Kopie) – z. B. für die spätere Bibliothek-UI. */
+/** Alle Rollen mit konkret zugeordnetem Modell (ohne 'auto') – z. B. für die Bibliothek-UI. */
 export function getRoleModelMap(): Partial<Record<ModelRole, string>> {
-    return { ...roleModelRegistry };
+    const prefs = useSettingsStore.getState().roleModelPreferences;
+    const result: Partial<Record<ModelRole, string>> = {};
+    for (const [role, model] of Object.entries(prefs)) {
+        if (model && model !== 'auto') {
+            result[role as ModelRole] = model;
+        }
+    }
+    return result;
 }
 
 /**
@@ -61,7 +58,7 @@ export function resolveModelForRole(role: ModelRole, modelOverride?: string): Re
         return { provider, model: override, source: 'override' };
     }
 
-    const roleModel = roleModelRegistry[role];
+    const roleModel = getRoleModel(role);
     if (roleModel) {
         return { provider, model: roleModel, source: 'role' };
     }

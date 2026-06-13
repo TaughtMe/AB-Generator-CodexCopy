@@ -5,6 +5,7 @@ import {
     normalizeHeaderFields,
     type DesignSnapshot,
 } from '../types/designTemplate';
+import type { ModelRole } from '../features/ai/aiRoutes';
 
 /* ══════════════════════════════════════════════════
    settingsStore.ts – Globale Einstellungen
@@ -42,6 +43,8 @@ interface SettingsState {
     aiProvider: AIProvider;
     providers: AIProviderSettings;
     chatModelPreferences: Record<AIProvider, string>;
+    /** Rollen→Modell-Zuordnung der Modellbibliothek. 'auto' = aktives Chat-Modell nutzen. */
+    roleModelPreferences: Record<ModelRole, string>;
     themeMode: ThemeMode;
     schoolType: string;
     subject: string;
@@ -71,6 +74,8 @@ interface SettingsActions {
     setProviderBaseUrl: (provider: AIProvider, baseUrl: string) => void;
     setProviderSelectedModelIds: (provider: AIProvider, ids: string[]) => void;
     setChatModelPreference: (provider: AIProvider, model: string) => void;
+    /** Setzt das Modell für eine KI-Rolle ('auto' oder leer → aktives Modell). */
+    setRoleModelPreference: (role: ModelRole, model: string) => void;
     setThemeMode: (mode: ThemeMode) => void;
     toggleThemeMode: () => void;
     setSchoolType: (type: string) => void;
@@ -102,6 +107,22 @@ type PersistedSettingsSlice = Omit<
     'aiConnectionStatusByProvider' | 'aiConnectionErrorByProvider' | 'availableLocalModels' | 'isFetchingModels'
 >;
 
+const MODEL_ROLES: ModelRole[] = ['fast', 'balanced', 'strong', 'cheap'];
+
+function getDefaultRoleModelPreferences(): Record<ModelRole, string> {
+    return { fast: 'auto', balanced: 'auto', strong: 'auto', cheap: 'auto' };
+}
+
+function sanitizeRoleModelPreferences(value: unknown): Record<ModelRole, string> {
+    const source = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    const result = getDefaultRoleModelPreferences();
+    for (const role of MODEL_ROLES) {
+        const raw = source[role];
+        result[role] = typeof raw === 'string' && raw.trim() ? raw.trim() : 'auto';
+    }
+    return result;
+}
+
 function getDefaultAiConnectionStatusByProvider(): Record<AIProvider, AIConnectionStatus> {
     return {
         gemini: 'unknown',
@@ -125,6 +146,7 @@ function toPersistedSettingsSlice(state: SettingsStore): PersistedSettingsSlice 
         aiProvider: state.aiProvider,
         providers: state.providers,
         chatModelPreferences: state.chatModelPreferences,
+        roleModelPreferences: state.roleModelPreferences,
         themeMode: state.themeMode,
         schoolType: state.schoolType,
         subject: state.subject,
@@ -275,6 +297,7 @@ function sanitizeModelState<T extends SettingsStore>(state: T): T {
             openrouter: sanitizeChatPreference('openrouter', state.chatModelPreferences?.openrouter, openrouterModel),
             local: sanitizeChatPreference('local', state.chatModelPreferences?.local, localModel),
         },
+        roleModelPreferences: sanitizeRoleModelPreferences(state.roleModelPreferences),
     };
 }
 
@@ -314,6 +337,7 @@ export const useSettingsStore = create<SettingsStore>()(
                 openrouter: 'auto',
                 local: 'auto',
             },
+            roleModelPreferences: getDefaultRoleModelPreferences(),
             themeMode: 'light' as ThemeMode,
             schoolType: '',
             subject: '',
@@ -384,6 +408,16 @@ export const useSettingsStore = create<SettingsStore>()(
                         chatModelPreferences: {
                             ...state.chatModelPreferences,
                             [provider]: sanitizeChatPreference(provider, model, providerModel),
+                        },
+                    };
+                }),
+            setRoleModelPreference: (role, model) =>
+                set((state) => {
+                    const normalized = typeof model === 'string' && model.trim() ? model.trim() : 'auto';
+                    return {
+                        roleModelPreferences: {
+                            ...state.roleModelPreferences,
+                            [role]: normalized,
                         },
                     };
                 }),
@@ -493,7 +527,7 @@ export const useSettingsStore = create<SettingsStore>()(
         }),
         {
             name: 'ab-generator-settings',
-            version: 8,
+            version: 9,
             partialize: (state) => toPersistedSettingsSlice(state),
             merge: (persistedState, currentState) => {
                 const persisted = (persistedState ?? {}) as Partial<SettingsStore>;
@@ -507,6 +541,10 @@ export const useSettingsStore = create<SettingsStore>()(
                     chatModelPreferences: {
                         ...currentState.chatModelPreferences,
                         ...(persisted.chatModelPreferences ?? {}),
+                    },
+                    roleModelPreferences: {
+                        ...currentState.roleModelPreferences,
+                        ...(persisted.roleModelPreferences ?? {}),
                     },
                 } as SettingsStore;
 
