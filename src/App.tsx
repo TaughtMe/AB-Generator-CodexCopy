@@ -115,6 +115,20 @@ function App() {
     void loadCustomFonts();
   }, [loadCustomFonts]);
 
+  // Escape schließt den Chat NUR im Drawer-Modus (< lg) — die feste
+  // Desktop-Spalte ist kein Modal und soll auf Escape nicht zuklappen.
+  useEffect(() => {
+    if (!isAiSidebarOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (window.matchMedia('(max-width: 1023px)').matches) {
+        toggleAiSidebar();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isAiSidebarOpen, toggleAiSidebar]);
+
   useEffect(() => {
     const el = editorHeaderRef.current;
     if (!el) return;
@@ -475,6 +489,7 @@ function App() {
           />
         </div>
 
+        {/* Desktop (lg+): feste rechte Spalte */}
         {isAiSidebarOpen && (
           <div className="no-print hidden lg:flex w-80 xl:w-96 shrink-0 min-h-0 h-[calc(100dvh-var(--editor-header-h))] sticky top-[var(--editor-header-h)] pl-2 pr-2 pb-2">
             <EditorChatSidebar onOpenSources={() => setShowSourcesManager(true)} />
@@ -482,16 +497,37 @@ function App() {
         )}
       </div>
 
+      {/* Tablet/Mobile (< lg): Chat als Overlay-Drawer von rechts */}
+      {isAiSidebarOpen && (
+        <div className="no-print lg:hidden fixed inset-0 z-[60]">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={toggleAiSidebar}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('app.openAIChat')}
+            className="chat-drawer-panel absolute right-0 top-0 h-dvh w-full max-w-md p-2 flex"
+          >
+            <EditorChatSidebar onOpenSources={() => setShowSourcesManager(true)} />
+          </div>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={toggleAiSidebar}
         aria-label={isAiSidebarOpen ? t('app.closeAIChat') : t('app.openAIChat')}
         aria-pressed={isAiSidebarOpen}
         title={isAiSidebarOpen ? t('app.hideAIChat') : t('app.showAIChat')}
-        className={`no-print hidden lg:flex fixed z-50 h-14 w-14 items-center justify-center rounded-full border text-white shadow-xl transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 ${
+        className={`no-print fixed z-50 h-14 w-14 items-center justify-center rounded-full border text-white shadow-xl transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 ${
           isAiSidebarOpen
-            ? 'bottom-6 right-[21rem] xl:right-[25rem] bg-teal-500 dark:bg-purple-600 border-white/25 dark:border-white/10 hover:bg-teal-400 dark:hover:bg-purple-500 hover:-translate-y-0.5 hover:shadow-2xl active:scale-95'
-            : 'bottom-6 right-6 bg-teal-500 dark:bg-purple-600 border-white/25 dark:border-white/10 hover:bg-teal-400 dark:hover:bg-purple-500 hover:-translate-y-0.5 hover:scale-105 hover:shadow-2xl active:scale-95'
+            // Offen: auf Mobile verstecken (Drawer hat eigenes Schließen), auf Desktop links neben die Spalte schieben.
+            ? 'hidden lg:flex bottom-6 lg:right-[21rem] xl:right-[25rem] bg-teal-500 dark:bg-purple-600 border-white/25 dark:border-white/10 hover:bg-teal-400 dark:hover:bg-purple-500 hover:-translate-y-0.5 hover:shadow-2xl active:scale-95'
+            // Geschlossen: auf allen Größen sichtbar (Mobile-Einstieg in den Chat).
+            : 'flex bottom-6 right-6 bg-teal-500 dark:bg-purple-600 border-white/25 dark:border-white/10 hover:bg-teal-400 dark:hover:bg-purple-500 hover:-translate-y-0.5 hover:scale-105 hover:shadow-2xl active:scale-95'
         }`}
       >
         <Sparkles className="h-5 w-5" />

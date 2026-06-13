@@ -111,6 +111,15 @@ body {
     display: none;
 }
 
+/* ──── Mobile chat drawer: slide in from the right (no extra dependency) ──── */
+@keyframes chat-drawer-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+.chat-drawer-panel {
+    animation: chat-drawer-in 0.2s ease-out;
+}
+
 /* ──── Columns Task (Two-Column Layout) ──── */
 .columns-task__grid {
     display: grid;
