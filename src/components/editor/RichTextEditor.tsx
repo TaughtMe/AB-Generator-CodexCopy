@@ -17,6 +17,7 @@ import { TextAlign } from './tiptapTextAlign';
 import { TiptapImage } from './tiptapImage';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
 import { TextEditorBubbleMenu } from './shared/TextEditorBubbleMenu';
+import { SlashCommandMenu } from './SlashCommandMenu';
 
 /* ══════════════════════════════════════════════════
    RichTextEditor – Wiederverwendbarer Tiptap-Editor
@@ -206,6 +207,9 @@ function RichTextEditorInner({
     return (
         <div className={clsx('rounded-lg border border-worksheet-border bg-worksheet-field overflow-visible transition-colors focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500 print:bg-transparent print:border-none', className)}>
             {taskId && <TextEditorBubbleMenu editor={editor} taskId={taskId} />}
+            {/* Slash-Menü nur in vollwertigen Task-Textfeldern (nicht in MC-Optionen
+                oder Plain-Inputs/Chat) — Kontextfilter über taskId + variant. */}
+            {taskId && !isMinimal && <SlashCommandMenu editor={editor} taskId={taskId} />}
             {/* ── Editor-Content ── */}
             <EditorContent
                 editor={editor}
