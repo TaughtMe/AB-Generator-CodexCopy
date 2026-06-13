@@ -11,6 +11,7 @@ import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { ChatContextCard } from './ChatContextCard';
+import { LastAIRunInfo } from './LastAIRunInfo';
 import { estimateChatTokens, formatTokenCount } from '../../features/ai/tokenEstimate';
 
 type VariantDifferentiationPreset = 'simplify' | 'standard' | 'deepen';
@@ -383,6 +384,8 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                     ≈ {formatTokenCount(tokenEstimate.totalTokens)} Tokens pro Anfrage
                     (Chat {formatTokenCount(tokenEstimate.chatTokens)} + Arbeitsblatt {formatTokenCount(tokenEstimate.worksheetTokens)})
                 </p>
+
+                <LastAIRunInfo />
 
                 <form onSubmit={handleSend} className="flex items-end gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-2 py-2 shadow-sm backdrop-blur dark:border-slate-700/80 dark:bg-slate-800/90">
                     <textarea
