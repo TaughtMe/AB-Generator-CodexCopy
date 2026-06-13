@@ -10,6 +10,7 @@ import { clearAllIndexedDbData } from '../../store/dexieStore';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { FontUpload } from './FontUpload';
 import { CloudBackupSettings } from './CloudBackupSettings';
+import { ModelLibrarySettings } from './ModelLibrarySettings';
 import { useShallow } from 'zustand/react/shallow';
 
 type SettingsTab = 'display' | 'fonts' | 'ai' | 'chat' | 'data' | 'language' | 'legal';
@@ -479,6 +480,11 @@ export const SettingsView: React.FC = () => {
                                 )}
                                 <p className="mt-2 text-xs text-slate-400">Aktiv für den Chat: {effectiveChatModel}</p>
                             </div>
+
+                            <ModelLibrarySettings
+                                modelOptions={quickAccessModels}
+                                providerLabel={PROVIDER_LABELS[aiProvider]}
+                            />
 
                             <div className="rounded-xl border border-slate-700 p-4 bg-slate-800/40">
                                 <div className="flex items-center justify-between gap-3">
