@@ -46,7 +46,6 @@ import { useProfileStore } from './profileStore';
 import { normalizeTemplateName, type DesignTemplate } from '../types/designTemplate';
 import {
     AI_JSON_TRUNCATED_USER_MESSAGE,
-    generateTaskRevisionResult,
     type AIClassContext,
 } from '../services/aiService';
 import { parseOperations, validateOperations } from '../features/ai/operations';
@@ -1663,14 +1662,17 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
             if (tryRevision) {
             try {
-                const revision = await generateTaskRevisionResult(
-                    nextMessages,
-                    latestWorksheet.tasksById,
-                    latestWorksheet.taskIds,
-                    latestWorksheet.sources,
-                    aiClassContext,
+                const { output: revision } = await runAI({
+                    route: 'taskRevision',
+                    input: {
+                        messages: nextMessages,
+                        tasksById: latestWorksheet.tasksById,
+                        taskIds: latestWorksheet.taskIds,
+                        sources: latestWorksheet.sources,
+                        aiClassContext,
+                    },
                     signal,
-                );
+                });
 
                 // KI-Operationen werden NICHT mehr direkt angewendet, sondern
                 // typisiert, gegen den echten Bestand validiert und als Patch
@@ -1778,14 +1780,19 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                 throw new Error('Keine aktive Variante verfügbar.');
             }
 
-            const revision = await generateTaskRevisionResult(
-                [{ role: 'user', content: trimmedInstruction }],
-                wsStore.tasksById,
-                wsStore.taskIds,
-                wsStore.sources,
-                aiClassContext,
+            // Nutzt aktuell die taskRevision-Route (gleiche Fachlogik). Sobald die
+            // dedizierte 'differentiation'-Route angeschlossen ist, hier umstellen.
+            const { output: revision } = await runAI({
+                route: 'taskRevision',
+                input: {
+                    messages: [{ role: 'user', content: trimmedInstruction }],
+                    tasksById: wsStore.tasksById,
+                    taskIds: wsStore.taskIds,
+                    sources: wsStore.sources,
+                    aiClassContext,
+                },
                 signal,
-            );
+            });
 
             if (revision.operations.length === 0) {
                 set({

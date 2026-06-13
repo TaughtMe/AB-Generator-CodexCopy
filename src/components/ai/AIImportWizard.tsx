@@ -5,11 +5,11 @@ import {
     SlidersHorizontal, Trash2,
 } from 'lucide-react';
 import {
-    generateTasks,
     isActiveProviderConfigured,
     getActiveProviderLabel,
     type GenerateTasksOptions,
 } from '../../services/aiService';
+import { runAI } from '../../features/ai/runAI';
 import { useProfileStore } from '../../store/profileStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { PROVIDER_MODEL_OPTIONS, getModelLabel } from '../../services/ai/modelCatalog';
@@ -127,7 +127,10 @@ export const AIImportWizard: React.FC<AIImportWizardProps> = ({
                 screenshotBase64: screenshotBase64 || undefined,
             };
 
-            const tasks = await generateTasks(opts);
+            const { output: tasks } = await runAI({
+                route: 'worksheetGeneration',
+                input: { mode: 'options', options: opts },
+            });
             setGeneratedTasks(tasks);
             setPhase('results');
         } catch (err) {

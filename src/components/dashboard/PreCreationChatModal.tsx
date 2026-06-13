@@ -2,11 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, Send, Sparkles, X } from 'lucide-react';
 import {
     compileWorksheetPromptFromChat,
-    generateChatAssistantReply,
-    generateTasksFromCompiledPrompt,
     getActiveProviderLabel,
     isActiveProviderConfigured,
 } from '../../services/aiService';
+import { runAI } from '../../features/ai/runAI';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
@@ -99,7 +98,10 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
 
         try {
             const compiledPrompt = compileWorksheetPromptFromChat(promptSnapshot.length > 0 ? promptSnapshot : fullSnapshot);
-            const generatedTasks = await generateTasksFromCompiledPrompt(compiledPrompt);
+            const { output: generatedTasks } = await runAI({
+                route: 'worksheetGeneration',
+                input: { mode: 'compiledPrompt', compiledPrompt },
+            });
 
             resetWorksheet();
             replaceTasksFromAI(generatedTasks);
@@ -142,7 +144,10 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
 
         setIsChatLoading(true);
         try {
-            const reply = await generateChatAssistantReply(nextMessages);
+            const { output: reply } = await runAI({
+                route: 'editorChat',
+                input: { messages: nextMessages },
+            });
             const assistantMessage: ChatMessage = {
                 role: 'assistant',
                 content: reply || 'Bitte präzisiere Thema, Klasse oder Aufgabentypen.',

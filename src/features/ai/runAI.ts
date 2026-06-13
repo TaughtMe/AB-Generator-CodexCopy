@@ -3,9 +3,11 @@ import type { ChatMessage } from '../../types/ai';
 import {
     generateChatAssistantReply,
     generateTaskRevisionResult,
+    generateTasks,
     generateTasksFromCompiledPrompt,
     getActiveModelInfo,
     type AIClassContext,
+    type GenerateTasksOptions,
     type TaskRevisionResult,
 } from '../../services/aiService';
 import { estimateTokensForText } from './tokenEstimate';
@@ -35,7 +37,10 @@ import { AI_ROUTES, type AIRoute, type AIRunMeta, type ModelRole } from './aiRou
 export interface RouteInputMap {
     editorChat: { messages: ChatMessage[]; aiClassContext?: AIClassContext };
     planning: { messages: ChatMessage[]; aiClassContext?: AIClassContext };
-    worksheetGeneration: { compiledPrompt: string };
+    /** Zwei reale Eingabeformen: kompilierter Prompt (Vorab-Chat) oder strukturierte Optionen (Import-Wizard). */
+    worksheetGeneration:
+        | { mode: 'compiledPrompt'; compiledPrompt: string }
+        | { mode: 'options'; options: GenerateTasksOptions };
     taskRevision: {
         messages: ChatMessage[];
         tasksById: Record<string, Task>;
@@ -129,7 +134,9 @@ async function dispatchRoute(
         }
         case 'worksheetGeneration': {
             const i = input as RouteInputMap['worksheetGeneration'];
-            return generateTasksFromCompiledPrompt(i.compiledPrompt);
+            return i.mode === 'options'
+                ? generateTasks(i.options)
+                : generateTasksFromCompiledPrompt(i.compiledPrompt);
         }
         // Deklariert, aber noch nicht angeschlossen – siehe AI_ROUTES[*].implemented.
         case 'planning':
