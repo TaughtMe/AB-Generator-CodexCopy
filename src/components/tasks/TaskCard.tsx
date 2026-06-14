@@ -1,13 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSortable, defaultAnimateLayoutChanges, type AnimateLayoutChanges } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Copy, ChevronDown, ChevronUp, Sparkles, Hash, EyeOff, Palette } from 'lucide-react';
+import { GripVertical, Trash2, Copy, ChevronDown, ChevronUp, Sparkles, Hash, EyeOff, Palette, GraduationCap } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Task } from '../../types/worksheet';
 import { useSettingsStore } from '../../store/settingsStore';
 import { IconButton } from '../ui/IconButton';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { InlineAIPanel } from './InlineAIPanel';
+import { TeacherFieldsPanel } from './TeacherFieldsPanel';
+
+/** Strukturelle Typen ohne sinnvolle Lehrer-/Differenzierungsfelder. */
+const TYPES_WITHOUT_TEACHER_FIELDS: ReadonlySet<Task['type']> = new Set(['page-break']);
 
 /** Voreingestellte Akzentfarben für den per-Task Farbpicker */
 const TASK_COLOR_PRESETS = [
@@ -69,6 +73,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [showInlineAIPanel, setShowInlineAIPanel] = useState(false);
+    const [showTeacherPanel, setShowTeacherPanel] = useState(false);
     const [localTitle, setLocalTitle] = useState(task.title ?? '');
     const colorPickerRef = useRef<HTMLDivElement>(null);
     const brandColor = useSettingsStore((s) => s.brandColor);
@@ -103,7 +108,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         if (isActive) return;
         setShowColorPicker(false);
         setShowInlineAIPanel(false);
+        setShowTeacherPanel(false);
     }, [isActive]);
+
+    const supportsTeacherFields = !TYPES_WITHOUT_TEACHER_FIELDS.has(task.type);
 
     // Sync when title changes externally (e.g. AI update)
     useEffect(() => {
@@ -245,6 +253,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                             {taskNumber !== null ? <Hash className={ICON_SIZES[12]} /> : <EyeOff className={ICON_SIZES[12]} />}
                         </IconButton>
 
+                        {supportsTeacherFields && (
+                            <IconButton
+                                onClick={() => setShowTeacherPanel((current) => !current)}
+                                size="sm"
+                                className={clsx(
+                                    "transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+                                    showTeacherPanel
+                                        ? "text-blue-600 bg-blue-50"
+                                        : "text-worksheet-inkLight hover:text-blue-600 hover:bg-blue-50"
+                                )}
+                                title="Lehrer / Differenzierung"
+                                disabled={!onUpdateTask}
+                            >
+                                <GraduationCap className={ICON_SIZES[12]} />
+                            </IconButton>
+                        )}
+
                         <IconButton
                             onClick={() => setShowInlineAIPanel((current) => !current)}
                             size="sm"
@@ -299,6 +324,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                             task={task}
                             onApply={(updates) => onUpdateTask(id, updates)}
                             onClose={() => setShowInlineAIPanel(false)}
+                        />
+                    )}
+                    {isActive && showTeacherPanel && supportsTeacherFields && onUpdateTask && (
+                        <TeacherFieldsPanel
+                            task={task}
+                            onChange={(updates) => onUpdateTask(id, updates)}
+                            onClose={() => setShowTeacherPanel(false)}
                         />
                     )}
                 </div>
