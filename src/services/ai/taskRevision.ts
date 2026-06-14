@@ -63,6 +63,16 @@ WICHTIG:
 - NIEMALS eigenständige Lineatur-Blöcke ("type": "lineatur") als add_task erzeugen.
   Wenn eine Aufgabe Schreibzeilen benötigt, setze stattdessen "linesAfter" (Zeilenanzahl 1-10) und optional "linesAfterStyle" ("lines-8mm"|"primary-4-lines"|"grid-5mm"|"grid-10mm") als Feld im jeweiligen Aufgaben-Update/-Payload.
 
+LEHRER-/DIFFERENZIERUNGSFELDER (optional, pro Aufgabe in "update_task".updates):
+- "solution": Musterlösung / Erwartungshorizont (Text oder HTML).
+- "hints": Array von Hilfe-Tipps. Um einen Hinweis ZU ERGÄNZEN, gib die bereits vorhandenen Hinweise PLUS den neuen zurück (die Liste ersetzt die alte).
+- "points": Zahl. "difficulty": "easy" | "medium" | "hard".
+- "competence": Kompetenz/Lernziel. "estimatedTime": Minuten (Zahl). "teacherNotes": interne Notiz.
+Diese Felder erscheinen NUR in der Lehrerfassung, nie auf der Schülerfassung.
+Beispiele:
+- "Ergänze überall Lösungen" → je Aufgabe eine "update_task" mit "updates": { "solution": "..." }.
+- "Mach Aufgabe 2 leichter" → "update_task" mit "updates": { "difficulty": "easy", "hints": ["..."] } (ggf. zusätzlich vereinfachter Inhalt).
+
 Erwartetes Ausgabeformat:
 {
   "operations": [
@@ -168,6 +178,16 @@ function summarizeTaskForRevision(entry: VisibleTaskEntry): Record<string, unkno
     if (entry.task.showNumber === false) {
         base.showNumber = false;
     }
+
+    // Bestehende Lehrer-/Differenzierungsfelder mitgeben, damit die KI sie
+    // kontextbewusst ergänzen kann (z. B. einen Hinweis an bestehende anhängen).
+    if (entry.task.solution?.trim()) base.solution = entry.task.solution;
+    if (Array.isArray(entry.task.hints) && entry.task.hints.length > 0) base.hints = entry.task.hints;
+    if (entry.task.points != null) base.points = entry.task.points;
+    if (entry.task.difficulty) base.difficulty = entry.task.difficulty;
+    if (entry.task.competence?.trim()) base.competence = entry.task.competence;
+    if (entry.task.estimatedTime != null) base.estimatedTime = entry.task.estimatedTime;
+    if (entry.task.teacherNotes?.trim()) base.teacherNotes = entry.task.teacherNotes;
 
     return base;
 }
@@ -330,6 +350,33 @@ function sanitizeCommonTaskUpdate(rawUpdates: Record<string, unknown>): Partial<
     if (title !== undefined) common.title = title;
     if (showNumber !== undefined) common.showNumber = showNumber;
     if (accentColor !== undefined) common.accentColor = accentColor;
+
+    // Lehrer-/Differenzierungsfelder (Phase 8) – für alle Tasktypen gemeinsam.
+    // So kann die KI Lösungen/Hinweise/Schwierigkeit etc. über update_task setzen,
+    // ohne dass dafür eigene Operationstypen durch beide Parser geschleust werden.
+    const solution = parseString(rawUpdates.solution);
+    if (solution !== undefined) common.solution = solution;
+
+    if (Array.isArray(rawUpdates.hints)) {
+        common.hints = rawUpdates.hints.filter((h): h is string => typeof h === 'string' && h.trim().length > 0);
+    }
+
+    const points = parseNumber(rawUpdates.points);
+    if (points !== undefined && points >= 0) common.points = points;
+
+    const difficulty = parseString(rawUpdates.difficulty);
+    if (difficulty === 'easy' || difficulty === 'medium' || difficulty === 'hard') {
+        common.difficulty = difficulty;
+    }
+
+    const competence = parseString(rawUpdates.competence);
+    if (competence !== undefined) common.competence = competence;
+
+    const estimatedTime = parseNumber(rawUpdates.estimatedTime);
+    if (estimatedTime !== undefined && estimatedTime >= 0) common.estimatedTime = estimatedTime;
+
+    const teacherNotes = parseString(rawUpdates.teacherNotes);
+    if (teacherNotes !== undefined) common.teacherNotes = teacherNotes;
 
     return common;
 }

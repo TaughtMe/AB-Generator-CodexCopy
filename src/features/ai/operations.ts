@@ -13,9 +13,12 @@ import type { Task, TaskType } from '../../types/worksheet';
    - Feldname `action` ist kompatibel zur bestehenden KI-Ausgabe von
      generateTaskRevisionResult (update_task/add_task) — bestehende
      Prompts funktionieren unverändert weiter.
-   - Operationen, die neue Datenfelder bräuchten (add_solution,
-     add_hint, change_difficulty), folgen mit der BaseTask-Erweiterung
-     in Phase 8 und werden hier bewusst noch nicht definiert.
+   - Lehrer-/Differenzierungsfelder (solution, hints, difficulty, points,
+     competence, estimatedTime, teacherNotes) laufen über das bestehende
+     update_task – keine eigenen Operationstypen. Grund: die KI-Ausgabe
+     durchläuft zuerst parseTaskRevisionOperations (Doppel-Parse); neue
+     Aktionen müssten durch beide Parser. update_task trägt die validierten
+     Felder bereits durch Validierung, Preview und Merge-Apply.
    - KI darf keine erfundenen Task-Referenzen verwenden: validate
      prüft jede taskId gegen den echten Bestand und liefert verständliche
      deutsche Fehlertexte für die UI.
@@ -234,6 +237,23 @@ function taskExcerpt(task: Partial<Task> | Record<string, unknown>): string {
     return truncate(stripHtml(candidate));
 }
 
+const DIFFICULTY_LABELS_SHORT: Record<string, string> = { easy: 'leicht', medium: 'mittel', hard: 'schwer' };
+
+/** Kurzbeschreibung geänderter Lehrer-/Differenzierungsfelder für die Preview. */
+function describeTeacherFieldUpdates(updates: Record<string, unknown>): string {
+    const parts: string[] = [];
+    if (typeof updates.solution === 'string' && updates.solution.trim()) parts.push('Lösung');
+    if (Array.isArray(updates.hints)) parts.push(`Hinweise (${updates.hints.length})`);
+    if (typeof updates.points === 'number') parts.push(`Punkte: ${updates.points}`);
+    if (typeof updates.difficulty === 'string' && DIFFICULTY_LABELS_SHORT[updates.difficulty]) {
+        parts.push(`Schwierigkeit: ${DIFFICULTY_LABELS_SHORT[updates.difficulty]}`);
+    }
+    if (typeof updates.competence === 'string' && updates.competence.trim()) parts.push('Kompetenz');
+    if (typeof updates.estimatedTime === 'number') parts.push(`Zeit: ${updates.estimatedTime} Min.`);
+    if (typeof updates.teacherNotes === 'string' && updates.teacherNotes.trim()) parts.push('Notiz');
+    return parts.join(' · ');
+}
+
 function visibleNumber(taskId: string, tasksById: Record<string, Task>, taskIds: string[]): string {
     let counter = 0;
     for (const id of taskIds) {
@@ -270,14 +290,17 @@ export function summarizeOperation(
                 after: taskExcerpt(payload),
             };
         }
-        case 'update_task':
+        case 'update_task': {
+            const contentAfter = taskExcerpt(op.updates);
+            const teacherAfter = describeTeacherFieldUpdates(op.updates as Record<string, unknown>);
             return {
                 badge: 'Ändern',
                 badgeTone: 'change',
                 target: targetLabel(op.taskId, tasksById, taskIds),
                 before: taskExcerpt(tasksById[op.taskId] ?? {}),
-                after: taskExcerpt(op.updates),
+                after: [contentAfter, teacherAfter].filter(Boolean).join(' · '),
             };
+        }
         case 'replace_task':
             return {
                 badge: 'Ersetzen',
