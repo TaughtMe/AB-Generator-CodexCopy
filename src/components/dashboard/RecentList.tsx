@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, FileText, Trash2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import type { WorksheetMeta } from '../../store/dexieStore';
@@ -12,7 +12,7 @@ interface RecentListProps {
   onOpenWorksheet?: (id: string) => void;
 }
 
-type SortKey = 'title' | 'date' | 'subject' | 'class' | 'variations';
+type SortKey = 'title' | 'folder' | 'date' | 'subject' | 'class' | 'variations';
 
 function formatDate(date: Date | string): string {
   if (!date) return '—';
@@ -31,9 +31,15 @@ export function RecentList(props: RecentListProps) {
   const { items, subjectNameById, classNameById } = props;
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const { deleteDocuments } = useWorkspaceStore(useShallow((state) => ({
+  const { deleteDocuments, folders } = useWorkspaceStore(useShallow((state) => ({
     deleteDocuments: state.deleteDocuments,
+    folders: state.folders,
   })));
+
+  const folderNameById = useMemo(
+    () => Object.fromEntries(folders.map((folder) => [folder.id, folder.name])),
+    [folders],
+  );
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -56,6 +62,10 @@ export function RecentList(props: RecentListProps) {
         case 'title':
           valA = a.title?.toLowerCase() || '';
           valB = b.title?.toLowerCase() || '';
+          break;
+        case 'folder':
+          valA = (a.folderId ? folderNameById[a.folderId] : undefined)?.toLowerCase() || '';
+          valB = (b.folderId ? folderNameById[b.folderId] : undefined)?.toLowerCase() || '';
           break;
         case 'date':
           valA = new Date(a.updatedAt).getTime();
@@ -191,18 +201,19 @@ export function RecentList(props: RecentListProps) {
                   />
                 </th>
               )}
-              <SortableHeader label="Titel" sortKeyProp="title" className="w-[36%]" />
-              <SortableHeader label="Erstellt" sortKeyProp="date" className="w-[16%]" />
-              <SortableHeader label="Fach" sortKeyProp="subject" className="w-[16%]" />
-              <SortableHeader label="Klasse" sortKeyProp="class" className="w-[16%]" />
-              <SortableHeader label="Variationen" sortKeyProp="variations" className="w-[16%]" />
+              <SortableHeader label="Titel" sortKeyProp="title" className="w-[28%]" />
+              <SortableHeader label="Ordner" sortKeyProp="folder" className="w-[16%]" />
+              <SortableHeader label="Erstellt" sortKeyProp="date" className="w-[14%]" />
+              <SortableHeader label="Fach" sortKeyProp="subject" className="w-[14%]" />
+              <SortableHeader label="Klasse" sortKeyProp="class" className="w-[14%]" />
+              <SortableHeader label="Variationen" sortKeyProp="variations" className="w-[14%]" />
             </tr>
           </thead>
 
           <tbody>
             {sortedFiles.length === 0 ? (
               <tr>
-                <td colSpan={isSelectionMode ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-400">
+                <td colSpan={isSelectionMode ? 7 : 6} className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-400">
                   Noch keine Arbeitsblätter erstellt.
                 </td>
               </tr>
@@ -243,6 +254,7 @@ export function RecentList(props: RecentListProps) {
                       <span className="font-medium text-slate-900 dark:text-slate-100">{file.title || 'Unbenannt'}</span>
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{(file.folderId ? folderNameById[file.folderId] : undefined) || '—'}</td>
                   <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{formatDate(file.updatedAt)}</td>
                   <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{(file.subjectId ? subjectNameById[file.subjectId] : undefined) || file.documentSubject || '—'}</td>
                   <td className="px-4 py-3 text-slate-500 dark:text-slate-300">{(file.classId ? classNameById[file.classId] : undefined) || file.documentClassLevel || '—'}</td>

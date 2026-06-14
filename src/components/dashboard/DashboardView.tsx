@@ -167,8 +167,9 @@ export function DashboardView({
       const previewText = worksheet.taskPreview
         .map((item) => item.label)
         .join(' ');
+      const tagText = (worksheet.tags ?? []).join(' ');
 
-      const haystack = `${worksheet.title} ${subjectName} ${className} ${previewText}`.toLowerCase();
+      const haystack = `${worksheet.title} ${subjectName} ${className} ${previewText} ${tagText}`.toLowerCase();
       return haystack.includes(query);
     });
   }, [classNameById, recentWorksheets, searchQuery, subjectNameById]);
