@@ -13,6 +13,9 @@ export interface VocabularyItem {
     definition: string;
 }
 
+/** Schwierigkeitsgrad einer Aufgabe (für Differenzierung / Filter). */
+export type TaskDifficulty = 'easy' | 'medium' | 'hard';
+
 export interface BaseTask {
     id: string;
     type: TaskType;
@@ -31,6 +34,27 @@ export interface BaseTask {
     linesAfter?: number;
     /** Linienstil für linesAfter. Defaults to 'lines-8mm'. */
     linesAfterStyle?: LineStyle;
+
+    /* ── Lehrer-/Differenzierungsfelder (Phase 8, alle optional) ──
+       Fundament für Lehrerfassung, Lösungs-/Lehrerblätter, KI-Aktionen
+       ("Ergänze Lösungen", "Mach Aufgabe leichter") und Differenzierung.
+       Bewusst optional, damit Bestand, Generierung und Persistenz
+       unverändert weiterlaufen. */
+
+    /** Musterlösung / Erwartungshorizont (HTML, wie die übrigen Rich-Text-Felder). */
+    solution?: string;
+    /** Gestufte Hilfen/Tipps für Lernende. */
+    hints?: string[];
+    /** Erreichbare Punkte. */
+    points?: number;
+    /** Schwierigkeitsgrad (Differenzierung). */
+    difficulty?: TaskDifficulty;
+    /** Bezug zu einer Kompetenz/Lernziel (Freitext). */
+    competence?: string;
+    /** Geschätzte Bearbeitungszeit in Minuten. */
+    estimatedTime?: number;
+    /** Interne Notizen für die Lehrkraft (nicht auf der Schülerfassung). */
+    teacherNotes?: string;
 }
 
 export interface MultipleChoiceOption {
