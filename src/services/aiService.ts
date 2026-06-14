@@ -1601,6 +1601,111 @@ async function parseAiJsonOrRepair(
     }
 }
 
+export type ExportAnalysisSeverity = 'suggestion' | 'warning' | 'info';
+
+export interface ExportAnalysisHint {
+    severity: ExportAnalysisSeverity;
+    message: string;
+    /** Optionaler, rein informativer Bezug auf eine Aufgabe (Nummer/Titel). */
+    taskRef?: string;
+}
+
+export interface ExportAnalysisResult {
+    hints: ExportAnalysisHint[];
+}
+
+const EXPORT_ANALYSIS_SYSTEM_PROMPT =
+    'Du prüfst ein Arbeitsblatt vor dem Export auf inhaltliche und didaktische Schwachstellen '
+    + '(unklare Aufgabenstellungen, fehlende Lösungen/Erwartungshorizont, uneinheitliche Schwierigkeit, '
+    + 'Dopplungen, unpassende Reihenfolge). Gib AUSSCHLIESSLICH JSON in der Form '
+    + '{"hints":[{"severity":"suggestion|warning|info","message":"...","taskRef":"..."}]} zurück. '
+    + 'Höchstens 6 Hinweise, jeweils knapp und auf Deutsch, taskRef optional. '
+    + 'Wenn alles in Ordnung ist, gib {"hints":[]} zurück. Erfinde keine Probleme.';
+
+const ALLOWED_ANALYSIS_SEVERITIES: ExportAnalysisSeverity[] = ['suggestion', 'warning', 'info'];
+const MAX_EXPORT_ANALYSIS_HINTS = 6;
+
+function normalizeExportAnalysisResult(parsed: unknown): ExportAnalysisResult {
+    // extractJSON ist array-first und liefert bei {"hints":[...]} u. U. nur das
+    // innere Array – daher beide Formen (Objekt mit hints ODER bloßes Array) tragen.
+    const rawHints = Array.isArray(parsed)
+        ? parsed
+        : (parsed as { hints?: unknown })?.hints;
+    if (!Array.isArray(rawHints)) return { hints: [] };
+
+    const hints: ExportAnalysisHint[] = [];
+    for (const entry of rawHints) {
+        if (!entry || typeof entry !== 'object') continue;
+        const candidate = entry as Record<string, unknown>;
+        const message = typeof candidate.message === 'string' ? candidate.message.trim() : '';
+        if (!message) continue;
+        const severity = ALLOWED_ANALYSIS_SEVERITIES.includes(candidate.severity as ExportAnalysisSeverity)
+            ? (candidate.severity as ExportAnalysisSeverity)
+            : 'suggestion';
+        const taskRef = typeof candidate.taskRef === 'string' && candidate.taskRef.trim()
+            ? candidate.taskRef.trim()
+            : undefined;
+        hints.push({ severity, message, taskRef });
+        if (hints.length >= MAX_EXPORT_ANALYSIS_HINTS) break;
+    }
+    return { hints };
+}
+
+/**
+ * Analysiert ein Arbeitsblatt vor dem Export und liefert knappe KI-Hinweise
+ * (Route 'exportAnalysis', Rolle 'fast'). Ergänzt den deterministischen
+ * exportValidator um inhaltlich-didaktische Hinweise. Robust gegen kaputtes
+ * JSON über parseAiJsonOrRepair.
+ */
+export async function analyzeWorksheetForExport(
+    tasksById: Record<string, Task>,
+    taskIds: string[],
+    signal?: AbortSignal,
+): Promise<ExportAnalysisResult> {
+    const ordered = taskIds.map((id) => tasksById[id]).filter(Boolean);
+    if (ordered.length === 0) return { hints: [] };
+
+    // Kompakte, gekappte Serialisierung – die Analyse braucht Struktur/Text, nicht jedes Detail.
+    const worksheetJson = JSON.stringify(ordered).slice(0, 14000);
+    const userPrompt = `Analysiere dieses Arbeitsblatt (JSON, Aufgaben in Reihenfolge):\n\n${worksheetJson}`;
+
+    const { provider } = getActiveProviderState();
+    signal?.throwIfAborted();
+
+    let responseText: string;
+    try {
+        if (provider === 'gemini') {
+            const model = getGeminiModel(getPreferredChatModel('gemini'));
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                systemInstruction: EXPORT_ANALYSIS_SYSTEM_PROMPT,
+            });
+            responseText = result.response.text();
+        } else {
+            responseText = await requestOpenAICompatible({
+                provider,
+                userPrompt,
+                systemPrompt: EXPORT_ANALYSIS_SYSTEM_PROMPT,
+                modelOverride: getPreferredChatModel(provider),
+                signal,
+            });
+        }
+    } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') throw error;
+        throw normalizeProviderError(provider, error);
+    }
+
+    signal?.throwIfAborted();
+    const jsonStr = extractJSON(responseText);
+    try {
+        const parsed = await parseAiJsonOrRepair(responseText, jsonStr, '{ "hints": [ ... ] }', signal);
+        return normalizeExportAnalysisResult(parsed);
+    } catch {
+        // Analyse ist optional/ergänzend – bei unbrauchbarer Antwort lieber keine Hinweise als ein Fehler.
+        return { hints: [] };
+    }
+}
+
 export async function generateTasks(options: GenerateTasksOptions): Promise<Omit<Task, 'id'>[]> {
     const responseText = await getAdapter().generateTasksText(options);
     const jsonStr = extractJSON(responseText);

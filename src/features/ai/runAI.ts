@@ -1,6 +1,7 @@
 import type { Task, WorksheetSource } from '../../types/worksheet';
 import type { ChatMessage } from '../../types/ai';
 import {
+    analyzeWorksheetForExport,
     compressChatHistory,
     generateChatAssistantReply,
     generateTaskRevisionResult,
@@ -9,6 +10,7 @@ import {
     repairJSON,
     runWithModelOverride,
     type AIClassContext,
+    type ExportAnalysisResult,
     type GenerateTasksOptions,
     type TaskRevisionResult,
 } from '../../services/aiService';
@@ -30,10 +32,10 @@ import { AI_ROUTES, type AIRoute, type AIRunMeta, type ModelRole } from './aiRou
    2. Metadaten erfassen (route/provider/model/role + geschätzte Tokens +
       Dauer/Status) und an die Telemetrie übergeben.
 
-   Routen, die noch nicht angeschlossen sind (planning, differentiation,
-   chatCompression, jsonRepair, exportAnalysis), sind im Registry deklariert
-   und werfen hier RouteNotImplementedError. So existiert die Schnittstelle
-   bereits, bevor das jeweilige Feature gebaut wird.
+   Alle deklarierten Routen sind inzwischen angeschlossen; der
+   RouteNotImplementedError dient nur noch als Exhaustiveness-Guard im
+   default-Zweig (faengt eine kuenftig neu deklarierte, aber noch nicht
+   verdrahtete Route ab).
    ══════════════════════════════════════════════════ */
 
 /** Eingabe-Vertrag je Route. */
@@ -60,7 +62,7 @@ export interface RouteInputMap {
     };
     chatCompression: { messages: ChatMessage[] };
     jsonRepair: { brokenJson: string; schemaHint?: string };
-    exportAnalysis: { worksheetJson: string };
+    exportAnalysis: { tasksById: Record<string, Task>; taskIds: string[] };
 }
 
 /** Ausgabe-Vertrag je Route. */
@@ -72,7 +74,7 @@ export interface RouteOutputMap {
     differentiation: TaskRevisionResult;
     chatCompression: string;
     jsonRepair: string;
-    exportAnalysis: string;
+    exportAnalysis: ExportAnalysisResult;
 }
 
 /** Präferenzen für die Modellauswahl (greifen erst mit der Modellbibliothek). */
@@ -168,9 +170,10 @@ async function dispatchRoute(
                 signal,
             );
         }
-        // Deklariert, aber noch nicht angeschlossen – siehe AI_ROUTES[*].implemented.
-        case 'exportAnalysis':
-            throw new RouteNotImplementedError(route);
+        case 'exportAnalysis': {
+            const i = input as RouteInputMap['exportAnalysis'];
+            return analyzeWorksheetForExport(i.tasksById, i.taskIds, signal);
+        }
         default: {
             // Exhaustiveness-Check: neue Routen müssen hier behandelt werden.
             const _exhaustive: never = route;

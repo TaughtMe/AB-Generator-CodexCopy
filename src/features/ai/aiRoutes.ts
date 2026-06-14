@@ -105,7 +105,7 @@ export const AI_ROUTES: Record<AIRoute, AIRouteConfig> = {
         description: 'Analyse eines Arbeitsblatts vor dem Export (Hinweise/Warnungen).',
         preferredRole: 'fast',
         structuredOutput: true,
-        implemented: false,
+        implemented: true,
     },
 };
 
