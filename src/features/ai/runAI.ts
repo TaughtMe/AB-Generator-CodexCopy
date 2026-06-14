@@ -6,6 +6,7 @@ import {
     generateTaskRevisionResult,
     generateTasks,
     generateTasksFromCompiledPrompt,
+    repairJSON,
     runWithModelOverride,
     type AIClassContext,
     type GenerateTasksOptions,
@@ -144,10 +145,13 @@ async function dispatchRoute(
             const i = input as RouteInputMap['chatCompression'];
             return compressChatHistory(i.messages, signal);
         }
+        case 'jsonRepair': {
+            const i = input as RouteInputMap['jsonRepair'];
+            return repairJSON(i.brokenJson, i.schemaHint, signal);
+        }
         // Deklariert, aber noch nicht angeschlossen – siehe AI_ROUTES[*].implemented.
         case 'planning':
         case 'differentiation':
-        case 'jsonRepair':
         case 'exportAnalysis':
             throw new RouteNotImplementedError(route);
         default: {

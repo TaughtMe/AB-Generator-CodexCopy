@@ -1529,13 +1529,85 @@ export interface GenerateTasksOptions {
     classCharacteristic?: string;
 }
 
+const JSON_REPAIR_SYSTEM_PROMPT =
+    'Du erhältst fehlerhaftes, abgeschnittenes oder mit Fließtext vermischtes JSON. '
+    + 'Gib AUSSCHLIESSLICH ein einziges, valides JSON-Objekt oder -Array zurück, das den erkennbaren '
+    + 'Inhalt bewahrt. Schließe offene Strukturen, entferne Markdown und Erklärungen. '
+    + 'Erfinde keine neuen Inhalte und ändere vorhandene Werte nicht.';
+
+/**
+ * Repariert fehlerhaftes/abgeschnittenes KI-JSON zu validem JSON (Route
+ * 'jsonRepair'). Bewusst ein günstiger, in sich geschlossener Helfer: er wird
+ * sowohl direkt aus den Parse-Pfaden (generateTasks*, Revision) genutzt als
+ * auch über runAI als öffentliche Route exponiert. Gibt extrahiertes JSON
+ * zurück (Aufrufer parst).
+ */
+export async function repairJSON(
+    brokenJson: string,
+    schemaHint?: string,
+    signal?: AbortSignal,
+): Promise<string> {
+    const trimmed = brokenJson.trim();
+    if (!trimmed) return '';
+
+    const userPrompt = `${schemaHint ? `Erwartetes Schema: ${schemaHint}\n\n` : ''}`
+        + `Repariere den folgenden Text zu validem JSON:\n\n${trimmed}`;
+
+    const { provider } = getActiveProviderState();
+    signal?.throwIfAborted();
+
+    try {
+        let responseText: string;
+        if (provider === 'gemini') {
+            const model = getGeminiModel(getPreferredChatModel('gemini'));
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                systemInstruction: JSON_REPAIR_SYSTEM_PROMPT,
+            });
+            responseText = result.response.text();
+        } else {
+            responseText = await requestOpenAICompatible({
+                provider,
+                userPrompt,
+                systemPrompt: JSON_REPAIR_SYSTEM_PROMPT,
+                modelOverride: getPreferredChatModel(provider),
+                signal,
+            });
+        }
+        signal?.throwIfAborted();
+        return extractJSON(responseText);
+    } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') throw error;
+        throw normalizeProviderError(provider, error);
+    }
+}
+
+/**
+ * Parst KI-JSON; schlägt JSON.parse fehl, wird EIN Reparaturversuch über
+ * repairJSON unternommen und erneut geparst. Scheitert auch das, propagiert
+ * der Fehler – so behält jeder Aufrufer seine eigene Fehlersemantik.
+ */
+async function parseAiJsonOrRepair(
+    responseText: string,
+    jsonStr: string,
+    schemaHint: string,
+    signal?: AbortSignal,
+): Promise<unknown> {
+    try {
+        return JSON.parse(jsonStr);
+    } catch {
+        const repaired = await repairJSON(responseText, schemaHint, signal);
+        return JSON.parse(repaired);
+    }
+}
+
 export async function generateTasks(options: GenerateTasksOptions): Promise<Omit<Task, 'id'>[]> {
     const responseText = await getAdapter().generateTasksText(options);
     const jsonStr = extractJSON(responseText);
 
-    let parsed: unknown[];
+    let parsed: unknown;
     try {
-        parsed = JSON.parse(jsonStr);
+        parsed = await parseAiJsonOrRepair(responseText, jsonStr, 'Array<Task>', undefined);
     } catch {
         throw new Error(`KI hat kein valides JSON zurückgegeben:\n${responseText.substring(0, 500)}`);
     }
@@ -1655,7 +1727,7 @@ export async function generateTaskRevisionResult(
 
     let parsed: unknown;
     try {
-        parsed = JSON.parse(jsonStr);
+        parsed = await parseAiJsonOrRepair(responseText, jsonStr, 'WorksheetRevision { "operations": [ ... ] }', signal);
     } catch {
         if (looksLikeTruncatedJson(responseText) || looksLikeTruncatedJson(jsonStr)) {
             throw new Error(AI_JSON_TRUNCATED_USER_MESSAGE);
@@ -1788,9 +1860,9 @@ export async function generateTasksFromCompiledPrompt(compiledPrompt: string): P
     const responseText = await getAdapter().generateTasksFromCompiledPromptText(compiledPrompt);
     const jsonStr = extractJSON(responseText);
 
-    let parsed: unknown[];
+    let parsed: unknown;
     try {
-        parsed = JSON.parse(jsonStr);
+        parsed = await parseAiJsonOrRepair(responseText, jsonStr, 'Array<Task>', undefined);
     } catch {
         throw new Error(`KI hat kein valides JSON zurückgegeben:\n${responseText.substring(0, 500)}`);
     }

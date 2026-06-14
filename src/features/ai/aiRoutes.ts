@@ -97,7 +97,7 @@ export const AI_ROUTES: Record<AIRoute, AIRouteConfig> = {
         description: 'Reparatur abgeschnittener/fehlerhafter KI-JSON-Antworten.',
         preferredRole: 'cheap',
         structuredOutput: true,
-        implemented: false,
+        implemented: true,
     },
     exportAnalysis: {
         route: 'exportAnalysis',
