@@ -1,7 +1,11 @@
-import { AlertTriangle, ArrowRight, X } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, ArrowRight, Loader2, Sparkles, X } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import type { ValidationWarning } from '../../utils/exportValidator';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { useWorksheetStore } from '../../store/worksheetStore';
+import { runAI } from '../../features/ai/runAI';
+import { isActiveProviderConfigured, type ExportAnalysisHint } from '../../services/aiService';
 
 /* ══════════════════════════════════════════════════
    ExportWarningsDialog – Ersetzt window.confirm vor dem Export.
@@ -21,6 +25,12 @@ interface ExportWarningsDialogProps {
     onCancel: () => void;
 }
 
+const HINT_DOT_CLASS: Record<ExportAnalysisHint['severity'], string> = {
+    warning: 'bg-amber-400',
+    suggestion: 'bg-blue-400',
+    info: 'bg-slate-400',
+};
+
 export function ExportWarningsDialog({
     warnings,
     exportLabel,
@@ -28,6 +38,29 @@ export function ExportWarningsDialog({
     onExportAnyway,
     onCancel,
 }: ExportWarningsDialogProps) {
+    const [aiHints, setAiHints] = useState<ExportAnalysisHint[] | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+    const providerReady = isActiveProviderConfigured();
+
+    const handleAnalyze = async () => {
+        if (isAnalyzing) return;
+        setIsAnalyzing(true);
+        setAnalyzeError(null);
+        try {
+            const { tasksById, taskIds } = useWorksheetStore.getState();
+            const { output } = await runAI({
+                route: 'exportAnalysis',
+                input: { tasksById, taskIds },
+            });
+            setAiHints(output.hints);
+        } catch (error) {
+            setAnalyzeError(error instanceof Error ? error.message : 'KI-Analyse fehlgeschlagen.');
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
     return (
         <Modal
             isOpen={warnings.length > 0}
@@ -90,6 +123,59 @@ export function ExportWarningsDialog({
                         </li>
                     ))}
                 </ul>
+
+                {/* KI-Analyse (nur auf Knopfdruck) */}
+                <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">KI-Analyse</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Inhaltliche/didaktische Hinweise vor dem Export – ergänzend zur Prüfung oben.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            data-ai-analyze-btn
+                            onClick={handleAnalyze}
+                            disabled={!providerReady || isAnalyzing}
+                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                        >
+                            {isAnalyzing
+                                ? <Loader2 className={`${ICON_SIZES[14]} animate-spin`} />
+                                : <Sparkles className={ICON_SIZES[14]} />}
+                            {aiHints !== null ? 'Erneut prüfen' : 'Arbeitsblatt prüfen'}
+                        </button>
+                    </div>
+
+                    {!providerReady && (
+                        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                            KI nicht konfiguriert – bitte zuerst in den Einstellungen einen Anbieter hinterlegen.
+                        </p>
+                    )}
+                    {analyzeError && (
+                        <p className="mt-2 text-xs text-rose-500 dark:text-rose-400">{analyzeError}</p>
+                    )}
+                    {aiHints !== null && aiHints.length === 0 && !analyzeError && (
+                        <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
+                            Keine KI-Hinweise – das Arbeitsblatt wirkt stimmig.
+                        </p>
+                    )}
+                    {aiHints !== null && aiHints.length > 0 && (
+                        <ul data-ai-hints className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                            {aiHints.map((hint, index) => (
+                                <li key={index} className="flex items-start gap-2.5">
+                                    <span className={`mt-1.5 shrink-0 h-2 w-2 rounded-full ${HINT_DOT_CLASS[hint.severity]}`} />
+                                    <p className="text-xs text-slate-600 dark:text-slate-300">
+                                        {hint.taskRef && (
+                                            <span className="font-medium text-slate-700 dark:text-slate-200">{hint.taskRef}: </span>
+                                        )}
+                                        {hint.message}
+                                    </p>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
 
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
