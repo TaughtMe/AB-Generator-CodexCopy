@@ -57,7 +57,7 @@ export const AI_ROUTES: Record<AIRoute, AIRouteConfig> = {
         description: 'Vorab-Planung eines Arbeitsblatts aus dem Chatverlauf.',
         preferredRole: 'balanced',
         structuredOutput: false,
-        implemented: false,
+        implemented: true,
     },
     worksheetGeneration: {
         route: 'worksheetGeneration',

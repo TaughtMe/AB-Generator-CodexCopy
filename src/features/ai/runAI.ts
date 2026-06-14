@@ -124,6 +124,12 @@ async function dispatchRoute(
             const i = input as RouteInputMap['editorChat'];
             return generateChatAssistantReply(i.messages, i.aiClassContext, signal);
         }
+        case 'planning': {
+            // Eigene Route (eigene Telemetrie), nutzt vorerst die Chat-Engine als
+            // Fachlogik – der Vorab-Chat plant das Arbeitsblatt vor der Erstellung.
+            const i = input as RouteInputMap['planning'];
+            return generateChatAssistantReply(i.messages, i.aiClassContext, signal);
+        }
         case 'taskRevision': {
             const i = input as RouteInputMap['taskRevision'];
             return generateTaskRevisionResult(
@@ -163,7 +169,6 @@ async function dispatchRoute(
             );
         }
         // Deklariert, aber noch nicht angeschlossen – siehe AI_ROUTES[*].implemented.
-        case 'planning':
         case 'exportAnalysis':
             throw new RouteNotImplementedError(route);
         default: {

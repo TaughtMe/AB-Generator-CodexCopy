@@ -145,7 +145,7 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
         setIsChatLoading(true);
         try {
             const { output: reply } = await runAI({
-                route: 'editorChat',
+                route: 'planning',
                 input: { messages: nextMessages },
             });
             const assistantMessage: ChatMessage = {
