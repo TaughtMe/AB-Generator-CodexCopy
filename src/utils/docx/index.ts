@@ -11,6 +11,7 @@ import type { Task, ColumnsTask } from '../../types/worksheet';
 import { useSettingsStore } from '../../store/settingsStore';
 import { createHeaderTable } from './headerGenerator';
 import { renderTaskContent, renderColumnsTask, wrapTaskInGrid } from './taskRenderer';
+import { renderTeacherFieldsBlock } from './renderers/teacherFields';
 import { createStyledDocument } from './documentStyles';
 import { toDocxFontFamily } from './fontFamily';
 
@@ -81,6 +82,19 @@ export async function exportToDocx(
 ): Promise<void> {
     const { fontFamily: userFont, brandColor, applyColorToTasks } = useSettingsStore.getState();
     const fontFamily = toDocxFontFamily(userFont);
+
+    // Einheitliche Render-Config für alle Tasktyp-Renderer (verhindert Layoutdrift).
+    const renderConfig = {
+        fontFamily,
+        fontSizePt: FONT_SIZE_PT,
+        taskGapAfter: TASK_GAP_AFTER,
+        taskTitleRowDxa: TASK_TITLE_ROW_DXA,
+        a4InnerWidthDxa: A4_INNER_WIDTH_DXA,
+        checkboxColDxa: CHECKBOX_COL_DXA,
+        mcOptionRowDxa: MC_OPTION_ROW_DXA,
+        noTableBorders: NO_TABLE_BORDERS,
+        docxTheme: DOCX_THEME,
+    };
 
     // Validierung passiert zentral VOR dem Aufruf (App → ExportWarningsDialog).
     // Hier bewusst keine zweite window.confirm-Abfrage mehr.
@@ -177,45 +191,20 @@ export async function exportToDocx(
             let taskContent: (Paragraph | Table)[] = [];
 
             if (task.type === 'columns') {
-                taskContent = [await renderColumnsTask(task as ColumnsTask, tasksById, isTeacherVersion, {
-                    fontFamily,
-                    fontSizePt: FONT_SIZE_PT,
-                    taskGapAfter: TASK_GAP_AFTER,
-                    taskTitleRowDxa: TASK_TITLE_ROW_DXA,
-                    a4InnerWidthDxa: A4_INNER_WIDTH_DXA,
-                    checkboxColDxa: CHECKBOX_COL_DXA,
-                    mcOptionRowDxa: MC_OPTION_ROW_DXA,
-                    noTableBorders: NO_TABLE_BORDERS,
-                    docxTheme: DOCX_THEME,
-                })];
+                taskContent = [await renderColumnsTask(task as ColumnsTask, tasksById, isTeacherVersion, renderConfig)];
             } else {
-                taskContent = await renderTaskContent(task, isTeacherVersion, {
-                    fontFamily,
-                    fontSizePt: FONT_SIZE_PT,
-                    taskGapAfter: TASK_GAP_AFTER,
-                    taskTitleRowDxa: TASK_TITLE_ROW_DXA,
-                    a4InnerWidthDxa: A4_INNER_WIDTH_DXA,
-                    checkboxColDxa: CHECKBOX_COL_DXA,
-                    mcOptionRowDxa: MC_OPTION_ROW_DXA,
-                    noTableBorders: NO_TABLE_BORDERS,
-                    docxTheme: DOCX_THEME,
-                });
+                taskContent = await renderTaskContent(task, isTeacherVersion, renderConfig);
             }
 
             // Per-Task accentColor oder globale brandColor (wenn aktiviert)
             const taskAccentColor = task.accentColor || (applyColorToTasks ? brandColor : undefined);
 
-            allChildren.push(wrapTaskInGrid(task, currentNumber, taskContent, {
-                fontFamily,
-                fontSizePt: FONT_SIZE_PT,
-                taskGapAfter: TASK_GAP_AFTER,
-                taskTitleRowDxa: TASK_TITLE_ROW_DXA,
-                a4InnerWidthDxa: A4_INNER_WIDTH_DXA,
-                checkboxColDxa: CHECKBOX_COL_DXA,
-                mcOptionRowDxa: MC_OPTION_ROW_DXA,
-                noTableBorders: NO_TABLE_BORDERS,
-                docxTheme: DOCX_THEME,
-            }, taskAccentColor));
+            allChildren.push(wrapTaskInGrid(task, currentNumber, taskContent, renderConfig, taskAccentColor));
+
+            // Lehrerinfo-Block (Phase 8) nur in der Lehrerversion und nur bei gesetzten Feldern.
+            if (isTeacherVersion) {
+                allChildren.push(...renderTeacherFieldsBlock(task, renderConfig));
+            }
         }
 
         const doc = createStyledDocument(fontFamily, FONT_SIZE_PT, allChildren);
