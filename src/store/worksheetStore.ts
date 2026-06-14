@@ -1064,6 +1064,14 @@ export const useWorksheetStore = create<WorksheetStore>()(
                 showNumber: task.showNumber,
                 accentColor: task.accentColor,
                 vocabulary: task.vocabulary,
+                // Lehrer-/Differenzierungsfelder (Phase 8) überleben den Typwechsel.
+                solution: task.solution,
+                hints: task.hints,
+                points: task.points,
+                difficulty: task.difficulty,
+                competence: task.competence,
+                estimatedTime: task.estimatedTime,
+                teacherNotes: task.teacherNotes,
             } as Task)
             : task;
 

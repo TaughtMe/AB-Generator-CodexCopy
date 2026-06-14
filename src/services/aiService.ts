@@ -1263,6 +1263,45 @@ function extractLinesAfterFields(item: Record<string, unknown>): { linesAfter?: 
     return result;
 }
 
+type TeacherFields = Pick<
+    Task,
+    'solution' | 'hints' | 'points' | 'difficulty' | 'competence' | 'estimatedTime' | 'teacherNotes'
+>;
+
+/**
+ * Extrahiert die optionalen Lehrer-/Differenzierungsfelder (Phase 8) aus einem
+ * rohen KI-Item, damit sie beim Normalisieren NICHT still verloren gehen.
+ * Nur valide Werte werden übernommen; fehlende Felder bleiben weg (kein Überschreiben).
+ */
+function extractTeacherFields(item: Record<string, unknown>): Partial<TeacherFields> {
+    const result: Partial<TeacherFields> = {};
+
+    if (typeof item.solution === 'string' && item.solution.trim()) {
+        result.solution = item.solution;
+    }
+    if (Array.isArray(item.hints)) {
+        const hints = item.hints.filter((h): h is string => typeof h === 'string' && h.trim().length > 0);
+        if (hints.length > 0) result.hints = hints;
+    }
+    if (typeof item.points === 'number' && Number.isFinite(item.points) && item.points >= 0) {
+        result.points = item.points;
+    }
+    if (item.difficulty === 'easy' || item.difficulty === 'medium' || item.difficulty === 'hard') {
+        result.difficulty = item.difficulty;
+    }
+    if (typeof item.competence === 'string' && item.competence.trim()) {
+        result.competence = item.competence;
+    }
+    if (typeof item.estimatedTime === 'number' && Number.isFinite(item.estimatedTime) && item.estimatedTime >= 0) {
+        result.estimatedTime = item.estimatedTime;
+    }
+    if (typeof item.teacherNotes === 'string' && item.teacherNotes.trim()) {
+        result.teacherNotes = item.teacherNotes;
+    }
+
+    return result;
+}
+
 /**
  * Marker-Interface für verwaiste Lineatur-Blöcke, die der Merge-Pass
  * nachträglich in das linesAfter-Feld des vorhergehenden Tasks überführt.
@@ -1291,6 +1330,7 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
             .replace(/_/g, '-');
         const type = rawType === 'multiplechoice' ? 'multiple-choice' : rawType;
         const linesFields = extractLinesAfterFields(item);
+        const teacherFields = extractTeacherFields(item);
 
         switch (type) {
             case 'multiple-choice':
@@ -1310,6 +1350,7 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                             }))
                         : [],
                     ...linesFields,
+                    ...teacherFields,
                 } as Omit<Task, 'id'>);
                 break;
 
@@ -1324,6 +1365,7 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                         content: mathMatch[1].trim(),
                         vocabulary: [],
                         ...linesFields,
+                        ...teacherFields,
                     } as Omit<Task, 'id'>);
                 } else {
                     parsed.push({
@@ -1332,6 +1374,7 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                         content,
                         vocabulary: [],
                         ...linesFields,
+                        ...teacherFields,
                     } as Omit<Task, 'id'>);
                 }
                 break;
@@ -1344,6 +1387,7 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                     text: String(item.text ?? item.content ?? ''),
                     vocabulary: [],
                     ...linesFields,
+                    ...teacherFields,
                 } as Omit<Task, 'id'>);
                 break;
 
@@ -1376,6 +1420,7 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                     showNumber: false,
                     vocabulary: [],
                     ...linesFields,
+                    ...teacherFields,
                 } as Omit<Task, 'id'>);
                 break;
             }
@@ -1405,6 +1450,7 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                     cols,
                     vocabulary: [],
                     ...linesFields,
+                    ...teacherFields,
                 } as Omit<Task, 'id'>);
                 break;
             }
@@ -1424,6 +1470,7 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                     heightMm: typeof item.heightMm === 'number' ? Math.max(20, Math.min(260, item.heightMm)) : 60,
                     vocabulary: [],
                     ...linesFields,
+                    ...teacherFields,
                 } as Omit<Task, 'id'>);
                 break;
 
@@ -1474,6 +1521,7 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                     content: String(item.content || ''),
                     vocabulary: [],
                     ...linesFields,
+                    ...teacherFields,
                 } as Omit<Task, 'id'>);
                 break;
 
