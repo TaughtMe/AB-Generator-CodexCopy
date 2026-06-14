@@ -272,6 +272,69 @@
         font-weight: 600 !important;
     }
 
+    /* ── Lehrerinfo-Block (Phase 8): Lösung/Hinweise/Meta, nur in der Lehrerversion ── */
+    .print-teacher-block {
+        display: none !important;
+    }
+
+    html[data-export-variant="teacher"] .print-teacher-block {
+        display: block !important;
+        margin-top: 6px;
+        padding: 6px 10px;
+        border: 1px solid #cbd5e1;
+        border-left: 3px solid #16a34a;
+        border-radius: 4px;
+        background-color: #f0fdf4 !important;
+        font-size: 9.5pt;
+        line-height: 1.4;
+        break-inside: avoid;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .print-teacher-block__label {
+        font-size: 8pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #16a34a !important;
+        margin-bottom: 3px;
+    }
+
+    .print-teacher-block__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 12px;
+        color: #334155 !important;
+        margin-bottom: 2px;
+    }
+
+    .print-teacher-block__section {
+        margin-top: 3px;
+    }
+
+    .print-teacher-block__heading {
+        display: block;
+        font-weight: 700;
+        color: #0f172a !important;
+    }
+
+    .print-teacher-block__solution {
+        color: #0f172a !important;
+    }
+
+    .print-teacher-block__hints {
+        margin: 2px 0 0;
+        padding-left: 18px;
+        list-style: disc;
+    }
+
+    .print-teacher-block__notes {
+        color: #475569 !important;
+        font-style: italic;
+        white-space: pre-wrap;
+    }
+
     /* ── Cloze gap spans: stable inline-block sizing in print ── */
     .cloze-gap-print {
         display: inline-block;

@@ -4,6 +4,7 @@ import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { WorksheetHeader } from '../layout/WorksheetHeader';
 import { TaskEditorRenderer } from '../tasks/TaskRegistry';
+import { TeacherFieldsPrint } from './TeacherFieldsPrint';
 
 /* ══════════════════════════════════════════════════
    PrintWorksheet – Saubere, druckbare Ansicht des Arbeitsblatts.
@@ -111,6 +112,7 @@ export function PrintWorksheet() {
                         <div className="print-task__body">
                             <TaskEditorRenderer task={task} isActive={false} />
                         </div>
+                        <TeacherFieldsPrint task={task} />
                     </div>
                 );
             })}
