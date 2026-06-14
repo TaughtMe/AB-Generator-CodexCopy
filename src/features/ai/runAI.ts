@@ -149,9 +149,21 @@ async function dispatchRoute(
             const i = input as RouteInputMap['jsonRepair'];
             return repairJSON(i.brokenJson, i.schemaHint, signal);
         }
+        case 'differentiation': {
+            // Eigene Route (Rolle 'strong', eigene Telemetrie), nutzt vorerst die
+            // Revision-Engine als Fachlogik – die Anweisung wird als Nutzer-Turn übergeben.
+            const i = input as RouteInputMap['differentiation'];
+            return generateTaskRevisionResult(
+                [{ role: 'user', content: i.instruction }],
+                i.tasksById,
+                i.taskIds,
+                i.sources,
+                i.aiClassContext,
+                signal,
+            );
+        }
         // Deklariert, aber noch nicht angeschlossen – siehe AI_ROUTES[*].implemented.
         case 'planning':
-        case 'differentiation':
         case 'exportAnalysis':
             throw new RouteNotImplementedError(route);
         default: {

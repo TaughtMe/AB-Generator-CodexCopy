@@ -81,7 +81,7 @@ export const AI_ROUTES: Record<AIRoute, AIRouteConfig> = {
         description: 'Erstellung einer differenzierten Variante (eigene Route, stärkeres Modell).',
         preferredRole: 'strong',
         structuredOutput: true,
-        implemented: false,
+        implemented: true,
     },
     chatCompression: {
         route: 'chatCompression',

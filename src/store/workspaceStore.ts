@@ -1848,12 +1848,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                 throw new Error('Keine aktive Variante verfügbar.');
             }
 
-            // Nutzt aktuell die taskRevision-Route (gleiche Fachlogik). Sobald die
-            // dedizierte 'differentiation'-Route angeschlossen ist, hier umstellen.
             const { output: revision } = await runAI({
-                route: 'taskRevision',
+                route: 'differentiation',
                 input: {
-                    messages: [{ role: 'user', content: trimmedInstruction }],
+                    instruction: trimmedInstruction,
                     tasksById: wsStore.tasksById,
                     taskIds: wsStore.taskIds,
                     sources: wsStore.sources,
