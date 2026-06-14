@@ -42,7 +42,38 @@ function getActiveProviderState() {
     };
 }
 
+/**
+ * Run-scoped Modell-Override (von runAI über runWithModelOverride gesetzt).
+ * Wenn gesetzt, steuert er den tatsächlichen Provider-Call – so wirkt die
+ * Rollen→Modell-Auswahl der Modellbibliothek echt und nicht nur in der
+ * Telemetrie. Wird in getPreferredChatModel sowie an den beiden Provider-
+ * Chokepoints (getGeminiModel, requestOpenAICompatible) berücksichtigt.
+ *
+ * Die KI-Aufrufe der App sind effektiv serialisiert (laufende Anfragen
+ * werden vor neuen abgebrochen); save/restore via finally trägt zudem
+ * verschachtelte Aufrufe.
+ */
+let currentModelOverride: string | null = null;
+
+export async function runWithModelOverride<T>(
+    model: string | undefined,
+    fn: () => Promise<T>,
+): Promise<T> {
+    const override = model?.trim();
+    if (!override) return fn();
+
+    const previous = currentModelOverride;
+    currentModelOverride = override;
+    try {
+        return await fn();
+    } finally {
+        currentModelOverride = previous;
+    }
+}
+
 function getPreferredChatModel(provider: AIProvider): string {
+    if (currentModelOverride) return currentModelOverride;
+
     const { providers, chatModelPreferences } = useSettingsStore.getState();
     const configuredModel = providers[provider].model;
     const preferred = chatModelPreferences?.[provider];
@@ -215,7 +246,7 @@ function requireProviderConfig(provider: AIProvider) {
 function getGeminiModel(modelOverride?: string): GenerativeModel {
     const config = requireProviderConfig('gemini');
     const genAI = new GoogleGenerativeAI(config.apiKey);
-    return genAI.getGenerativeModel({ model: modelOverride ?? config.model });
+    return genAI.getGenerativeModel({ model: modelOverride ?? currentModelOverride ?? config.model });
 }
 
 function getCandidateBaseUrls(baseUrl: string, provider: 'openai' | 'openrouter' | 'local'): string[] {
@@ -648,7 +679,7 @@ async function requestOpenAICompatible(params: {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
-                    model: params.modelOverride ?? config.model,
+                    model: params.modelOverride ?? currentModelOverride ?? config.model,
                     max_tokens: params.maxTokens ?? 1500,
                     stream: false,
                     messages: [

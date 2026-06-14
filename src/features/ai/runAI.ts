@@ -6,6 +6,7 @@ import {
     generateTaskRevisionResult,
     generateTasks,
     generateTasksFromCompiledPrompt,
+    runWithModelOverride,
     type AIClassContext,
     type GenerateTasksOptions,
     type TaskRevisionResult,
@@ -170,8 +171,16 @@ export async function runAI<R extends AIRoute>(request: AIRequest<R>): Promise<A
     const startedAt = Date.now();
     const estimatedInputTokens = estimateTokensForText(serializeForEstimate(input));
 
+    // Nur wenn das Modell aus Rolle/Override stammt (nicht aus dem aktiven
+    // Standard), steuert es den realen Provider-Call – sonst bleibt das
+    // bestehende Chat-Modell-Verhalten unverändert.
+    const runModelOverride = modelSource === 'active' ? undefined : model;
+
     try {
-        const output = (await dispatchRoute(route, input, signal)) as RouteOutputMap[R];
+        const output = (await runWithModelOverride(
+            runModelOverride,
+            () => dispatchRoute(route, input, signal),
+        )) as RouteOutputMap[R];
         const estimatedOutputTokens = estimateTokensForText(serializeForEstimate(output));
         const meta: AIRunMeta = {
             route,
