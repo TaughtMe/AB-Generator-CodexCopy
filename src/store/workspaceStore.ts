@@ -51,6 +51,7 @@ import {
 import { parseOperations, validateOperations } from '../features/ai/operations';
 import { usePatchStore } from '../features/ai/patchStore';
 import { runAI } from '../features/ai/runAI';
+import { setActiveEndpointResolver, type ActiveAiEndpoint } from '../services/ai/activeEndpoint';
 import type { Editor } from '@tiptap/react';
 import type { Task, WorksheetSource, WorksheetVariant } from '../types/worksheet';
 import type { ClassProfile } from '../types/profiles';
@@ -623,15 +624,7 @@ export interface AIModel {
     providerId: string;
 }
 
-/** Aufgelöster aktiver Custom-Provider-Endpoint (OpenAI-kompatibel). */
-export interface ActiveAiEndpoint {
-    baseUrl: string;
-    apiKey: string;
-    /** API-Modell-Identifier (AIModel.id). */
-    model: string;
-    providerId: string;
-    providerName: string;
-}
+export type { ActiveAiEndpoint };
 
 function normalizeOpenAICompatibleProviderBaseUrl(baseUrl: string): string {
     const trimmed = baseUrl.trim().replace(/\/+$/, '');
@@ -2273,3 +2266,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     },
   ),
 );
+
+// Brücke zur KI-Ausführung: aiService liest den aktiven Custom-Endpoint hierüber,
+// ohne workspaceStore direkt zu importieren (vermeidet Import-Zyklus).
+setActiveEndpointResolver(() => useWorkspaceStore.getState().getActiveAiEndpoint());

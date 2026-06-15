@@ -5,6 +5,7 @@ import { useSettingsStore, type AIProvider } from '../store/settingsStore';
 import { useSourceStore } from '../store/sourceStore';
 import { PROVIDER_LABELS, PROVIDER_MODEL_OPTIONS, type ProviderModelOption } from './ai/modelCatalog';
 import { filterModelOptions } from './ai/modelFilter';
+import { getActiveAiEndpoint, type ActiveAiEndpoint } from './ai/activeEndpoint';
 import type { ChatMessage } from '../types/ai';
 import {
     AI_JSON_TRUNCATED_USER_MESSAGE,
@@ -161,6 +162,8 @@ function withInjectedSourceContext(systemPrompt: string): string {
 }
 
 export function getActiveProviderLabel(): string {
+    const endpoint = getActiveAiEndpoint();
+    if (endpoint) return endpoint.providerName;
     const { provider } = getActiveProviderState();
     return PROVIDER_LABELS[provider];
 }
@@ -170,11 +173,17 @@ export function getActiveProviderLabel(): string {
  * (Route → provider/model). Kapselt die internen Helfer, ohne sie zu exportieren.
  */
 export function getActiveModelInfo(): { provider: AIProvider; model: string } {
+    const endpoint = getActiveAiEndpoint();
     const { provider } = getActiveProviderState();
-    return { provider, model: getPreferredChatModel(provider) };
+    // Bei aktivem Custom-Endpoint ist das echte Modell dessen model (provider-Feld
+    // bleibt der eingebaute Typ, da AIProvider die Custom-Anbieter nicht kennt).
+    return { provider, model: endpoint ? endpoint.model : getPreferredChatModel(provider) };
 }
 
 export function isActiveProviderConfigured(): boolean {
+    // Aktiver Custom-Provider-Endpoint (KI-Tab) gilt als konfiguriert.
+    if (getActiveAiEndpoint()) return true;
+
     const { provider, config } = getActiveProviderState();
     const hasModel = Boolean(config.model?.trim());
 
@@ -637,16 +646,26 @@ async function requestOpenAICompatible(params: {
     modelOverride?: string;
     maxTokens?: number;
     signal?: AbortSignal;
+    /** Wenn gesetzt: aktiver Custom-Provider-Endpoint statt eingebauter Providerkonfiguration. */
+    endpoint?: ActiveAiEndpoint;
 }): Promise<string> {
-    const config = requireProviderConfig(params.provider);
-    const baseUrl = (
-        config.baseUrl
-        || (params.provider === 'openai'
-            ? 'https://api.openai.com/v1'
-            : params.provider === 'openrouter'
-                ? 'https://openrouter.ai/api/v1'
-                : '')
-    ).replace(/\/$/, '');
+    const { endpoint } = params;
+    const config = endpoint ? null : requireProviderConfig(params.provider);
+
+    const rawBaseUrl = endpoint
+        ? endpoint.baseUrl
+        : (config!.baseUrl
+            || (params.provider === 'openai'
+                ? 'https://api.openai.com/v1'
+                : params.provider === 'openrouter'
+                    ? 'https://openrouter.ai/api/v1'
+                    : ''));
+    const baseUrl = rawBaseUrl.replace(/\/$/, '');
+    const apiKey = endpoint ? endpoint.apiKey : config!.apiKey;
+    // Custom-Endpoint erzwingt sein Modell; sonst greift die bestehende Override-Kette.
+    const modelToUse = endpoint
+        ? endpoint.model
+        : (params.modelOverride ?? currentModelOverride ?? config!.model);
 
     const content: Array<Record<string, unknown>> = [{ type: 'text', text: params.userPrompt }];
 
@@ -661,15 +680,16 @@ async function requestOpenAICompatible(params: {
         'Content-Type': 'application/json',
     };
 
-    if (config.apiKey?.trim()) {
-        headers.Authorization = `Bearer ${config.apiKey}`;
+    if (apiKey?.trim()) {
+        headers.Authorization = `Bearer ${apiKey}`;
     }
-    if (params.provider === 'openrouter') {
+    if (!endpoint && params.provider === 'openrouter') {
         headers['HTTP-Referer'] = typeof window !== 'undefined' ? window.location.origin : 'https://localhost';
         headers['X-Title'] = 'AB-Generator';
     }
 
-    const candidateBaseUrls = getCandidateBaseUrls(baseUrl, params.provider);
+    // Custom-Endpoints (häufig localhost) bekommen die local-Kandidatenliste (docker-Fallback).
+    const candidateBaseUrls = getCandidateBaseUrls(baseUrl, endpoint ? 'local' : params.provider);
     let response: Response | null = null;
     let payload: unknown = null;
 
@@ -679,7 +699,7 @@ async function requestOpenAICompatible(params: {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
-                    model: params.modelOverride ?? currentModelOverride ?? config.model,
+                    model: modelToUse,
                     max_tokens: params.maxTokens ?? 1500,
                     stream: false,
                     messages: [
@@ -741,6 +761,51 @@ async function requestOpenAICompatible(params: {
     }
 
     throw normalizeProviderError(params.provider, `${PROVIDER_LABELS[params.provider]} hat keine lesbare Antwort geliefert.`);
+}
+
+/**
+ * One-Shot-Completion mit einheitlichem Provider-Routing für die direkten
+ * (nicht adapterbasierten) KI-Funktionen (Revision, Komprimierung, JSON-Repair,
+ * Export-Analyse, Vokabeln). Reihenfolge: aktiver Custom-Endpoint → Gemini-SDK
+ * → OpenAI-kompatibel (eingebaut). Vermeidet, dass jede Funktion die Branch-Logik
+ * dupliziert und das Custom-Endpoint-Routing vergisst.
+ */
+async function runOneShotCompletion(params: {
+    userPrompt: string;
+    systemPrompt: string;
+    signal?: AbortSignal;
+    maxTokens?: number;
+}): Promise<string> {
+    const endpoint = getActiveAiEndpoint();
+    if (endpoint) {
+        return requestOpenAICompatible({
+            provider: 'local',
+            endpoint,
+            userPrompt: params.userPrompt,
+            systemPrompt: params.systemPrompt,
+            maxTokens: params.maxTokens,
+            signal: params.signal,
+        });
+    }
+
+    const { provider } = getActiveProviderState();
+    if (provider === 'gemini') {
+        const model = getGeminiModel(getPreferredChatModel('gemini'));
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: params.userPrompt }] }],
+            systemInstruction: params.systemPrompt,
+        });
+        return result.response.text();
+    }
+
+    return requestOpenAICompatible({
+        provider,
+        userPrompt: params.userPrompt,
+        systemPrompt: params.systemPrompt,
+        modelOverride: getPreferredChatModel(provider),
+        maxTokens: params.maxTokens,
+        signal: params.signal,
+    });
 }
 
 const geminiAdapter: ProviderAdapter = {
@@ -975,7 +1040,46 @@ const ADAPTERS: Record<AIProvider, ProviderAdapter> = {
     local: localAdapter,
 };
 
+/** OpenAI-kompatibler Adapter für einen aktiven Custom-Provider-Endpoint (KI-Tab). */
+function createCustomEndpointAdapter(endpoint: ActiveAiEndpoint): ProviderAdapter {
+    const call = (
+        userPrompt: string,
+        systemPrompt: string,
+        extra?: { screenshotBase64?: string; maxTokens?: number },
+    ) => requestOpenAICompatible({ provider: 'local', endpoint, userPrompt, systemPrompt, ...extra });
+
+    return {
+        generateTasksText: (options) => call(
+            buildGenerateUserPrompt(options),
+            withInjectedSourceContext(buildSystemPrompt({
+                subjectName: options.subjectName,
+                curriculumText: options.curriculumText,
+                className: options.className,
+                classCharacteristic: options.classCharacteristic,
+            })),
+            { screenshotBase64: options.screenshotBase64 },
+        ),
+        modifyTaskText: (task, instruction) => call(
+            buildModifyUserPrompt(task, instruction),
+            withInjectedSourceContext(MODIFY_SYSTEM_PROMPT),
+            { maxTokens: 1500 },
+        ),
+        chatAssistantText: (messages) => call(
+            buildChatUserPrompt(messages),
+            withInjectedSourceContext(CHAT_ASSISTANT_SYSTEM_PROMPT),
+        ),
+        generateTasksFromCompiledPromptText: (compiledPrompt) => call(
+            compiledPrompt,
+            withInjectedSourceContext(BASE_SYSTEM_PROMPT),
+        ),
+        listModels: () => Promise.resolve([]),
+    };
+}
+
 function getAdapter(): ProviderAdapter {
+    // Aktiver Custom-Provider hat Vorrang vor der eingebauten Providerwahl.
+    const endpoint = getActiveAiEndpoint();
+    if (endpoint) return createCustomEndpointAdapter(endpoint);
     const { provider } = getActiveProviderState();
     return ADAPTERS[provider];
 }
@@ -1171,30 +1275,18 @@ function buildChatUserPrompt(messages: ChatMessage[]): string {
 }
 
 async function generateTaskRevisionText(userPrompt: string, signal?: AbortSignal): Promise<string> {
-    const { provider } = getActiveProviderState();
-
-    if (provider === 'gemini') {
-        try {
-            const model = getGeminiModel(getPreferredChatModel('gemini'));
-            const result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-                systemInstruction: withInjectedSourceContext(TASK_REVISION_SYSTEM_PROMPT),
-            });
-            signal?.throwIfAborted();
-            return result.response.text();
-        } catch (error) {
-            if (error instanceof DOMException && error.name === 'AbortError') throw error;
-            throw normalizeProviderError('gemini', error);
-        }
+    try {
+        const text = await runOneShotCompletion({
+            userPrompt,
+            systemPrompt: withInjectedSourceContext(TASK_REVISION_SYSTEM_PROMPT),
+            signal,
+        });
+        signal?.throwIfAborted();
+        return text;
+    } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') throw error;
+        throw normalizeProviderError(getActiveAiEndpoint() ? 'local' : getActiveProviderState().provider, error);
     }
-
-    return requestOpenAICompatible({
-        provider,
-        userPrompt,
-        systemPrompt: withInjectedSourceContext(TASK_REVISION_SYSTEM_PROMPT),
-        modelOverride: getPreferredChatModel(provider),
-        signal,
-    });
 }
 
 export function compileWorksheetPromptFromChat(messages: ChatMessage[]): string {
@@ -1601,32 +1693,19 @@ export async function repairJSON(
     const userPrompt = `${schemaHint ? `Erwartetes Schema: ${schemaHint}\n\n` : ''}`
         + `Repariere den folgenden Text zu validem JSON:\n\n${trimmed}`;
 
-    const { provider } = getActiveProviderState();
     signal?.throwIfAborted();
 
     try {
-        let responseText: string;
-        if (provider === 'gemini') {
-            const model = getGeminiModel(getPreferredChatModel('gemini'));
-            const result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-                systemInstruction: JSON_REPAIR_SYSTEM_PROMPT,
-            });
-            responseText = result.response.text();
-        } else {
-            responseText = await requestOpenAICompatible({
-                provider,
-                userPrompt,
-                systemPrompt: JSON_REPAIR_SYSTEM_PROMPT,
-                modelOverride: getPreferredChatModel(provider),
-                signal,
-            });
-        }
+        const responseText = await runOneShotCompletion({
+            userPrompt,
+            systemPrompt: JSON_REPAIR_SYSTEM_PROMPT,
+            signal,
+        });
         signal?.throwIfAborted();
         return extractJSON(responseText);
     } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') throw error;
-        throw normalizeProviderError(provider, error);
+        throw normalizeProviderError(getActiveAiEndpoint() ? 'local' : getActiveProviderState().provider, error);
     }
 }
 
@@ -1717,30 +1796,18 @@ export async function analyzeWorksheetForExport(
     const worksheetJson = JSON.stringify(ordered).slice(0, 14000);
     const userPrompt = `Analysiere dieses Arbeitsblatt (JSON, Aufgaben in Reihenfolge):\n\n${worksheetJson}`;
 
-    const { provider } = getActiveProviderState();
     signal?.throwIfAborted();
 
     let responseText: string;
     try {
-        if (provider === 'gemini') {
-            const model = getGeminiModel(getPreferredChatModel('gemini'));
-            const result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-                systemInstruction: EXPORT_ANALYSIS_SYSTEM_PROMPT,
-            });
-            responseText = result.response.text();
-        } else {
-            responseText = await requestOpenAICompatible({
-                provider,
-                userPrompt,
-                systemPrompt: EXPORT_ANALYSIS_SYSTEM_PROMPT,
-                modelOverride: getPreferredChatModel(provider),
-                signal,
-            });
-        }
+        responseText = await runOneShotCompletion({
+            userPrompt,
+            systemPrompt: EXPORT_ANALYSIS_SYSTEM_PROMPT,
+            signal,
+        });
     } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') throw error;
-        throw normalizeProviderError(provider, error);
+        throw normalizeProviderError(getActiveAiEndpoint() ? 'local' : getActiveProviderState().provider, error);
     }
 
     signal?.throwIfAborted();
@@ -1938,32 +2005,19 @@ export async function compressChatHistory(
         .join('\n');
     const userPrompt = `Fasse den folgenden Verlauf zusammen:\n\n${transcript}`;
 
-    const { provider } = getActiveProviderState();
     signal?.throwIfAborted();
 
     try {
-        if (provider === 'gemini') {
-            const model = getGeminiModel(getPreferredChatModel('gemini'));
-            const result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-                systemInstruction: CHAT_COMPRESSION_SYSTEM_PROMPT,
-            });
-            signal?.throwIfAborted();
-            return result.response.text().trim();
-        }
-
-        const responseText = await requestOpenAICompatible({
-            provider,
+        const responseText = await runOneShotCompletion({
             userPrompt,
             systemPrompt: CHAT_COMPRESSION_SYSTEM_PROMPT,
-            modelOverride: getPreferredChatModel(provider),
             signal,
         });
         signal?.throwIfAborted();
         return responseText.trim();
     } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') throw error;
-        throw normalizeProviderError(provider, error);
+        throw normalizeProviderError(getActiveAiEndpoint() ? 'local' : getActiveProviderState().provider, error);
     }
 }
 
@@ -1977,24 +2031,7 @@ Wörter: ${wordList}`;
 
     const systemPrompt = 'Du bist ein Sprachexperte und Lehrassistent. Antworte ausschließlich mit validem JSON.';
 
-    const { provider } = getActiveProviderState();
-    let responseText: string;
-
-    if (provider === 'gemini') {
-        const model = getGeminiModel(getPreferredChatModel('gemini'));
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            systemInstruction: systemPrompt,
-        });
-        responseText = result.response.text();
-    } else {
-        responseText = await requestOpenAICompatible({
-            provider,
-            userPrompt,
-            systemPrompt,
-            modelOverride: getPreferredChatModel(provider),
-        });
-    }
+    const responseText = await runOneShotCompletion({ userPrompt, systemPrompt });
 
     const jsonStr = extractJSON(responseText);
     const parsed: Array<{ word: string; pos: string; definition: string }> = JSON.parse(jsonStr);
