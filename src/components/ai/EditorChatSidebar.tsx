@@ -62,6 +62,11 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
     const createDifferentiatedVariantFromPrompt = useWorkspaceStore((s) => s.createDifferentiatedVariantFromPrompt);
     const startNewChat = useWorkspaceStore((s) => s.startNewChat);
     const compressChat = useWorkspaceStore((s) => s.compressChat);
+    // Custom-Provider-Modelle (KI-Tab) – steuern bei aktivem Endpoint den Chat.
+    const customAvailableModels = useWorkspaceStore((s) => s.availableModels);
+    const customQuickAccess = useWorkspaceStore((s) => s.quickAccessModels);
+    const customActiveModel = useWorkspaceStore((s) => s.activeModel);
+    const setCustomActiveModel = useWorkspaceStore((s) => s.setActiveModel);
     const seedGreetingIfEmpty = useWorkspaceStore((s) => s.seedGreetingIfEmpty);
     const setAiSidebarDraft = useWorkspaceStore((s) => s.setAiSidebarDraft);
     const variants = useWorksheetStore((s) => s.variants);
@@ -127,6 +132,15 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
         return PROVIDER_MODEL_OPTIONS[aiProvider];
     }, [aiProvider, detectedProviderModels, mergedGeminiModels]);
     const chatPreference = chatModelPreferences[aiProvider] ?? 'auto';
+
+    /** Aktive Custom-Modelle (Quick-Access bevorzugt) – wenn vorhanden, steuert
+     *  der KI-Tab den Chat statt des eingebauten Providers. */
+    const customChatModels = useMemo(() => {
+        const ids = customQuickAccess.length > 0 ? customQuickAccess : customAvailableModels.map((m) => m.id);
+        const byId = new Map(customAvailableModels.map((m) => [m.id, m]));
+        return ids.map((id) => byId.get(id)).filter((m): m is typeof customAvailableModels[number] => Boolean(m));
+    }, [customQuickAccess, customAvailableModels]);
+    const hasCustomChatModels = customChatModels.length > 0;
 
     useEffect(() => {
         if (!isVariantPanelOpen) return;
@@ -256,6 +270,28 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
             </div>
 
             <div className="shrink-0 px-3 py-2 border-b border-slate-200/70 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30">
+                {hasCustomChatModels ? (
+                    <>
+                        <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                            Chat-Modell ({getActiveProviderLabel()})
+                        </label>
+                        <select
+                            data-custom-chat-model
+                            value={customActiveModel}
+                            onChange={(e) => setCustomActiveModel(e.target.value)}
+                            disabled={isChatLoading || isChatGenerating}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 px-2.5 py-2 text-xs text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-60"
+                        >
+                            {customChatModels.map((model) => (
+                                <option key={model.id} value={model.id}>{model.name || model.id}</option>
+                            ))}
+                        </select>
+                        <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
+                            Aus dem KI-Tab (eigener Anbieter). Modelle dort verwalten.
+                        </p>
+                    </>
+                ) : (
+                <>
                 <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                     Chat-Modell ({getActiveProviderLabel()})
                 </label>
@@ -303,6 +339,8 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                             </div>
                         ) : null}
                     </div>
+                )}
+                </>
                 )}
             </div>
 
