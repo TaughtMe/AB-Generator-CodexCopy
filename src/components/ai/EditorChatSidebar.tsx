@@ -6,7 +6,7 @@ import {
 } from '../../services/aiService';
 import { PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
 import { useProviderModels } from '../../hooks/useProviderModels';
-import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useWorkspaceStore, type ChatActivity } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { ICON_SIZES } from '../ui/iconSizes';
@@ -20,6 +20,15 @@ const VARIANT_PRESET_LABELS: Record<VariantDifferentiationPreset, string> = {
     simplify: 'Vereinfachen',
     standard: 'Standard',
     deepen: 'Vertiefen',
+};
+
+/** Klartext-Status je laufender KI-Tätigkeit (chatActivity). */
+const CHAT_ACTIVITY_LABELS: Record<ChatActivity, string> = {
+    idle: 'KI denkt nach…',
+    thinking: 'KI denkt nach…',
+    revising: 'KI prüft die Aufgaben…',
+    variant: 'KI erstellt eine Variante…',
+    compressing: 'KI komprimiert den Chat…',
 };
 
 function buildVariantPresetInstruction(
@@ -44,6 +53,7 @@ interface EditorChatSidebarProps {
 export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSources }) => {
     const chatMessages = useWorkspaceStore((s) => s.chatMessages);
     const isChatLoading = useWorkspaceStore((s) => s.isChatLoading);
+    const chatActivity = useWorkspaceStore((s) => s.chatActivity);
     const chatError = useWorkspaceStore((s) => s.chatError);
     const chatStatusNotice = useWorkspaceStore((s) => s.chatStatusNotice);
     const isChatGenerating = useWorkspaceStore((s) => s.isChatGenerating);
@@ -67,6 +77,9 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
     const [variantInstruction, setVariantInstruction] = useState('');
     const [variantLabelInput, setVariantLabelInput] = useState('');
     const historyRef = useRef<HTMLDivElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    /** Fokus zurück ins Eingabefeld holen, sobald es nach dem Senden wieder aktiv ist. */
+    const refocusInput = () => requestAnimationFrame(() => textareaRef.current?.focus());
     const submitOnEnter = useSettingsStore((s) => s.submitOnEnter);
     const input = aiSidebarDraft;
     const setInput = setAiSidebarDraft;
@@ -149,6 +162,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
         if (!trimmed || isChatLoading || isChatGenerating) return;
         setInput('');
         await sendChatMessage(trimmed);
+        refocusInput();
     };
 
     const handleInputKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -161,6 +175,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
 
         setInput('');
         await sendChatMessage(trimmed);
+        refocusInput();
     };
 
     const openVariantPanel = () => {
@@ -322,7 +337,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                 {isChatLoading && (
                     <div className="flex justify-start">
                         <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200/80 bg-white/90 px-3.5 py-2.5 text-sm text-slate-500 shadow-sm dark:border-slate-700/80 dark:bg-slate-800/90 dark:text-slate-300">
-                            <Loader2 className={`${ICON_SIZES[12]} animate-spin`} /> KI denkt nach...
+                            <Loader2 className={`${ICON_SIZES[12]} animate-spin`} /> {CHAT_ACTIVITY_LABELS[chatActivity]}
                         </div>
                     </div>
                 )}
@@ -389,6 +404,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
 
                 <form onSubmit={handleSend} className="flex items-end gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-2 py-2 shadow-sm backdrop-blur dark:border-slate-700/80 dark:bg-slate-800/90">
                     <textarea
+                        ref={textareaRef}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleInputKeyDown}
@@ -503,23 +519,35 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                             </div>
                         </div>
 
-                        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setIsVariantPanelOpen(false)}
-                                className="px-3 py-2 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 cursor-pointer"
-                            >
-                                Abbrechen
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleCreateVariantWithAI}
-                                disabled={!providerReady || !variantInstruction.trim() || isChatLoading || isChatGenerating}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                                <Sparkles className={ICON_SIZES[11]} />
-                                <span>Variante erzeugen</span>
-                            </button>
+                        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between gap-2">
+                            <span className="min-w-0 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                                {isChatLoading && chatActivity === 'variant' && (
+                                    <>
+                                        <Loader2 className={`${ICON_SIZES[12]} animate-spin`} />
+                                        <span className="truncate">{CHAT_ACTIVITY_LABELS.variant}</span>
+                                    </>
+                                )}
+                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsVariantPanelOpen(false)}
+                                    className="px-3 py-2 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 cursor-pointer"
+                                >
+                                    Abbrechen
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleCreateVariantWithAI}
+                                    disabled={!providerReady || !variantInstruction.trim() || isChatLoading || isChatGenerating}
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                >
+                                    {isChatLoading && chatActivity === 'variant'
+                                        ? <Loader2 className={`${ICON_SIZES[11]} animate-spin`} />
+                                        : <Sparkles className={ICON_SIZES[11]} />}
+                                    <span>{isChatLoading && chatActivity === 'variant' ? 'Wird erstellt…' : 'Variante erzeugen'}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

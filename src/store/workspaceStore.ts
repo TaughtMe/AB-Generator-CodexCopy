@@ -650,6 +650,9 @@ function getModelEndpointBaseUrlCandidates(baseUrl: string): string[] {
     return Array.from(new Set(candidates));
 }
 
+/** Laufende KI-Tätigkeit für die Statusanzeige im Chat. */
+export type ChatActivity = 'idle' | 'thinking' | 'revising' | 'variant' | 'compressing';
+
 interface WorkspaceState {
     recentWorksheets: WorksheetMeta[];
     trashedWorksheets: WorksheetMeta[];
@@ -671,6 +674,8 @@ interface WorkspaceState {
     chatMessages: ChatMessage[];
     aiSidebarDraft: string;
     isChatLoading: boolean;
+    /** Aktuell laufende KI-Tätigkeit – steuert die Statusanzeige im Chat. */
+    chatActivity: ChatActivity;
     chatError: string | null;
     chatStatusNotice: string | null;
     isChatGenerating: boolean;
@@ -939,6 +944,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     chatMessages: [],
     aiSidebarDraft: '',
     isChatLoading: false,
+    chatActivity: 'idle',
     chatError: null,
     chatStatusNotice: null,
     isChatGenerating: false,
@@ -1619,7 +1625,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         chatAbortController = new AbortController();
         const signal = chatAbortController.signal;
 
-        set({ isChatLoading: true, chatError: null, chatStatusNotice: null });
+        set({ isChatLoading: true, chatActivity: 'compressing', chatError: null, chatStatusNotice: null });
 
         try {
             const { output: summary } = await runAI({
@@ -1692,6 +1698,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             aiSidebarDraft: '',
             chatMessages: nextMessages,
             isChatLoading: true,
+            chatActivity: 'thinking',
             chatError: null,
             chatStatusNotice: null,
         });
@@ -1729,6 +1736,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             );
 
             if (tryRevision) {
+            set({ chatActivity: 'revising' });
             try {
                 const { output: revision } = await runAI({
                     route: 'taskRevision',
@@ -1821,6 +1829,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
         set({
             isChatLoading: true,
+            chatActivity: 'variant',
             chatError: null,
             chatStatusNotice: null,
         });
