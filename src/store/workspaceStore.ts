@@ -623,6 +623,16 @@ export interface AIModel {
     providerId: string;
 }
 
+/** Aufgelöster aktiver Custom-Provider-Endpoint (OpenAI-kompatibel). */
+export interface ActiveAiEndpoint {
+    baseUrl: string;
+    apiKey: string;
+    /** API-Modell-Identifier (AIModel.id). */
+    model: string;
+    providerId: string;
+    providerName: string;
+}
+
 function normalizeOpenAICompatibleProviderBaseUrl(baseUrl: string): string {
     const trimmed = baseUrl.trim().replace(/\/+$/, '');
     if (!trimmed) return '';
@@ -776,6 +786,13 @@ interface WorkspaceActions {
     toggleQuickAccessModel: (modelId: string) => void;
     setActiveModel: (modelId: string) => void;
     fetchModelsForProvider: (providerId: string) => Promise<AIModel[]>;
+    /**
+     * Löst den aktuell aktiven Custom-Provider-Endpoint auf (aus activeModel →
+     * AIModel.providerId → CustomProvider). Gibt null zurück, wenn kein gültiges
+     * Custom-Modell aktiv ist – dann gilt weiter die eingebaute settingsStore-Logik.
+     * Brücke zwischen KI-Tab (Custom-Provider) und der KI-Ausführung.
+     */
+    getActiveAiEndpoint: () => ActiveAiEndpoint | null;
     /** Speichert das aktuelle Arbeitsblatt in Dexie.
      *  Optionaler `thumbnail`-Blob wird direkt mitgespeichert.
      *  Wird kein Blob übergeben, bleibt das alte Thumbnail erhalten. */
@@ -1445,6 +1462,22 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             activeModel: normalizedModelId,
             aiModel: normalizedModelId,
         });
+    },
+
+    getActiveAiEndpoint: () => {
+        const { activeModel, availableModels, providers } = get();
+        if (!activeModel) return null;
+        const model = availableModels.find((m) => m.id === activeModel);
+        if (!model) return null;
+        const provider = providers.find((p) => p.id === model.providerId);
+        if (!provider || !provider.baseUrl.trim()) return null;
+        return {
+            baseUrl: provider.baseUrl.trim(),
+            apiKey: provider.apiKey.trim(),
+            model: activeModel,
+            providerId: provider.id,
+            providerName: provider.name.trim() || 'Eigener Anbieter',
+        };
     },
 
     fetchModelsForProvider: async (providerId) => {
