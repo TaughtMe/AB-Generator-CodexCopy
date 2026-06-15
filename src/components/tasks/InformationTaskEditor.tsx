@@ -46,13 +46,47 @@ function clampTextWidthRatio(value: number): number {
     );
 }
 
-function createEmptyChunk(): TextChunk {
+function createChunk(content = ''): TextChunk {
     return {
         id: crypto.randomUUID(),
         heading: '',
-        content: '',
+        content,
         notesHeading: '',
     };
+}
+
+function createEmptyChunk(): TextChunk {
+    return createChunk();
+}
+
+/**
+ * Teilt den vorhandenen Informationstext (HTML aus Tiptap) beim Wechsel in den
+ * Abschnitts-Modus in Chunks auf – pro Block-Element (Absatz/Überschrift/Liste)
+ * ein Abschnitt. So geht der Text NICHT verloren. Leere Absätze werden
+ * übersprungen; ohne Block-Markup entsteht ein einzelner Abschnitt.
+ */
+function splitHtmlIntoChunks(html: string): TextChunk[] {
+    if (!html || !html.trim()) return [];
+
+    const isNonEmpty = (h: string): boolean => {
+        const text = h.replace(/<br\s*\/?>(?=)/gi, '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+        return text.length > 0;
+    };
+
+    try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const blocks = Array.from(doc.body.children);
+        if (blocks.length === 0) {
+            const inner = doc.body.innerHTML.trim();
+            return isNonEmpty(inner) ? [createChunk(inner)] : [];
+        }
+        return blocks
+            .map((el) => el.outerHTML.trim())
+            .filter(isNonEmpty)
+            .map((content) => createChunk(content));
+    } catch {
+        return isNonEmpty(html) ? [createChunk(html)] : [];
+    }
 }
 
 /** Prüft, ob ein HTML-String visuell leer ist (leer, undefined, <p></p>, <p><br></p>, etc.). */
@@ -288,7 +322,12 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
 
     const handleToggleChunked = (checked: boolean) => {
         if (checked && chunks.length === 0) {
-            patchTask({ isChunked: true, chunks: [createEmptyChunk()] });
+            // Vorhandenen Text in Abschnitte übernehmen statt zu verwerfen.
+            const fromContent = splitHtmlIntoChunks(task.content);
+            patchTask({
+                isChunked: true,
+                chunks: fromContent.length > 0 ? fromContent : [createEmptyChunk()],
+            });
         } else {
             patchTask({ isChunked: checked });
         }
