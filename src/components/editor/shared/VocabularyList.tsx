@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Gem, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { generateVocabularyDefinitions, isActiveProviderConfigured } from '../../../services/aiService';
 import { useWorksheetStore } from '../../../store/worksheetStore';
@@ -188,10 +188,21 @@ export function VocabularyList({ vocabulary, taskId }: VocabularyListProps) {
 
             <div className="flex flex-col gap-3 print:break-before-auto print:mt-8 print:grid print:grid-cols-2 print:gap-x-12 print:gap-y-4">
                 {vocabularyItems.map((item) => (
+                    <Fragment key={item.id}>
+                    {/* Druck: Vokabel als lesbarer Text statt editierbarer Unterstrich-Felder. */}
+                    <div className="hidden print:block break-inside-avoid text-black leading-snug">
+                        <span className="text-sm font-semibold">{item.word}</span>
+                        {item.pos?.trim() && (
+                            <span className="text-xs italic text-slate-600"> ({item.pos})</span>
+                        )}
+                        {item.definition?.trim() && (
+                            <span className="text-sm"> — {item.definition}</span>
+                        )}
+                    </div>
+
                     <div
-                        key={item.id}
-                        className={`flex items-start gap-3 group rounded-md px-1 py-0.5 transition-colors break-inside-avoid print:break-inside-avoid print:bg-transparent print:shadow-none print:border-none print:rounded-none print:p-0 ${
-                            selectedIds.has(item.id) ? 'bg-blue-50 print:bg-transparent' : ''
+                        className={`flex items-start gap-3 group rounded-md px-1 py-0.5 transition-colors break-inside-avoid print:hidden ${
+                            selectedIds.has(item.id) ? 'bg-blue-50' : ''
                         }`}
                     >
                         <input
@@ -247,6 +258,7 @@ export function VocabularyList({ vocabulary, taskId }: VocabularyListProps) {
                             <Trash2 size={14} />
                         </button>
                     </div>
+                    </Fragment>
                 ))}
             </div>
 
