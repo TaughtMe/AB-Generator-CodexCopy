@@ -32,6 +32,7 @@ const TASK_TYPE_LABELS: Record<Task['type'], string> = {
     'page-break': 'Seitenumbruch',
     'image-placeholder': 'Bild-Platzhalter',
     'information': 'Information',
+    'ordering': 'Reihenfolge',
 };
 
 interface TaskCardProps {

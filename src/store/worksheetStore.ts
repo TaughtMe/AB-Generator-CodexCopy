@@ -142,6 +142,7 @@ const VALID_TASK_TYPES: TaskType[] = [
     'heading',
     'table',
     'information',
+    'ordering',
 ];
 
 function isTaskType(value: unknown): value is TaskType {
@@ -238,6 +239,18 @@ function createNewTask(type: TaskType): Task {
                 showNumber: false,
                 isChunked: false,
                 chunks: [],
+            };
+        case 'ordering':
+            return {
+                ...base,
+                type: 'ordering',
+                title: 'Reihenfolge',
+                prompt: 'Bringe die Elemente in die richtige Reihenfolge.',
+                items: [
+                    { id: crypto.randomUUID(), text: '', correctPosition: 1 },
+                    { id: crypto.randomUUID(), text: '', correctPosition: 2 },
+                    { id: crypto.randomUUID(), text: '', correctPosition: 3 },
+                ],
             };
         default:
             throw new Error(`Unsupported task type: ${type}`);
@@ -602,6 +615,38 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                         ? safeTask.isChunked
                         : false,
                 chunks: Array.isArray(safeTask.chunks) ? safeTask.chunks : [],
+            };
+        }
+
+        case 'ordering': {
+            const fallback: TaskByType<'ordering'> = fallbackTask.type === 'ordering'
+                ? fallbackTask
+                : createDefaultTaskOfType('ordering');
+
+            const rawItems = Array.isArray(safeTask.items) ? safeTask.items : null;
+            let items = rawItems
+                ? rawItems
+                    .filter(isObjectRecord)
+                    .map((item, index) => ({
+                        id: typeof item.id === 'string' && item.id.trim() ? item.id : crypto.randomUUID(),
+                        text: typeof item.text === 'string' ? item.text : '',
+                        correctPosition:
+                            typeof item.correctPosition === 'number' && Number.isFinite(item.correctPosition)
+                                ? Math.max(1, Math.round(item.correctPosition))
+                                : index + 1,
+                    }))
+                : fallback.items.map((item) => ({ ...item }));
+
+            // KI-/Typwechsel kann ein leeres items-Array liefern → Defaults behalten.
+            if (isTypeSwitch && items.length === 0) {
+                items = fallback.items.map((item) => ({ ...item }));
+            }
+
+            return {
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                prompt: typeof safeTask.prompt === 'string' ? safeTask.prompt : fallback.prompt,
+                items,
             };
         }
 

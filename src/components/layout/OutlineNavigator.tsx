@@ -32,6 +32,7 @@ import {
     Image as ImageIcon,
     Table,
     BookOpen,
+    ListOrdered,
     X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -59,6 +60,7 @@ const TASK_ICON: Record<TaskType, React.ElementType> = {
     'image-placeholder': ImageIcon,
     'table': Table,
     'information': BookOpen,
+    'ordering': ListOrdered,
 };
 
 /** Lesbare Kurzbezeichnungen */
@@ -74,6 +76,7 @@ const TASK_LABEL: Record<TaskType, string> = {
     'image-placeholder': 'Bild',
     'table': 'Tabelle',
     'information': 'Information',
+    'ordering': 'Reihenfolge',
 };
 
 // ── Einzelner Eintrag (sortierbar) ────────────────────────────────────

@@ -1,4 +1,4 @@
-export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction' | 'heading' | 'table' | 'information';
+export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction' | 'heading' | 'table' | 'information' | 'ordering';
 import type { ChatMessage } from './ai';
 
 export type ColumnsLayout = '50-50' | '60-40' | '40-60';
@@ -165,7 +165,29 @@ export interface InformationTextTask extends BaseTask {
 
 export type InformationTask = InformationTextTask;
 
-export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask | TableTask | InformationTextTask;
+/** Ein einzelnes zu ordnendes Element einer Nummerierungsaufgabe. */
+export interface OrderingItem {
+    id: string;
+    /** Anzuzeigender Text des Elements. */
+    text: string;
+    /** Korrekte Position in der Zielreihenfolge (1-basiert). */
+    correctPosition: number;
+}
+
+/**
+ * Nummerierungs-/Reihenfolgeaufgabe: Lernende bringen die Elemente in die
+ * richtige Reihenfolge, indem sie die leeren Nummernfelder ausfüllen.
+ * Die Anzeigereihenfolge entspricht der `items`-Reihenfolge; die Lösung
+ * steckt in `correctPosition` je Element.
+ */
+export interface OrderingTask extends BaseTask {
+    type: 'ordering';
+    /** Aufgabenstellung (z. B. "Bringe die Schritte in die richtige Reihenfolge."). */
+    prompt: string;
+    items: OrderingItem[];
+}
+
+export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask | TableTask | InformationTextTask | OrderingTask;
 
 export interface WorksheetTaskState {
     tasksById: Record<string, Task>;
