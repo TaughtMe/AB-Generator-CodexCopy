@@ -13,6 +13,7 @@ import { ICON_SIZES } from '../ui/iconSizes';
 import { ChatContextCard } from './ChatContextCard';
 import { LastAIRunInfo } from './LastAIRunInfo';
 import { estimateChatTokens, formatTokenCount } from '../../features/ai/tokenEstimate';
+import { markdownToSafeHtml } from '../../utils/markdown';
 
 type VariantDifferentiationPreset = 'simplify' | 'standard' | 'deepen';
 
@@ -361,13 +362,20 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                         className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                         <div
-                            className={`max-w-[88%] rounded-2xl border px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words shadow-sm ${
+                            className={`max-w-[88%] rounded-2xl border px-3.5 py-2.5 text-sm leading-relaxed break-words shadow-sm ${
                                 message.role === 'user'
-                                    ? 'rounded-br-md border-transparent bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-md dark:from-purple-600 dark:to-fuchsia-600'
+                                    ? 'rounded-br-md border-transparent bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-md dark:from-purple-600 dark:to-fuchsia-600 whitespace-pre-wrap'
                                     : 'rounded-bl-md border-slate-200/80 bg-white/90 text-slate-700 dark:border-slate-700/80 dark:bg-slate-800/90 dark:text-slate-100'
                             }`}
                         >
-                            {message.content}
+                            {message.role === 'assistant' ? (
+                                <div
+                                    className="chat-markdown space-y-1.5 whitespace-normal [&_p]:m-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1 [&_li]:my-0.5 [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] dark:[&_code]:bg-slate-700 [&_pre]:my-1 [&_pre]:rounded-lg [&_pre]:bg-slate-100 [&_pre]:p-2 [&_pre]:overflow-x-auto dark:[&_pre]:bg-slate-900 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_h3]:font-semibold [&_h4]:font-semibold [&_a]:underline [&_a]:text-blue-600 dark:[&_a]:text-blue-400"
+                                    dangerouslySetInnerHTML={{ __html: markdownToSafeHtml(message.content) }}
+                                />
+                            ) : (
+                                message.content
+                            )}
                         </div>
                     </div>
                 ))}
