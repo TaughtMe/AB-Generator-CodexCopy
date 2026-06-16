@@ -1898,7 +1898,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             if (revision.operations.length === 0) {
                 set({
                     isChatLoading: false,
-                    chatStatusNotice: 'Keine Änderungen aus der KI-Antwort ableitbar. Keine neue Variante erstellt.',
+                    chatStatusNotice: 'Keine konkreten Änderungen ableitbar – keine neue Variante erstellt. '
+                        + 'Tipp: Formuliere die Anweisung als klare Änderung (z. B. „vereinfache die Sprache in Aufgabe 1–3", '
+                        + '„ergänze zu jeder Aufgabe einen Hinweis"). Bei schwächeren Modellen hilft oft ein stärkeres Modell.',
                 });
                 return false;
             }
