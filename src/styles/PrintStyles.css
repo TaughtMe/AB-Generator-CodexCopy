@@ -272,6 +272,13 @@
         font-weight: 600 !important;
     }
 
+    /* ── Ordering: korrekte Position nur in der Lehrerversion ── */
+    html[data-export-variant="teacher"] .ordering-print-solution {
+        display: inline !important;
+        color: #16a34a !important;
+        font-weight: 600 !important;
+    }
+
     /* ── Lehrerinfo-Block (Phase 8): Lösung/Hinweise/Meta, nur in der Lehrerversion ── */
     .print-teacher-block {
         display: none !important;

@@ -98,7 +98,10 @@ export const OrderingTaskEditor: React.FC<OrderingTaskEditorProps> = ({ task, is
                                     title="Korrekte Position"
                                 />
                             ) : (
-                                <span className="shrink-0 w-9 h-9 border-2 border-worksheet-border rounded-md" aria-hidden="true" />
+                                <span className="shrink-0 w-9 h-9 border-2 border-worksheet-border rounded-md flex items-center justify-center text-sm font-semibold">
+                                    {/* Lösungszahl: standardmäßig verborgen, nur in der Lehrerversion (Druck) sichtbar. */}
+                                    <span className="ordering-print-solution hidden">{item.correctPosition}</span>
+                                </span>
                             )}
 
                             {/* Element-Text */}

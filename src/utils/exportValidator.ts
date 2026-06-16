@@ -213,6 +213,39 @@ export function validateForExport(
                 break;
             }
 
+            case 'ordering': {
+                if (!task.items || task.items.length < 2) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Reihenfolge-Aufgabe hat weniger als 2 Elemente.',
+                    });
+                    break;
+                }
+                if (task.items.every((item) => !item.text || item.text.trim() === '')) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Alle Elemente der Reihenfolge-Aufgabe sind leer.',
+                    });
+                }
+                // Korrekte Reihenfolge sollte eine Permutation von 1..n sein,
+                // sonst ist die Lösung im Lehrerexport mehrdeutig.
+                const positions = task.items.map((item) => item.correctPosition);
+                const expected = Array.from({ length: task.items.length }, (_, i) => i + 1);
+                const isPermutation =
+                    new Set(positions).size === positions.length &&
+                    expected.every((value) => positions.includes(value));
+                if (!isPermutation) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: `Die korrekten Positionen sind nicht eindeutig 1…${task.items.length} – die Lösung im Lehrerexport ist mehrdeutig.`,
+                    });
+                }
+                break;
+            }
+
             default: {
                 const unknownTask = task as unknown as { title: string; type: string };
                 warnings.push({
