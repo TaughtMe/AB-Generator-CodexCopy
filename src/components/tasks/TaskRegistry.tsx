@@ -9,6 +9,7 @@ import { InstructionTaskEditor } from './InstructionTaskEditor';
 import { InformationTaskEditor } from './InformationTaskEditor';
 import { HeadingEditor } from './HeadingEditor';
 import { TableEditor } from './TableEditor';
+import { OrderingTaskEditor } from './OrderingTaskEditor';
 import { UnknownTaskFallback } from './UnknownTaskFallback';
 
 // MathTaskEditor (+ katex + dompurify) wird erst bei Bedarf geladen.
@@ -25,21 +26,6 @@ const LazyMathTaskEditor = React.lazy(() =>
 
 interface TaskComponentRegistry {
     editor: React.ComponentType<{ task: Task; isActive?: boolean }>;
-}
-
-/** Übergangs-Platzhalter für ordering, bis der echte Editor (Commit 2) existiert. */
-function OrderingTaskPlaceholder({ task }: { task: Task }) {
-    if (task.type !== 'ordering') return null;
-    return (
-        <div className="text-sm text-slate-600">
-            <p className="mb-2 font-medium">{task.prompt}</p>
-            <ol className="list-decimal pl-6 space-y-1">
-                {task.items.map((item) => (
-                    <li key={item.id}>{item.text || <span className="text-slate-400">(leer)</span>}</li>
-                ))}
-            </ol>
-        </div>
-    );
 }
 
 /**
@@ -91,8 +77,7 @@ const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
         editor: InformationTaskEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'ordering': {
-        // Platzhalter (Commit 1) – der vollständige OrderingTaskEditor folgt in Commit 2.
-        editor: OrderingTaskPlaceholder as React.ComponentType<{ task: Task; isActive?: boolean }>,
+        editor: OrderingTaskEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
 };
 
