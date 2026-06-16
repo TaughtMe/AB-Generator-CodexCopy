@@ -1126,6 +1126,21 @@ Jedes Element muss einem dieser Typen entsprechen:
   "content": "a^2 + b^2 = c^2"
 }
 
+4. Reihenfolge (Nummerierungsaufgabe – Elemente in die richtige Reihenfolge bringen):
+{
+  "type": "ordering",
+  "title": "Aufgabe: ...",
+  "prompt": "Bringe die Schritte in die richtige Reihenfolge.",
+  "items": [
+    { "text": "Wasser kochen", "correctPosition": 1 },
+    { "text": "Teebeutel einlegen", "correctPosition": 2 },
+    { "text": "Ziehen lassen", "correctPosition": 3 }
+  ]
+}
+Regeln für "ordering": mindestens 2 Elemente; "correctPosition" ist 1-basiert und
+bildet GENAU die Permutation 1..n (jede Position genau einmal). Liste die Elemente
+ruhig in gemischter Reihenfolge; "correctPosition" definiert die Lösung.
+
 Optionales Attribut "linesAfter" – Schreibzeilen nach einer Aufgabe:
 Wenn eine Aufgabe Platz zum Schreiben benötigt, füge dem Aufgaben-Objekt das Feld "linesAfter" hinzu.
 Beispiel – Lückentext MIT angehängten Schreibzeilen:
@@ -1616,6 +1631,31 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                     ...teacherFields,
                 } as Omit<Task, 'id'>);
                 break;
+
+            case 'ordering': {
+                const items = Array.isArray(item.items)
+                    ? item.items
+                        .filter((it): it is Record<string, unknown> => typeof it === 'object' && it !== null)
+                        .map((it, index) => ({
+                            id: crypto.randomUUID(),
+                            text: String(it.text ?? ''),
+                            correctPosition:
+                                typeof it.correctPosition === 'number' && Number.isFinite(it.correctPosition)
+                                    ? Math.max(1, Math.round(it.correctPosition))
+                                    : index + 1,
+                        }))
+                    : [];
+                parsed.push({
+                    type: 'ordering' as const,
+                    title: String(item.title || 'Reihenfolge'),
+                    prompt: String(item.prompt ?? item.question ?? item.text ?? 'Bringe die Elemente in die richtige Reihenfolge.'),
+                    items,
+                    vocabulary: [],
+                    ...linesFields,
+                    ...teacherFields,
+                } as Omit<Task, 'id'>);
+                break;
+            }
 
             default:
                 // Unbekannter Typ → überspringen

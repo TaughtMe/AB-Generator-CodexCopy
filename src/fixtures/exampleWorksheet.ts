@@ -4,7 +4,7 @@ import { useWorksheetStore } from '../store/worksheetStore';
 /* ══════════════════════════════════════════════════
    exampleWorksheet – Referenz-Arbeitsblatt für Export-Regressionstests.
 
-   Enthält alle 11 Tasktypen in repräsentativer Ausprägung (inkl.
+   Enthält alle 12 Tasktypen in repräsentativer Ausprägung (inkl.
    Rich-Text-Formatierung, Lücken, LaTeX, Tabelle mit Kopfzeile,
    Spaltenlayout mit Kindern, Seitenumbruch).
 
@@ -120,6 +120,19 @@ export const EXAMPLE_TASKS_BY_ID: Record<string, Task> = {
         lineRows: 5,
         rowCount: 5,
     },
+    'fx-ordering': {
+        ...base,
+        id: 'fx-ordering',
+        type: 'ordering',
+        title: 'Reihenfolge',
+        prompt: 'Bringe die Schritte der Photosynthese-Untersuchung in die richtige Reihenfolge.',
+        items: [
+            { id: 'fx-ord-1', text: 'Wasserpflanze ins Becherglas geben', correctPosition: 1 },
+            { id: 'fx-ord-2', text: 'Lampe einschalten und Abstand einstellen', correctPosition: 2 },
+            { id: 'fx-ord-3', text: 'Aufsteigende Gasbläschen zählen', correctPosition: 3 },
+            { id: 'fx-ord-4', text: 'Messwerte notieren und auswerten', correctPosition: 4 },
+        ],
+    },
     /* columns-Kinder: leben in tasksById, aber NICHT in der Root-taskIds-Liste */
     'fx-col-left': {
         ...base,
@@ -162,6 +175,7 @@ export const EXAMPLE_TASK_IDS: string[] = [
     'fx-image',
     'fx-pagebreak',
     'fx-lineatur',
+    'fx-ordering',
     'fx-columns',
 ];
 

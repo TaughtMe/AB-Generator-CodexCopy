@@ -27,6 +27,7 @@ import type { Task, TaskType } from '../../types/worksheet';
 const TASK_TYPES = [
     'multiple-choice', 'lineatur', 'cloze', 'image-placeholder', 'math',
     'page-break', 'columns', 'instruction', 'heading', 'table', 'information',
+    'ordering',
 ] as const satisfies readonly TaskType[];
 
 /* ── Schemas ── */
@@ -233,7 +234,7 @@ function truncate(text: string, max = 90): string {
 /** Bester Text-Auszug eines Tasks (typabhängiges Inhaltsfeld). */
 function taskExcerpt(task: Partial<Task> | Record<string, unknown>): string {
     const t = task as Record<string, unknown>;
-    const candidate = t.text ?? t.content ?? t.question ?? t.promptHtml ?? t.caption ?? '';
+    const candidate = t.text ?? t.content ?? t.question ?? t.prompt ?? t.promptHtml ?? t.caption ?? '';
     return truncate(stripHtml(candidate));
 }
 
