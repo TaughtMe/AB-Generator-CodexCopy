@@ -38,7 +38,7 @@ export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task, isActive =
     };
 
     return (
-        <div className="space-y-3 print:break-inside-avoid print:break-after-auto">
+        <div className="space-y-3 print:break-after-auto">
             {isActive && (
                 <div className="flex items-center gap-4 no-print flex-wrap">
                     <div className="flex items-center gap-2 shrink-0">

@@ -493,6 +493,13 @@
         overflow: hidden;
     }
 
+    /* Splittbare Tasks (Informationstext, Lineatur) dürfen über Seiten brechen. */
+    .print-task--splittable {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+        overflow: visible !important;
+    }
+
     .print-task__header {
         font-size: 9pt;
         font-weight: 700;

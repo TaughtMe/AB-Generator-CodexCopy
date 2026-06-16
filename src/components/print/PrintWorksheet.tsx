@@ -93,10 +93,14 @@ export function PrintWorksheet() {
                 const hasTitleSuffix =
                     Boolean(task.title) && task.type !== 'heading';
 
+                // Lange Info-/Lineatur-Bereiche dürfen über Seiten umbrechen;
+                // alle anderen Tasktypen bleiben geschützt (break-inside: avoid).
+                const isSplittable = task.type === 'information' || task.type === 'lineatur';
+
                 return (
                     <div
                         key={id}
-                        className={`print-task${task.type === 'heading' ? ' print-task--heading' : ''}`}
+                        className={`print-task${task.type === 'heading' ? ' print-task--heading' : ''}${isSplittable ? ' print-task--splittable' : ''}`}
                         style={{ ['--task-accent-color' as string]: accent || '#1e293b' }}
                     >
                         <div className="print-task__header">
