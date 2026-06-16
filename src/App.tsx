@@ -422,7 +422,7 @@ function App() {
           onCancel={() => setPendingExport(null)}
         />
       )}
-      <div ref={editorHeaderRef}>
+      <div ref={editorHeaderRef} className="no-print sticky top-0 z-30 bg-slate-100 dark:bg-slate-950">
         <RibbonToolbar
           onBackToDashboard={handleBackToDashboard}
           onSave={handleSave}
