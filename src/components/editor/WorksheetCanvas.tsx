@@ -28,6 +28,7 @@ import { MultiPageContainer } from '../layout/MultiPageContainer';
 import { WorksheetHeader } from '../layout/WorksheetHeader';
 import { TaskEditorRenderer } from '../tasks/TaskRegistry';
 import { TaskCard } from '../tasks/TaskCard';
+import { TaskLinesAfter } from '../tasks/TaskLinesAfter';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { useWorksheetStore } from '../../store/worksheetStore';
 
@@ -427,6 +428,7 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
                                             onUpdateTask={onUpdateTask}
                                         >
                                             <TaskEditorRenderer task={task} isActive={isTaskActive} />
+                                            <TaskLinesAfter task={task} />
                                         </TaskCard>
                                     </div>
                                 );

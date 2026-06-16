@@ -48,6 +48,10 @@ interface WorksheetStore extends Worksheet {
     replaceTasksFromAI: (tasks: IncomingAITask[]) => void;
     updateTask: (id: string, updates: Partial<Task>) => void;
     removeTask: (id: string) => void;
+    /** Prüft, ob ein Lineatur-Block als Schreibbereich an die vorherige Aufgabe anhängbar ist. */
+    canAttachLineaturToPrevious: (lineaturId: string) => boolean;
+    /** Hängt einen Lineatur-Block als linesAfter an die vorherige Aufgabe an und entfernt den Block. */
+    attachLineaturToPrevious: (lineaturId: string) => boolean;
     reorderTasks: (taskIds: string[]) => void;
     moveTask: (taskId: string, sourceContainerId: string, targetContainerId: string, newIndex: number) => void;
     duplicateTask: (id: string) => void;
@@ -110,6 +114,11 @@ type WorksheetTemporalSlice = Pick<
     | 'tasksById'
     | 'taskIds'
 >;
+
+/** Tasktypen, an die ein Lineatur-Block als linesAfter-Schreibbereich anhängbar ist. */
+const LINES_AFTER_HOST_TYPES: ReadonlySet<TaskType> = new Set([
+    'instruction', 'multiple-choice', 'cloze', 'math', 'table', 'information',
+]);
 
 /** Default line style for new lineatur tasks */
 const DEFAULT_LINE_STYLE: LineStyle = 'primary-4-lines';
@@ -962,7 +971,7 @@ const INITIAL_WORKSHEET_VARIANT = createWorksheetVariant('Standard');
 export const useWorksheetStore = create<WorksheetStore>()(
     persist(
         temporal(
-            (set) => ({
+            (set, get) => ({
     variants: [INITIAL_WORKSHEET_VARIANT],
     activeVariantId: INITIAL_WORKSHEET_VARIANT.id,
     id: crypto.randomUUID(),
@@ -1006,6 +1015,42 @@ export const useWorksheetStore = create<WorksheetStore>()(
             taskIds: newTaskIds,
         });
     }),
+
+    canAttachLineaturToPrevious: (lineaturId) => {
+        const state = get();
+        const activeVariant = state.variants[getActiveVariantIndex(state)];
+        if (!activeVariant) return false;
+        const lin = activeVariant.tasksById[lineaturId];
+        if (!lin || lin.type !== 'lineatur') return false;
+        const idx = activeVariant.taskIds.indexOf(lineaturId);
+        if (idx <= 0) return false;
+        const prev = activeVariant.tasksById[activeVariant.taskIds[idx - 1]];
+        return Boolean(prev && LINES_AFTER_HOST_TYPES.has(prev.type));
+    },
+
+    attachLineaturToPrevious: (lineaturId) => {
+        let attached = false;
+        set((state) => {
+            const activeVariant = state.variants[getActiveVariantIndex(state)];
+            if (!activeVariant) return state;
+            const lin = activeVariant.tasksById[lineaturId];
+            if (!lin || lin.type !== 'lineatur') return state;
+            const idx = activeVariant.taskIds.indexOf(lineaturId);
+            if (idx <= 0) return state;
+            const prevId = activeVariant.taskIds[idx - 1];
+            const prev = activeVariant.tasksById[prevId];
+            if (!prev || !LINES_AFTER_HOST_TYPES.has(prev.type)) return state;
+
+            const rows = Math.max(1, Math.min(20, Math.round(lin.rowCount ?? lin.lineRows ?? 5)));
+            const nextTasksById = { ...activeVariant.tasksById };
+            nextTasksById[prevId] = { ...prev, linesAfter: rows, linesAfterStyle: lin.lineStyle } as Task;
+            delete nextTasksById[lineaturId];
+            const nextTaskIds = activeVariant.taskIds.filter((id) => id !== lineaturId);
+            attached = true;
+            return syncActiveVariantTaskStateUnsaved(state, { tasksById: nextTasksById, taskIds: nextTaskIds });
+        });
+        return attached;
+    },
 
     /**
      * Batch-Import (KI), wobei pro Task eine neue ID erzeugt wird.
@@ -1503,7 +1548,7 @@ export const useWorksheetStore = create<WorksheetStore>()(
      * Damit bleibt das Bearbeiten außerhalb des Containers ohne Datenverlust
      * möglich und die Reihenfolge bleibt für Nutzer nachvollziehbar.
      */
-    detachFromColumn: (columnsId, slotIndex) => set((state) => {
+    detachFromColumn: (columnsId: string, slotIndex: 0 | 1) => set((state) => {
         const activeVariant = state.variants[getActiveVariantIndex(state)];
         if (!activeVariant) return state;
         const container = activeVariant.tasksById[columnsId];

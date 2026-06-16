@@ -1,8 +1,9 @@
 import React from 'react';
+import { CornerLeftUp } from 'lucide-react';
 import type { LineaturTask } from '../../types/worksheet';
 import type { LineStyle } from '../../types/worksheet';
 import { useWorksheetStore } from '../../store/worksheetStore';
-import { getLineaturBackground, getRowHeightMM } from '../../utils/lineaturStyles';
+import { LineaturLines } from './LineaturLines';
 
 interface LineaturEditorProps {
     task: LineaturTask;
@@ -11,9 +12,10 @@ interface LineaturEditorProps {
 
 export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task, isActive = true }) => {
     const updateTask = useWorksheetStore((s) => s.updateTask);
+    const attachLineaturToPrevious = useWorksheetStore((s) => s.attachLineaturToPrevious);
+    const canAttachToPrevious = useWorksheetStore((s) => s.canAttachLineaturToPrevious(task.id));
 
     const rowCount = Math.max(1, Math.min(20, Math.round(task.rowCount ?? task.lineRows ?? 5)));
-    const bandHeightMM = 5;
     const gapColor = task.gapColor && task.gapColor.trim().length > 0
         ? task.gapColor
         : '#eaf4e8';
@@ -89,42 +91,22 @@ export const LineaturEditor: React.FC<LineaturEditorProps> = ({ task, isActive =
                             />
                         </div>
                     )}
+
+                    {canAttachToPrevious && (
+                        <button
+                            type="button"
+                            onClick={() => attachLineaturToPrevious(task.id)}
+                            className="ml-auto inline-flex items-center gap-1.5 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                            title="Diese Schreiblinien als Antwortbereich an die vorherige Aufgabe anhängen"
+                        >
+                            <CornerLeftUp className="h-3.5 w-3.5" />
+                            An vorherige Aufgabe anhängen
+                        </button>
+                    )}
                 </div>
             )}
 
-            {task.lineStyle === 'primary-4-lines' ? (
-                <div
-                    className="rounded border border-worksheet-border overflow-hidden print:border-none print:rounded-none"
-                >
-                    <div
-                        className="pt-8 pb-4 px-4 flex flex-col gap-y-6"
-                        style={{ backgroundColor: task.gapColor || 'var(--theme-color-light, #eaf4e8)' }}
-                    >
-                        {Array.from({ length: rowCount }).map((_, blockIndex) => (
-                            <div
-                                key={`${task.id}-row-${blockIndex}`}
-                                className="bg-white border border-slate-500 w-full flex flex-col"
-                            >
-                                {Array.from({ length: 3 }).map((__, bandIndex) => (
-                                    <div
-                                        key={`${task.id}-row-${blockIndex}-band-${bandIndex}`}
-                                        className={bandIndex < 2 ? 'w-full border-b border-slate-400' : 'w-full'}
-                                        style={{ height: `${bandHeightMM}mm` }}
-                                    />
-                                ))}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ) : (
-                <div
-                    className="rounded border border-worksheet-border overflow-hidden print:border-none print:rounded-none"
-                    style={{
-                        ...getLineaturBackground(task.lineStyle),
-                        height: `${rowCount * getRowHeightMM(task.lineStyle)}mm`,
-                    }}
-                />
-            )}
+            <LineaturLines lineStyle={task.lineStyle} rowCount={rowCount} gapColor={task.gapColor} />
         </div>
     );
 };
