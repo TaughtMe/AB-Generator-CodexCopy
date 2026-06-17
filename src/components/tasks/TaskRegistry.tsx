@@ -10,6 +10,7 @@ import { InformationTaskEditor } from './InformationTaskEditor';
 import { HeadingEditor } from './HeadingEditor';
 import { TableEditor } from './TableEditor';
 import { OrderingTaskEditor } from './OrderingTaskEditor';
+import { MatchingTaskEditor } from './MatchingTaskEditor';
 import { UnknownTaskFallback } from './UnknownTaskFallback';
 
 // MathTaskEditor (+ katex + dompurify) wird erst bei Bedarf geladen.
@@ -26,25 +27,6 @@ const LazyMathTaskEditor = React.lazy(() =>
 
 interface TaskComponentRegistry {
     editor: React.ComponentType<{ task: Task; isActive?: boolean }>;
-}
-
-/** Übergangs-Platzhalter für matching, bis der echte Editor (Commit 2) existiert. */
-function MatchingTaskPlaceholder({ task }: { task: Task }) {
-    if (task.type !== 'matching') return null;
-    return (
-        <div className="text-sm text-slate-600">
-            <p className="mb-2 font-medium">{task.prompt}</p>
-            <ul className="space-y-1">
-                {task.pairs.map((pair, index) => (
-                    <li key={pair.id}>
-                        {String.fromCharCode(97 + index)}) {pair.left || <span className="text-slate-400">(leer)</span>}
-                        {' — '}
-                        {pair.right || <span className="text-slate-400">(leer)</span>}
-                    </li>
-                ))}
-            </ul>
-        </div>
-    );
 }
 
 /**
@@ -99,8 +81,7 @@ const TASK_REGISTRY: Record<TaskType, TaskComponentRegistry> = {
         editor: OrderingTaskEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
     'matching': {
-        // Platzhalter (Commit 1) – der vollständige MatchingTaskEditor folgt in Commit 2.
-        editor: MatchingTaskPlaceholder as React.ComponentType<{ task: Task; isActive?: boolean }>,
+        editor: MatchingTaskEditor as React.ComponentType<{ task: Task; isActive?: boolean }>,
     },
 };
 
