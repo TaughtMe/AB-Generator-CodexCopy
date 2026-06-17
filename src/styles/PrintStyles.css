@@ -186,8 +186,11 @@
     }
 
     /* ── Multiple-Choice: Student mode print ── */
-    /* Hide the interactive toggle button in print */
-    .mc-correct-marker {
+    /* Hide the interactive toggle button in print (inkl. grauer Editor-Hinterlegung).
+       Gilt analog für den Single-Choice-Marker, damit die graue Klick-Hilfe
+       weder im Schüler- noch im Lehrerexport sichtbar ist. */
+    .mc-correct-marker,
+    .sc-correct-marker {
         display: none !important;
     }
 

@@ -85,7 +85,7 @@ export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, is
                                     onClick={() => setCorrect(option.id)}
                                     className={`sc-correct-marker shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${option.isCorrect
                                         ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200'
-                                        : 'border-worksheet-border text-transparent hover:border-emerald-400'
+                                        : 'bg-slate-100 border-worksheet-border text-transparent hover:bg-emerald-50 hover:border-emerald-400'
                                         }`}
                                     title={option.isCorrect ? 'Als richtig markiert' : 'Als richtig markieren'}
                                     data-correct={option.isCorrect}
