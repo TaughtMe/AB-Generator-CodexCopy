@@ -78,12 +78,12 @@ export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, is
                     {task.options.map((option) => (
                         <div
                             key={option.id}
-                            className="sc-option-card flex items-start gap-2 group/option rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-1.5 min-h-0 h-auto transition-colors focus-within:ring-2 focus-within:ring-blue-500/35 focus-within:border-blue-500"
+                            className="sc-option-card flex items-center gap-2 group/option rounded-lg border border-worksheet-border bg-worksheet-field px-3 py-1.5 min-h-0 h-auto transition-colors focus-within:ring-2 focus-within:ring-blue-500/35 focus-within:border-blue-500"
                         >
                             {isActive ? (
                                 <button
                                     onClick={() => setCorrect(option.id)}
-                                    className={`sc-correct-marker shrink-0 w-7 h-7 mt-1.5 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${option.isCorrect
+                                    className={`sc-correct-marker shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${option.isCorrect
                                         ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200'
                                         : 'border-worksheet-border text-transparent hover:border-emerald-400'
                                         }`}
@@ -94,13 +94,13 @@ export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, is
                                 </button>
                             ) : (
                                 <span
-                                    className="shrink-0 w-5 h-5 mt-1.5 border-2 border-worksheet-border rounded-full print:hidden"
+                                    className="shrink-0 w-5 h-5 border-2 border-worksheet-border rounded-full print:hidden"
                                     data-correct={option.isCorrect}
                                 />
                             )}
 
                             <span
-                                className="sc-print-radio hidden shrink-0 w-5 h-5 mt-1.5 border-2 border-worksheet-border rounded-full"
+                                className="sc-print-radio hidden shrink-0 w-5 h-5 border-2 border-worksheet-border rounded-full"
                                 data-correct={option.isCorrect}
                             />
 
@@ -121,7 +121,7 @@ export const SingleChoiceEditor: React.FC<SingleChoiceEditorProps> = ({ task, is
                                 <button
                                     onClick={() => removeOption(option.id)}
                                     disabled={task.options.length <= 2}
-                                    className="shrink-0 p-1.5 mt-1.5 text-worksheet-inkLight/60 hover:text-red-500 rounded transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover/option:opacity-100 no-print"
+                                    className="shrink-0 p-1.5 text-worksheet-inkLight/60 hover:text-red-500 rounded transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed opacity-0 group-hover/option:opacity-100 no-print"
                                     title="Option entfernen"
                                 >
                                     <Trash2 className={ICON_SIZES[14]} />
