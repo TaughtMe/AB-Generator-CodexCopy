@@ -282,6 +282,13 @@
         font-weight: 600 !important;
     }
 
+    /* ── Matching: Lösungsbuchstabe vor dem rechten Begriff nur in der Lehrerversion ── */
+    html[data-export-variant="teacher"] .matching-solution-letter {
+        display: inline !important;
+        color: #16a34a !important;
+        font-weight: 600 !important;
+    }
+
     /* ── Lehrerinfo-Block (Phase 8): Lösung/Hinweise/Meta, nur in der Lehrerversion ── */
     .print-teacher-block {
         display: none !important;

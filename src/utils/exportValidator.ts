@@ -246,6 +246,31 @@ export function validateForExport(
                 break;
             }
 
+            case 'matching': {
+                if (!task.pairs || task.pairs.length < 2) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Zuordnungsaufgabe hat weniger als 2 Paare.',
+                    });
+                    break;
+                }
+                if (task.pairs.every((pair) => !pair.left?.trim() && !pair.right?.trim())) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Alle Paare der Zuordnungsaufgabe sind leer.',
+                    });
+                } else if (task.pairs.some((pair) => !pair.left?.trim() || !pair.right?.trim())) {
+                    warnings.push({
+                        taskId: id,
+                        taskTitle: task.title,
+                        message: 'Mindestens ein Paar hat eine leere Seite (links oder rechts).',
+                    });
+                }
+                break;
+            }
+
             default: {
                 const unknownTask = task as unknown as { title: string; type: string };
                 warnings.push({

@@ -36,6 +36,7 @@ import { renderImagePlaceholder } from './renderers/image';
 import { renderInstruction, renderInformation, renderHeading } from './renderers/textBlocks';
 import { renderTableTask } from './renderers/table';
 import { renderOrdering } from './renderers/ordering';
+import { renderMatching } from './renderers/matching';
 import { renderColumnsTask as renderColumnsTaskImpl } from './renderers/columns';
 
 /* ══════════════════════════════════════════════════
@@ -77,6 +78,8 @@ export async function renderTaskContent(
             return renderTableTask(task as TableTask, config);
         case 'ordering':
             return renderOrdering(task, isTeacherVersion, config);
+        case 'matching':
+            return renderMatching(task, isTeacherVersion, config);
         default:
             return [
                 new Paragraph({
