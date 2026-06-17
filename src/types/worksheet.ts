@@ -1,4 +1,4 @@
-export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction' | 'heading' | 'table' | 'information' | 'ordering';
+export type TaskType = 'multiple-choice' | 'lineatur' | 'cloze' | 'image-placeholder' | 'math' | 'page-break' | 'columns' | 'instruction' | 'heading' | 'table' | 'information' | 'ordering' | 'matching';
 import type { ChatMessage } from './ai';
 
 export type ColumnsLayout = '50-50' | '60-40' | '40-60';
@@ -187,7 +187,37 @@ export interface OrderingTask extends BaseTask {
     items: OrderingItem[];
 }
 
-export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask | TableTask | InformationTextTask | OrderingTask;
+/** Wie die Lösung einer Zuordnungsaufgabe in der Lehrerfassung dargestellt wird. */
+export type MatchingSolutionDisplay = 'right-letter' | 'lines';
+
+/** Ein Begriffspaar einer Zuordnungsaufgabe (links gehört zu rechts). */
+export interface MatchingPair {
+    id: string;
+    /** Linker Begriff (Anker, wird automatisch mit a), b), c) … nummeriert). */
+    left: string;
+    /** Rechter Begriff (zugehörige Erklärung/Zuordnung). */
+    right: string;
+}
+
+/**
+ * Zuordnungsaufgabe: Lernende verbinden linke Begriffe mit den passenden
+ * rechten Begriffen (Verbindungslinien auf dem Papier – keine Eingabefelder).
+ * Die linke Spalte zeigt die Paare in Reihenfolge (a, b, c …); die rechte
+ * Spalte wird über `rightOrder` gemischt dargestellt. In der Lehrerfassung
+ * wird die Lösung gezeigt (Standard: Lösungsbuchstabe vor dem rechten Begriff).
+ */
+export interface MatchingTask extends BaseTask {
+    type: 'matching';
+    /** Aufgabenstellung (z. B. "Verbinde die passenden Begriffe."). */
+    prompt: string;
+    pairs: MatchingPair[];
+    /** Anzeige-Reihenfolge der rechten Spalte als Liste von Paar-IDs (gemischt). */
+    rightOrder: string[];
+    /** Lösungsdarstellung in der Lehrerfassung. Standard: 'right-letter'. */
+    solutionDisplay: MatchingSolutionDisplay;
+}
+
+export type Task = MultipleChoiceTask | LineaturTask | ClozeTask | ImagePlaceholderTask | MathTask | PageBreakTask | ColumnsTask | InstructionTask | HeadingTask | TableTask | InformationTextTask | OrderingTask | MatchingTask;
 
 export interface WorksheetTaskState {
     tasksById: Record<string, Task>;

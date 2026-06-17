@@ -20,7 +20,7 @@ import {
 import {
     Scissors, Trash2,
     ListChecks, TextCursorInput, Sigma, FileText,
-    Type, Columns, Image as ImageIcon, Heading, Table, BookOpen, ListOrdered,
+    Type, Columns, Image as ImageIcon, Heading, Table, BookOpen, ListOrdered, Link2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Task, TaskType } from '../../types/worksheet';
@@ -63,6 +63,7 @@ const TASK_TYPE_OPTIONS: TaskOption[] = [
     { type: 'image-placeholder', label: 'Bild-Platzhalter',  icon: ImageIcon,       group: 'layout' },
     { type: 'information',       label: 'Informationstext',  icon: BookOpen,        group: 'task' },
     { type: 'ordering',          label: 'Reihenfolge',       icon: ListOrdered,     group: 'task' },
+    { type: 'matching',          label: 'Zuordnung',         icon: Link2,           group: 'task' },
 ];
 
 interface WorksheetCanvasProps {

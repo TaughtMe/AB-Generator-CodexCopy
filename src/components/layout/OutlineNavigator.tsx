@@ -33,6 +33,7 @@ import {
     Table,
     BookOpen,
     ListOrdered,
+    Link2,
     X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -61,6 +62,7 @@ const TASK_ICON: Record<TaskType, React.ElementType> = {
     'table': Table,
     'information': BookOpen,
     'ordering': ListOrdered,
+    'matching': Link2,
 };
 
 /** Lesbare Kurzbezeichnungen */
@@ -77,6 +79,7 @@ const TASK_LABEL: Record<TaskType, string> = {
     'table': 'Tabelle',
     'information': 'Information',
     'ordering': 'Reihenfolge',
+    'matching': 'Zuordnung',
 };
 
 // ── Einzelner Eintrag (sortierbar) ────────────────────────────────────

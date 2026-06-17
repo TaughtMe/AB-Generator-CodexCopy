@@ -33,6 +33,7 @@ const TASK_TYPE_LABELS: Record<Task['type'], string> = {
     'image-placeholder': 'Bild-Platzhalter',
     'information': 'Information',
     'ordering': 'Reihenfolge',
+    'matching': 'Zuordnung',
 };
 
 interface TaskCardProps {

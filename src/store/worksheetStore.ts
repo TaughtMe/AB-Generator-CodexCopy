@@ -143,6 +143,7 @@ const VALID_TASK_TYPES: TaskType[] = [
     'table',
     'information',
     'ordering',
+    'matching',
 ];
 
 function isTaskType(value: unknown): value is TaskType {
@@ -252,6 +253,24 @@ function createNewTask(type: TaskType): Task {
                     { id: crypto.randomUUID(), text: '', correctPosition: 3 },
                 ],
             };
+        case 'matching': {
+            const p1 = crypto.randomUUID();
+            const p2 = crypto.randomUUID();
+            const p3 = crypto.randomUUID();
+            return {
+                ...base,
+                type: 'matching',
+                title: 'Zuordnung',
+                prompt: 'Verbinde die passenden Begriffe.',
+                pairs: [
+                    { id: p1, left: '', right: '' },
+                    { id: p2, left: '', right: '' },
+                    { id: p3, left: '', right: '' },
+                ],
+                rightOrder: [p1, p2, p3],
+                solutionDisplay: 'right-letter',
+            };
+        }
         default:
             throw new Error(`Unsupported task type: ${type}`);
     }
@@ -647,6 +666,58 @@ function sanitizeTaskForStore(task: Task, fallbackTask: Task, isTypeSwitch: bool
                 title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
                 prompt: typeof safeTask.prompt === 'string' ? safeTask.prompt : fallback.prompt,
                 items,
+            };
+        }
+
+        case 'matching': {
+            const fallback: TaskByType<'matching'> = fallbackTask.type === 'matching'
+                ? fallbackTask
+                : createDefaultTaskOfType('matching');
+
+            const rawPairs = Array.isArray(safeTask.pairs) ? safeTask.pairs : null;
+            let pairs = rawPairs
+                ? rawPairs
+                    .filter(isObjectRecord)
+                    .map((pair) => ({
+                        id: typeof pair.id === 'string' && pair.id.trim() ? pair.id : crypto.randomUUID(),
+                        left: typeof pair.left === 'string' ? pair.left : '',
+                        right: typeof pair.right === 'string' ? pair.right : '',
+                    }))
+                : fallback.pairs.map((pair) => ({ ...pair }));
+
+            if (isTypeSwitch && pairs.length === 0) {
+                pairs = fallback.pairs.map((pair) => ({ ...pair }));
+            }
+
+            // rightOrder muss genau die Paar-IDs enthalten: fremde entfernen,
+            // fehlende (z. B. neu hinzugefügte Paare) hinten anhängen.
+            const pairIds = pairs.map((pair) => pair.id);
+            const filteredOrder = Array.isArray(safeTask.rightOrder)
+                ? safeTask.rightOrder.filter(
+                    (id): id is string => typeof id === 'string' && pairIds.includes(id),
+                )
+                : [];
+            const seenOrder = new Set(filteredOrder);
+            const rightOrder = [
+                ...filteredOrder.filter((id) => {
+                    if (seenOrder.has(id)) { seenOrder.delete(id); return true; }
+                    return false; // Duplikate entfernen
+                }),
+                ...pairIds.filter((id) => !filteredOrder.includes(id)),
+            ];
+
+            const solutionDisplay =
+                safeTask.solutionDisplay === 'lines' || safeTask.solutionDisplay === 'right-letter'
+                    ? safeTask.solutionDisplay
+                    : fallback.solutionDisplay;
+
+            return {
+                ...safeTask,
+                title: typeof safeTask.title === 'string' ? safeTask.title : fallback.title,
+                prompt: typeof safeTask.prompt === 'string' ? safeTask.prompt : fallback.prompt,
+                pairs,
+                rightOrder,
+                solutionDisplay,
             };
         }
 
