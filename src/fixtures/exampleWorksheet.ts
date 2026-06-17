@@ -4,7 +4,7 @@ import { useWorksheetStore } from '../store/worksheetStore';
 /* ══════════════════════════════════════════════════
    exampleWorksheet – Referenz-Arbeitsblatt für Export-Regressionstests.
 
-   Enthält alle 12 Tasktypen in repräsentativer Ausprägung (inkl.
+   Enthält alle 13 Tasktypen in repräsentativer Ausprägung (inkl.
    Rich-Text-Formatierung, Lücken, LaTeX, Tabelle mit Kopfzeile,
    Spaltenlayout mit Kindern, Seitenumbruch).
 
@@ -133,6 +133,21 @@ export const EXAMPLE_TASKS_BY_ID: Record<string, Task> = {
             { id: 'fx-ord-4', text: 'Messwerte notieren und auswerten', correctPosition: 4 },
         ],
     },
+    'fx-matching': {
+        ...base,
+        id: 'fx-matching',
+        type: 'matching',
+        title: 'Zuordnung',
+        prompt: 'Verbinde die passenden Begriffe.',
+        pairs: [
+            { id: 'fx-mat-1', left: 'Photosynthese', right: 'Umwandlung von Lichtenergie' },
+            { id: 'fx-mat-2', left: 'Zellkern', right: 'Steuerzentrum der Zelle' },
+            { id: 'fx-mat-3', left: 'Chlorophyll', right: 'grüner Farbstoff' },
+        ],
+        // bewusst gemischte rechte Spalte für stabile Export-Diffs
+        rightOrder: ['fx-mat-3', 'fx-mat-1', 'fx-mat-2'],
+        solutionDisplay: 'right-letter',
+    },
     /* columns-Kinder: leben in tasksById, aber NICHT in der Root-taskIds-Liste */
     'fx-col-left': {
         ...base,
@@ -176,6 +191,7 @@ export const EXAMPLE_TASK_IDS: string[] = [
     'fx-pagebreak',
     'fx-lineatur',
     'fx-ordering',
+    'fx-matching',
     'fx-columns',
 ];
 

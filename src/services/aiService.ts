@@ -1141,6 +1141,21 @@ Regeln für "ordering": mindestens 2 Elemente; "correctPosition" ist 1-basiert u
 bildet GENAU die Permutation 1..n (jede Position genau einmal). Liste die Elemente
 ruhig in gemischter Reihenfolge; "correctPosition" definiert die Lösung.
 
+5. Zuordnung (Begriffe verbinden):
+{
+  "type": "matching",
+  "title": "Aufgabe: ...",
+  "prompt": "Verbinde die passenden Begriffe.",
+  "pairs": [
+    { "left": "Photosynthese", "right": "Umwandlung von Lichtenergie" },
+    { "left": "Zellkern", "right": "Steuerzentrum der Zelle" },
+    { "left": "Chlorophyll", "right": "grüner Farbstoff" }
+  ]
+}
+Regeln für "matching": mindestens 2 Paare; "left" und "right" gehören jeweils
+zusammen (das ist die Lösung). Die rechte Spalte wird automatisch gemischt
+dargestellt – gib die Paare also in der korrekten Zuordnung an, NICHT vorgemischt.
+
 Optionales Attribut "linesAfter" – Schreibzeilen nach einer Aufgabe:
 Wenn eine Aufgabe Platz zum Schreiben benötigt, füge dem Aufgaben-Objekt das Feld "linesAfter" hinzu.
 Beispiel – Lückentext MIT angehängten Schreibzeilen:
@@ -1650,6 +1665,31 @@ export function validateAndNormalizeTasks(raw: unknown[]): Omit<Task, 'id'>[] {
                     title: String(item.title || 'Reihenfolge'),
                     prompt: String(item.prompt ?? item.question ?? item.text ?? 'Bringe die Elemente in die richtige Reihenfolge.'),
                     items,
+                    vocabulary: [],
+                    ...linesFields,
+                    ...teacherFields,
+                } as Omit<Task, 'id'>);
+                break;
+            }
+
+            case 'matching': {
+                const pairs = Array.isArray(item.pairs)
+                    ? item.pairs
+                        .filter((it): it is Record<string, unknown> => typeof it === 'object' && it !== null)
+                        .map((it) => ({
+                            id: crypto.randomUUID(),
+                            left: String(it.left ?? ''),
+                            right: String(it.right ?? ''),
+                        }))
+                    : [];
+                parsed.push({
+                    type: 'matching' as const,
+                    title: String(item.title || 'Zuordnung'),
+                    prompt: String(item.prompt ?? item.question ?? item.text ?? 'Verbinde die passenden Begriffe.'),
+                    pairs,
+                    // rightOrder bewusst in Paar-Reihenfolge – sanitize/Editor mischen für die Schülerfassung.
+                    rightOrder: pairs.map((pair) => pair.id),
+                    solutionDisplay: 'right-letter' as const,
                     vocabulary: [],
                     ...linesFields,
                     ...teacherFields,

@@ -27,7 +27,7 @@ import type { Task, TaskType } from '../../types/worksheet';
 const TASK_TYPES = [
     'multiple-choice', 'lineatur', 'cloze', 'image-placeholder', 'math',
     'page-break', 'columns', 'instruction', 'heading', 'table', 'information',
-    'ordering',
+    'ordering', 'matching',
 ] as const satisfies readonly TaskType[];
 
 /* ── Schemas ── */
