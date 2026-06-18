@@ -95,9 +95,12 @@ export const TaskEditorRenderer: React.FC<{ task: Task; isActive?: boolean }> = 
         return <UnknownTaskFallback type={task.type} />;
     }
     const Component = entry.editor;
+    // Splittbare Typen (langer Informationstext, Lineatur) duerfen im Druck ueber
+    // Seiten umbrechen; alle anderen bleiben als Einheit zusammen (break-inside: avoid).
+    const isSplittable = task.type === 'information' || task.type === 'lineatur';
     return (
         <Suspense fallback={<div className="h-24 rounded-md bg-slate-100 dark:bg-slate-800 animate-pulse" />}>
-            <div className="print:break-inside-avoid print:break-after-auto">
+            <div className={isSplittable ? '' : 'print:break-inside-avoid print:break-after-auto'}>
                 <Component task={task} isActive={isActive} />
             </div>
         </Suspense>

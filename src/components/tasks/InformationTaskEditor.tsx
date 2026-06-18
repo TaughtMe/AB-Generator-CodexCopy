@@ -363,7 +363,7 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
     };
 
     return (
-        <div className="w-full flex flex-col">
+        <div className="w-full">
             {isActive && (
                 <div className="mb-4 flex flex-wrap items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700 no-print print:hidden">
                     <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
@@ -407,7 +407,9 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
                 <div className="relative overflow-visible rounded-lg border border-worksheet-border bg-worksheet-field p-3">
                     {editor && <TextEditorBubbleMenu editor={editor} taskId={task.id} />}
 
-                    <div className="flex gap-6 w-full">
+                    {/* Ohne Notizenspalte als Block (kein Flex), damit langer Text im
+                        Druck über Seiten umbrechen kann; mit Notizen weiterhin zweispaltig. */}
+                    <div className={task.hasNotesColumn ? 'flex gap-6 w-full' : 'w-full'}>
                         <div
                             style={{ width: task.hasNotesColumn ? `${safeTextWidthRatio}%` : '100%' }}
                             className="min-w-0"
