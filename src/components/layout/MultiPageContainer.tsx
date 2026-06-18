@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, type ReactElement } from 'react';
+import { getPageGeometry } from '../../utils/pageGeometry';
 
 /* ══════════════════════════════════════════════════
    MultiPageContainer – Automatische A4-Seitenverteilung
@@ -7,16 +8,12 @@ import React, { useRef, useState, useEffect, useCallback, type ReactElement } fr
    ══════════════════════════════════════════════════ */
 
 /**
- * Nutzbare Höhe einer A4-Seite in px (bei 96 DPI).
- * 297mm - 2×20mm Innenabstand = 257mm ≈ 971px
+ * Seitengeometrie zentral aus pageGeometry (derzeit A4 Hochformat, 20-mm-Rand).
+ * Nutzbare Höhe = 297mm - 2×20mm = 257mm ≈ 971px.
  */
-const MM_TO_PX = 96 / 25.4; // ~3.7795
-const A4_HEIGHT_MM = 297;
-const PAGE_VERTICAL_INSET_MM = 20;
-const PAGE_HORIZONTAL_INSET_MM = 20;
-const PAGE_CONTENT_HEIGHT_MM = A4_HEIGHT_MM - (PAGE_VERTICAL_INSET_MM * 2);
-const PAGE_CONTENT_HEIGHT_PX = PAGE_CONTENT_HEIGHT_MM * MM_TO_PX;
-const PAGE_BREAK_SIDE_OFFSET = `-${PAGE_HORIZONTAL_INSET_MM}mm`;
+const PAGE_GEOMETRY = getPageGeometry();
+const PAGE_CONTENT_HEIGHT_PX = PAGE_GEOMETRY.contentHeightPx;
+const PAGE_BREAK_SIDE_OFFSET = `-${PAGE_GEOMETRY.marginMm}mm`;
 
 function parsePx(value: string): number {
     const parsed = Number.parseFloat(value);
