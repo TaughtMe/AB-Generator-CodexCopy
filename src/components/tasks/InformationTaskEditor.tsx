@@ -22,10 +22,8 @@ interface Props {
 }
 
 const MIN_TEXT_WIDTH_RATIO = 30;
-const MAX_TEXT_WIDTH_RATIO = 100;
+const MAX_TEXT_WIDTH_RATIO = 80;
 const DEFAULT_TEXT_WIDTH_RATIO = 60;
-/** Mit Notizenspalte bleibt Raum für die Notizen → Textspalte max. 80 %. */
-const MAX_TEXT_WIDTH_RATIO_WITH_NOTES = 80;
 
 function isHtml(text: string): boolean {
     return /<[a-z][\s\S]*>/i.test(text);
@@ -274,12 +272,6 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
 
     const vocabulary = Array.isArray(task.vocabulary) ? task.vocabulary : [];
     const safeTextWidthRatio = clampTextWidthRatio(task.textWidthRatio);
-    // Effektive Textspaltenbreite: mit Notizen max. 80 % (Platz für die Notizen),
-    // ohne Notizen frei bis 100 %. Steuert Editor UND Druck (gleiche Komponente).
-    const textColumnRatio = task.hasNotesColumn
-        ? Math.min(safeTextWidthRatio, MAX_TEXT_WIDTH_RATIO_WITH_NOTES)
-        : safeTextWidthRatio;
-    const sliderMax = task.hasNotesColumn ? MAX_TEXT_WIDTH_RATIO_WITH_NOTES : MAX_TEXT_WIDTH_RATIO;
 
     const patchTask = (updates: Partial<InformationTextTask>) => {
         updateTask(task.id, updates as Partial<InformationTextTask>);
@@ -383,22 +375,20 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
                         />
                         Notizenspalte aktivieren
                     </label>
-                    <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                        <span className="whitespace-nowrap">Textbreite</span>
+                    {task.hasNotesColumn && (
                         <input
                             type="range"
-                            min={MIN_TEXT_WIDTH_RATIO}
-                            max={sliderMax}
+                            min="30"
+                            max="80"
                             step="10"
-                            value={textColumnRatio}
+                            value={safeTextWidthRatio}
                             onChange={(event) => patchTask({
                                 textWidthRatio: clampTextWidthRatio(Number.parseInt(event.target.value, 10)),
                             })}
                             className="w-32 accent-blue-500"
-                            title="Textbreite / Zeilenlänge einstellen"
+                            title="Textbreite einstellen"
                         />
-                        <span className="tabular-nums text-xs text-slate-400 w-9 text-right">{textColumnRatio}%</span>
-                    </label>
+                    )}
                     <div className="w-px h-5 bg-slate-300 dark:bg-slate-600" />
                     <label className="tour-chunked-reading flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                         <input
@@ -419,7 +409,7 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
 
                     <div className="flex gap-6 w-full">
                         <div
-                            style={{ width: `${textColumnRatio}%` }}
+                            style={{ width: task.hasNotesColumn ? `${safeTextWidthRatio}%` : '100%' }}
                             className="min-w-0"
                         >
                             {editor ? (
@@ -433,7 +423,7 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
                         </div>
                         {task.hasNotesColumn && (
                             <div
-                                style={{ width: `${100 - textColumnRatio}%` }}
+                                style={{ width: `${100 - safeTextWidthRatio}%` }}
                                 className="flex flex-col gap-2 pt-2 border-l border-dashed border-slate-300 dark:border-slate-600 pl-6"
                             >
                                 {Array.from({ length: 10 }).map((_, i) => (
@@ -468,7 +458,7 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
                             <div className="flex gap-6 w-full">
                                 {/* Left column: Heading + ChunkEditor */}
                                 <div
-                                    style={{ width: `${textColumnRatio}%` }}
+                                    style={{ width: task.hasNotesColumn ? `${safeTextWidthRatio}%` : '100%' }}
                                     className="min-w-0 flex flex-col gap-1"
                                 >
                                     <div className={isEmptyHTML(chunk.heading) ? 'print:hidden' : ''}>
@@ -489,7 +479,7 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
                                 {/* Right column: Notes heading + lines */}
                                 {task.hasNotesColumn && (
                                     <div
-                                        style={{ width: `${100 - textColumnRatio}%` }}
+                                        style={{ width: `${100 - safeTextWidthRatio}%` }}
                                         className="flex flex-col gap-1 pt-0 border-l border-dashed border-slate-300 dark:border-slate-600 pl-6"
                                     >
                                         <div className={isEmptyHTML(chunk.notesHeading) ? 'print:hidden' : ''}>

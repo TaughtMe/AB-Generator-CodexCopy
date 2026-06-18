@@ -128,8 +128,7 @@ const VALID_CLOZE_GAP_STYLES: ClozeGapStyle[] = ['continuous', 'per-letter'];
 const VALID_CLOZE_WORD_BANK_MODES: ClozeWordBankMode[] = ['hidden', 'mixed', 'upside-down'];
 const VALID_IMAGE_ALIGNMENTS: ImageAlignment[] = ['left', 'center', 'right'];
 const MIN_INFORMATION_TEXT_WIDTH_RATIO = 30;
-// 100 erlaubt volle Breite ohne Notizenspalte; mit Notizen begrenzt der Editor auf 80.
-const MAX_INFORMATION_TEXT_WIDTH_RATIO = 100;
+const MAX_INFORMATION_TEXT_WIDTH_RATIO = 80;
 const DEFAULT_INFORMATION_TEXT_WIDTH_RATIO = 60;
 const VALID_TASK_TYPES: TaskType[] = [
     'multiple-choice',
