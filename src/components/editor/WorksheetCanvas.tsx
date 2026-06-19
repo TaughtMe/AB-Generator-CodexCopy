@@ -449,7 +449,11 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
                                             ...flowBlocks.map((blockHtml, blockIdx) => (
                                                 <div
                                                     key={`${id}-flow-${blockIdx}`}
-                                                    className="information-flow-block prose max-w-none text-sm text-worksheet-ink leading-relaxed mt-2 cursor-text break-inside-avoid"
+                                                    className={clsx(
+                                                        // prose ohne max-w-none → eingebautes lesbares Maß (~65ch)
+                                                        'information-flow-block prose text-sm text-worksheet-ink leading-relaxed mt-2 cursor-text break-inside-avoid',
+                                                        (task as InformationTextTask).highlightVocabulary && 'vocab-highlight-active',
+                                                    )}
                                                     onClick={() => setActiveTask(task.id)}
                                                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(blockHtml) }}
                                                 />
