@@ -441,8 +441,9 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
                                                     onToggleNumber={onToggleTaskNumber}
                                                     onUpdateTask={onUpdateTask}
                                                 >
-                                                    <div className="text-xs italic text-worksheet-inkLight px-1 py-1.5">
-                                                        Langer Informationstext – fließt über die Seiten. Zum Bearbeiten anklicken.
+                                                    <div className="flex items-center gap-1.5 text-[11px] text-worksheet-inkLight/70">
+                                                        <span aria-hidden="true">↳</span>
+                                                        <span>Fließtext über mehrere Seiten – zum Bearbeiten anklicken</span>
                                                     </div>
                                                 </TaskCard>
                                             </div>,
@@ -450,8 +451,9 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
                                                 <div
                                                     key={`${id}-flow-${blockIdx}`}
                                                     className={clsx(
-                                                        // prose ohne max-w-none → eingebautes lesbares Maß (~65ch)
-                                                        'information-flow-block prose text-sm text-worksheet-ink leading-relaxed mt-2 cursor-text break-inside-avoid',
+                                                        // Explizite lesbare Breite (kein Typography-Plugin → prose setzt
+                                                        // keine max-width). ~62ch ergibt eine angenehme Zeilenlänge.
+                                                        'information-flow-block max-w-[62ch] text-sm text-worksheet-ink leading-relaxed mt-2 cursor-text break-inside-avoid',
                                                         (task as InformationTextTask).highlightVocabulary && 'vocab-highlight-active',
                                                     )}
                                                     onClick={() => setActiveTask(task.id)}
