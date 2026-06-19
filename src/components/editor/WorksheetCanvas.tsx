@@ -23,7 +23,9 @@ import {
     Type, Columns, Image as ImageIcon, Heading, Table, BookOpen, ListOrdered, Link2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import type { Task, TaskType } from '../../types/worksheet';
+import type { Task, TaskType, InformationTextTask } from '../../types/worksheet';
+import { splitHtmlIntoBlocks } from '../../utils/htmlBlocks';
+import { sanitizeHtml } from '../../utils/sanitize';
 import { MultiPageContainer } from '../layout/MultiPageContainer';
 import { WorksheetHeader } from '../layout/WorksheetHeader';
 import { TaskEditorRenderer } from '../tasks/TaskRegistry';
@@ -409,6 +411,51 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
                                             </div>
                                         </div>
                                     );
+                                }
+
+                                // Echter Textfluss: nicht-aktiver, mehrblockiger Informationstext
+                                // fließt als read-only Absätze über Seiten (jeder Absatz = eigenes
+                                // MultiPageContainer-Kind). Die TaskCard bleibt Sortable-Anker
+                                // (DnD-Pfad unverändert); Klick auf den Text → voller Editor.
+                                if (task.type === 'information' && !isTaskActive && !isPlacingNewTask) {
+                                    const flowBlocks = splitHtmlIntoBlocks((task as InformationTextTask).content);
+                                    if (flowBlocks.length > 1) {
+                                        // Array (kein Fragment!) zurückgeben: React.Children.toArray im
+                                        // MultiPageContainer flacht verschachtelte Arrays auf → jeder
+                                        // Absatz wird ein eigenes, einzeln paginierbares Kind.
+                                        return [
+                                            <div
+                                                key={id}
+                                                ref={(el) => setTaskRef(id, el)}
+                                                className={taskWrapperClassName}
+                                                onClick={() => setActiveTask(task.id)}
+                                            >
+                                                {showIndicator && <PlacementIndicator />}
+                                                <TaskCard
+                                                    id={id}
+                                                    task={task}
+                                                    isActive={false}
+                                                    taskNumber={taskNumberMap[id] ?? null}
+                                                    onRemove={onRemoveTask}
+                                                    onDuplicate={onDuplicateTask}
+                                                    onToggleNumber={onToggleTaskNumber}
+                                                    onUpdateTask={onUpdateTask}
+                                                >
+                                                    <div className="text-xs italic text-worksheet-inkLight px-1 py-1.5">
+                                                        Langer Informationstext – fließt über die Seiten. Zum Bearbeiten anklicken.
+                                                    </div>
+                                                </TaskCard>
+                                            </div>,
+                                            ...flowBlocks.map((blockHtml, blockIdx) => (
+                                                <div
+                                                    key={`${id}-flow-${blockIdx}`}
+                                                    className="information-flow-block prose max-w-none text-sm text-worksheet-ink leading-relaxed mt-2 cursor-text break-inside-avoid"
+                                                    onClick={() => setActiveTask(task.id)}
+                                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(blockHtml) }}
+                                                />
+                                            )),
+                                        ];
+                                    }
                                 }
 
                                 return (
