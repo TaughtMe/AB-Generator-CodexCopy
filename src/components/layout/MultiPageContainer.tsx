@@ -86,7 +86,12 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
             const gapBefore = current.length === 0 ? 0 : Math.max(previousMarginBottom, marginTop);
             const projected = currentHeight + gapBefore + height;
 
-            if (current.length > 0 && projected > PAGE_CONTENT_HEIGHT_PX) {
+            // Nur umbrechen, wenn die Aufgabe auf eine FRISCHE Seite passt.
+            // Ein Block, der höher als eine ganze Seite ist, passt nirgends –
+            // dann NICHT umbrechen (sonst entsteht oben eine leere Seite), sondern
+            // stehen lassen (läuft vorerst über; Warnung folgt in Commit 3).
+            const fitsOnFreshPage = height <= PAGE_CONTENT_HEIGHT_PX;
+            if (current.length > 0 && projected > PAGE_CONTENT_HEIGHT_PX && fitsOnFreshPage) {
                 // Passt nicht mehr → neue Seite, Aufgabe bleibt atomar.
                 newPages.push(current);
                 current = [index];
