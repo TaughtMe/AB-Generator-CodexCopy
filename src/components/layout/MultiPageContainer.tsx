@@ -44,6 +44,14 @@ function pagesEqual(a: number[][], b: number[][]): boolean {
     return true;
 }
 
+function setsEqual(a: Set<number>, b: Set<number>): boolean {
+    if (a.size !== b.size) return false;
+    for (const v of a) {
+        if (!b.has(v)) return false;
+    }
+    return true;
+}
+
 interface MultiPageContainerProps {
     children: React.ReactNode;
     fontFamily?: string;
@@ -57,14 +65,18 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
     const itemRefs = useRef<Map<number, HTMLElement | null>>(new Map());
     // Initial: alle Kinder auf einer Seite – nach dem ersten Messen wird umgruppiert.
     const [pages, setPages] = useState<number[][]>(() => [childArray.map((_, i) => i)]);
+    // Indizes von Aufgaben, die höher als eine ganze Seite sind (laufen über).
+    const [overTall, setOverTall] = useState<Set<number>>(() => new Set());
 
     const recalc = useCallback(() => {
         if (childCount === 0) {
             setPages((prev) => (prev.length === 1 && prev[0].length === 0 ? prev : [[]]));
+            setOverTall((prev) => (prev.size === 0 ? prev : new Set()));
             return;
         }
 
         const newPages: number[][] = [];
+        const newOverTall = new Set<number>();
         let current: number[] = [];
         let currentHeight = 0;
         let previousMarginBottom = 0;
@@ -85,6 +97,10 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
 
             const gapBefore = current.length === 0 ? 0 : Math.max(previousMarginBottom, marginTop);
             const projected = currentHeight + gapBefore + height;
+
+            if (height > PAGE_CONTENT_HEIGHT_PX) {
+                newOverTall.add(index);
+            }
 
             // Nur umbrechen, wenn die Aufgabe auf eine FRISCHE Seite passt.
             // Ein Block, der höher als eine ganze Seite ist, passt nirgends –
@@ -115,6 +131,7 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
         }
 
         setPages((prev) => (pagesEqual(prev, newPages) ? prev : newPages));
+        setOverTall((prev) => (setsEqual(prev, newOverTall) ? prev : newOverTall));
     }, [childCount]);
 
     useEffect(() => {
@@ -155,6 +172,16 @@ export const MultiPageContainer: React.FC<MultiPageContainerProps> = ({ children
                                     key={child.key ?? i}
                                     ref={(el) => { itemRefs.current.set(i, el); }}
                                 >
+                                    {overTall.has(i) && (
+                                        <div className="no-print print:hidden mb-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                            <span aria-hidden="true">⚠</span>
+                                            <span>
+                                                Diese Aufgabe ist höher als eine Seite und läuft über das Blatt hinaus.
+                                                Tipp: langen Informationstext über den <strong>Abschnitts-Modus</strong> in
+                                                Abschnitte teilen – die werden dann sauber auf mehrere Seiten verteilt.
+                                            </span>
+                                        </div>
+                                    )}
                                     {child}
                                 </div>
                             );
