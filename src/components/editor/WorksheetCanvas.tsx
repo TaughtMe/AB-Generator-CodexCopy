@@ -451,9 +451,10 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
                                                 <div
                                                     key={`${id}-flow-${blockIdx}`}
                                                     className={clsx(
-                                                        // Volle Inhaltsbreite (Word-Standard-Lesebreite, Rand zu Rand) –
-                                                        // konsistent mit dem Editor; kein schmaler Spalten-Zwang.
-                                                        'information-flow-block w-full text-sm text-worksheet-ink leading-relaxed mt-2 cursor-text break-inside-avoid',
+                                                        // Gleicher horizontaler Versatz wie der Editor-Text (TaskCard 1+8px
+                                                        // + Editor-Box-Rahmen 1px + p-3 12px ≈ 22px je Seite), damit der
+                                                        // Text beim Wechsel View↔Edit NICHT springt (gemessen: 43px Diff).
+                                                        'information-flow-block w-full px-[22px] text-sm text-worksheet-ink leading-relaxed mt-2 cursor-text break-inside-avoid',
                                                         (task as InformationTextTask).highlightVocabulary && 'vocab-highlight-active',
                                                     )}
                                                     onClick={() => setActiveTask(task.id)}
