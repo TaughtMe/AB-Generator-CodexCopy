@@ -451,9 +451,9 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
                                                 <div
                                                     key={`${id}-flow-${blockIdx}`}
                                                     className={clsx(
-                                                        // Explizite lesbare Breite (kein Typography-Plugin → prose setzt
-                                                        // keine max-width). ~62ch ergibt eine angenehme Zeilenlänge.
-                                                        'information-flow-block max-w-[62ch] text-sm text-worksheet-ink leading-relaxed mt-2 cursor-text break-inside-avoid',
+                                                        // Volle Inhaltsbreite (Word-Standard-Lesebreite, Rand zu Rand) –
+                                                        // konsistent mit dem Editor; kein schmaler Spalten-Zwang.
+                                                        'information-flow-block w-full text-sm text-worksheet-ink leading-relaxed mt-2 cursor-text break-inside-avoid',
                                                         (task as InformationTextTask).highlightVocabulary && 'vocab-highlight-active',
                                                     )}
                                                     onClick={() => setActiveTask(task.id)}
