@@ -390,7 +390,10 @@ export function TableEditor({ task, isActive = true }: TableEditorProps) {
                     onEditorReady={setEditor}
                     placeholder="Tabelleninhalt eingeben…"
                     minRows={4}
-                    className="flex-1"
+                    // min-w-0: ohne dies überläuft das Flex-Item bei breiter Tabelle seinen
+                    // Container (Tabelle verlässt das Modul). Mit min-w-0 wird der .tableWrapper
+                    // zur Scroll-Grenze → die Tabelle bleibt im Editorbereich.
+                    className="flex-1 min-w-0"
                     hideToolbar={!isActive}
                     taskId={task.id}
                 />
