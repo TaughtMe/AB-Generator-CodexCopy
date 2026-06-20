@@ -441,10 +441,7 @@ export const WorksheetCanvas = React.memo(function WorksheetCanvas({
                                                     onToggleNumber={onToggleTaskNumber}
                                                     onUpdateTask={onUpdateTask}
                                                 >
-                                                    <div className="flex items-center gap-1.5 text-[11px] text-worksheet-inkLight/70">
-                                                        <span aria-hidden="true">↳</span>
-                                                        <span>Fließtext über mehrere Seiten – zum Bearbeiten anklicken</span>
-                                                    </div>
+                                                    {null}
                                                 </TaskCard>
                                             </div>,
                                             ...flowBlocks.map((blockHtml, blockIdx) => (
