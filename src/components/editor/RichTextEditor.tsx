@@ -110,7 +110,10 @@ function RichTextEditorInner({
             Underline,
             Placeholder.configure({ placeholder }),
             // Default table keymaps bleiben aktiv (Tab = nächste Zelle, Ende = neue Zeile, Enter = Zeilenumbruch in Zelle).
-            Table.configure({ resizable: true }),
+            // lastColumnResizable=false: die Tabelle bleibt auf 100 % der Editorbreite (kein Ziehen über den Rand);
+            // interne Trenner verteilen die Breite zwischen den beiden angrenzenden Spalten (Word-Verhalten).
+            // cellMinWidth verhindert das Zerquetschen einer Spalte auf ~1 Zeichen.
+            Table.configure({ resizable: true, lastColumnResizable: false, cellMinWidth: 48 }),
             TableRow,
             StyledTableHeader,
             StyledTableCell,
