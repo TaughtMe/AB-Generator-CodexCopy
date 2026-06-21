@@ -6,9 +6,15 @@ const LINE_HEIGHT_TYPES = ['paragraph', 'heading', 'tableCell', 'tableHeader'];
 /** Aktueller Zeilenabstand des Cursor-Blocks ('' = Standard). */
 export function getCurrentLineHeight(editor: Editor | null): string {
     if (!editor) return '';
-    for (const type of LINE_HEIGHT_TYPES) {
-        const value = (editor.getAttributes(type) as { lineHeight?: string | null }).lineHeight;
-        if (value) return value;
+    try {
+        for (const type of LINE_HEIGHT_TYPES) {
+            // Nur Node-Typen abfragen, die im Schema dieses Editors existieren.
+            if (!editor.schema.nodes[type]) continue;
+            const value = (editor.getAttributes(type) as { lineHeight?: string | null }).lineHeight;
+            if (value) return value;
+        }
+    } catch {
+        return '';
     }
     return '';
 }

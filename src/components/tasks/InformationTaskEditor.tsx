@@ -8,6 +8,7 @@ import Color from '@tiptap/extension-color';
 import TextStyle from '@tiptap/extension-text-style';
 import FontFamily from '@tiptap/extension-font-family';
 import { FontSize } from '../editor/tiptapFontSize';
+import { LineHeight } from '../editor/tiptapLineHeight';
 import { Plus, Trash2 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useWorksheetStore } from '../../store/worksheetStore';
@@ -154,6 +155,7 @@ const HeadingEditor = memo(function HeadingEditor({
                 Color,
                 FontFamily.configure({ types: ['textStyle'] }),
                 FontSize,
+                LineHeight.configure({ types: ['paragraph'] }),
                 DisableEnter,
                 Placeholder.configure({ placeholder }),
             ],
@@ -218,6 +220,7 @@ const ChunkEditor = memo(function ChunkEditor({ chunk, task, onChange }: ChunkEd
                 Color,
                 FontFamily.configure({ types: ['textStyle'] }),
                 FontSize,
+                LineHeight.configure({ types: ['paragraph'] }),
                 Placeholder.configure({ placeholder: 'Text eingeben…' }),
             ],
             content: plainTextToHtml(chunk.content),
@@ -291,6 +294,7 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
                 Color,
                 FontFamily.configure({ types: ['textStyle'] }),
                 FontSize,
+                LineHeight.configure({ types: ['paragraph'] }),
                 Placeholder.configure({ placeholder: 'Informationstext eingeben…' }),
             ],
             content: plainTextToHtml(task.content),

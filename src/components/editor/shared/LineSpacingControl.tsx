@@ -15,14 +15,17 @@ interface LineSpacingControlProps {
 }
 
 export function LineSpacingControl({ editor, disabled, value: valueProp }: LineSpacingControlProps) {
+    // Nicht jeder Editor lädt die LineHeight-Extension → defensiv prüfen,
+    // sonst wirft `chain().setLineHeight` (kein Befehl) und das Modul stürzt ab.
+    const supported = Boolean(editor && typeof editor.commands.setLineHeight === 'function');
     const value = valueProp ?? getCurrentLineHeight(editor);
     return (
         <select
             value={value}
-            disabled={disabled}
+            disabled={disabled || !supported}
             onMouseDown={(event) => event.stopPropagation()}
             onChange={(event) => {
-                if (!editor) return;
+                if (!editor || !supported) return;
                 const next = event.target.value;
                 const chain = editor.chain().focus();
                 if (!next) {
