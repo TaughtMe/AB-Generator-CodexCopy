@@ -1,4 +1,4 @@
-import { AlignmentType, ExternalHyperlink, HighlightColor, Paragraph, TextRun, type ParagraphChild } from 'docx';
+import { AlignmentType, ExternalHyperlink, HighlightColor, LineRuleType, Paragraph, TextRun, type ParagraphChild } from 'docx';
 import { toDocxFontFamily } from './fontFamily';
 
 type DocxAlignment = (typeof AlignmentType)[keyof typeof AlignmentType];
@@ -97,11 +97,12 @@ export function htmlToDocxParagraphs(
         const styleAttr = el.getAttribute('style') ?? '';
         const alignMatch = /text-align\s*:\s*(left|center|right|justify)/i.exec(styleAttr);
         const alignment = (alignMatch ? cssAlignToDocx(alignMatch[1]) : undefined) ?? options.defaultAlignment;
+        const lineValue = cssLineHeightToDocxLine(styleAttr);
         const runs = parseInlineRuns(el.innerHTML, style);
         // Leere <p></p> (Tiptap-Leerzeilen) bewusst als Leerabsatz erhalten.
         paragraphs.push(new Paragraph({
             children: runs,
-            spacing: { after: spacingAfter },
+            spacing: buildSpacing(spacingAfter, lineValue),
             alignment,
         }));
     };
@@ -119,6 +120,10 @@ export function htmlToDocxParagraphs(
             liClone.querySelectorAll('ul, ol').forEach((nested) => nested.remove());
             const runs = parseInlineRuns(liClone.innerHTML, style);
             const prefix = isOrdered ? `${index}. ` : '• ';
+            // Zeilenabstand liegt auf dem <p> innerhalb des <li> (bzw. am <li> selbst).
+            const liLineValue = cssLineHeightToDocxLine(
+                li.querySelector('p')?.getAttribute('style') ?? li.getAttribute('style') ?? '',
+            );
 
             paragraphs.push(new Paragraph({
                 children: [
@@ -130,7 +135,7 @@ export function htmlToDocxParagraphs(
                     }),
                     ...runs,
                 ],
-                spacing: { after: 40 },
+                spacing: buildSpacing(40, liLineValue),
                 indent: { left: 360 * (level + 1) },
                 alignment: options.defaultAlignment,
             }));
@@ -253,6 +258,28 @@ function cssAlignToDocx(align: string): DocxAlignment | undefined {
         case 'left': return AlignmentType.LEFT;
         default: return undefined;
     }
+}
+
+/**
+ * Liest einen einheitenlosen CSS line-height-Wert (z. B. "1.5") aus einem
+ * style-String und gibt den docx-Zeilenabstand in 240-tel (lineRule AUTO)
+ * zurück. 1.0 → 240, 1.5 → 360. Werte mit Einheit (%, px) werden ignoriert.
+ */
+function cssLineHeightToDocxLine(styleAttr: string): number | undefined {
+    const match = /line-height\s*:\s*([^;]+)/i.exec(styleAttr);
+    if (!match) return undefined;
+    const raw = match[1].trim();
+    if (!/^\d+(?:\.\d+)?$/.test(raw)) return undefined; // nur einheitenlos
+    const lineHeight = parseFloat(raw);
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0) return undefined;
+    return Math.round(lineHeight * 240);
+}
+
+/** Baut das docx-spacing-Objekt inkl. optionalem Zeilenabstand. */
+function buildSpacing(spacingAfter: number, lineValue?: number) {
+    return lineValue
+        ? { after: spacingAfter, line: lineValue, lineRule: LineRuleType.AUTO }
+        : { after: spacingAfter };
 }
 
 function parseCssFontSizeToHalfPoints(value: string): number | undefined {
