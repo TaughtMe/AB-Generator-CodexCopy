@@ -208,14 +208,11 @@ body {
     background: transparent !important;
 }
 
+/* Native ProseMirror-Resize-Handles ausblenden – wir nutzen eigene, gut
+   greifbare Griffe (TableEditor-Overlay). pointer-events:none ist bereits
+   gesetzt; display:none entfernt die doppelte dünne Linie. */
 .tiptap .column-resize-handle {
-    background-color: #3b82f6;
-    bottom: -1px;
-    position: absolute;
-    right: -1px;
-    pointer-events: none;
-    top: 0;
-    width: 2px;
+    display: none;
 }
 
 /* ──── Print/PDF Task Wrapper Cleanup ──── */

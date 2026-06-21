@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type ElementType } from 'react';
+import { useCallback, useEffect, useRef, useState, type ElementType } from 'react';
 import { BubbleMenu, type Editor } from '@tiptap/react';
+import { getColumnPercents, setColumnPercents, redistribute } from '../editor/tableColumnResize';
 import {
     Combine,
     Eraser,
@@ -203,6 +204,91 @@ export function TableEditor({ task, isActive = true }: TableEditorProps) {
     const canToggleHeaderRow = Boolean(editor?.can().chain().focus().toggleHeaderRow().run());
     const canToggleHeaderColumn = Boolean(editor?.can().chain().focus().toggleHeaderColumn().run());
 
+    /* ── Eigene, gut greifbare Spalten-Resize-Griffe (Word-Verhalten) ──────────
+       Liegen als Overlay über den Spaltengrenzen. Beim Ziehen ändern sich nur
+       die beiden angrenzenden Spalten (redistribute), die Tabelle bleibt 100 %.
+       Die Breiten werden per ProseMirror-Transaktion (colwidth) gesetzt und von
+       FitTableView als Prozent gerendert – kein externer DOM-Eingriff. */
+    const resizeContainerRef = useRef<HTMLDivElement>(null);
+    const [columnHandles, setColumnHandles] = useState<
+        Array<{ index: number; left: number; top: number; height: number }>
+    >([]);
+
+    const recomputeHandles = useCallback(() => {
+        const container = resizeContainerRef.current;
+        if (!editor || !isActive || !container) { setColumnHandles([]); return; }
+        const tableEl = editor.view.dom.querySelector('table');
+        const firstRow = tableEl?.querySelector('tr');
+        if (!tableEl || !firstRow) { setColumnHandles([]); return; }
+        const cells = Array.from(firstRow.children);
+        if (cells.length < 2) { setColumnHandles([]); return; }
+        const contRect = container.getBoundingClientRect();
+        const tableRect = tableEl.getBoundingClientRect();
+        const next: Array<{ index: number; left: number; top: number; height: number }> = [];
+        for (let i = 0; i < cells.length - 1; i += 1) {
+            const rect = cells[i].getBoundingClientRect();
+            next.push({
+                index: i,
+                left: rect.right - contRect.left,
+                top: tableRect.top - contRect.top,
+                height: tableRect.height,
+            });
+        }
+        setColumnHandles(next);
+    }, [editor, isActive]);
+
+    useEffect(() => {
+        recomputeHandles();
+        if (!editor || !isActive) return;
+        const tableEl = editor.view.dom.querySelector('table');
+        const observer = new ResizeObserver(() => recomputeHandles());
+        if (tableEl) observer.observe(tableEl);
+        editor.on('update', recomputeHandles);
+        editor.on('selectionUpdate', recomputeHandles);
+        window.addEventListener('resize', recomputeHandles);
+        return () => {
+            observer.disconnect();
+            editor.off('update', recomputeHandles);
+            editor.off('selectionUpdate', recomputeHandles);
+            window.removeEventListener('resize', recomputeHandles);
+        };
+    }, [editor, isActive, recomputeHandles]);
+
+    // DEV-Hilfe für manuelle Verifikation in der Konsole.
+    useEffect(() => {
+        if (!import.meta.env.DEV || !editor) return;
+        (window as unknown as Record<string, unknown>).__tableEditor = editor;
+        (window as unknown as Record<string, unknown>).__tableResize = {
+            getColumnPercents, setColumnPercents, redistribute,
+        };
+    }, [editor]);
+
+    const handleColumnDragStart = (event: React.PointerEvent, index: number) => {
+        if (!editor) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const tableEl = editor.view.dom.querySelector('table');
+        if (!tableEl) return;
+        const tableWidth = tableEl.getBoundingClientRect().width || 1;
+        const startX = event.clientX;
+        const startPercents = getColumnPercents(editor);
+        let lastPercents = startPercents;
+
+        const onMove = (moveEvent: PointerEvent) => {
+            const deltaPercent = ((moveEvent.clientX - startX) / tableWidth) * 100;
+            lastPercents = redistribute(startPercents, index, deltaPercent);
+            setColumnPercents(editor, lastPercents, false); // Zwischenschritte ohne Undo-Eintrag
+        };
+        const onUp = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            setColumnPercents(editor, lastPercents, true); // finaler Stand = ein Undo-Eintrag
+            recomputeHandles();
+        };
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+    };
+
     return (
         <div className="w-full flex flex-col gap-2">
             {editor && (
@@ -383,33 +469,46 @@ export function TableEditor({ task, isActive = true }: TableEditorProps) {
                 </BubbleMenu>
             )}
 
-            <div className="flex flex-row items-center gap-2">
-                <RichTextEditor
-                    value={task.content}
-                    onChange={(html) => updateTask(task.id, { content: html })}
-                    onEditorReady={setEditor}
-                    placeholder="Tabelleninhalt eingeben…"
-                    minRows={4}
-                    // min-w-0: ohne dies überläuft das Flex-Item bei breiter Tabelle seinen
-                    // Container (Tabelle verlässt das Modul). Mit min-w-0 wird der .tableWrapper
-                    // zur Scroll-Grenze → die Tabelle bleibt im Editorbereich.
-                    className="flex-1 min-w-0"
-                    hideToolbar={!isActive}
-                    taskId={task.id}
-                />
+            <div className="relative" ref={resizeContainerRef}>
+                <div className="flex flex-row items-center gap-2">
+                    <RichTextEditor
+                        value={task.content}
+                        onChange={(html) => updateTask(task.id, { content: html })}
+                        onEditorReady={setEditor}
+                        placeholder="Tabelleninhalt eingeben…"
+                        minRows={4}
+                        // min-w-0: Sicherheitsnetz, falls eine Tabelle doch breiter würde
+                        // als der Container (mit FitTableView bleibt sie i.d.R. auf 100 %).
+                        className="flex-1 min-w-0"
+                        hideToolbar={!isActive}
+                        taskId={task.id}
+                    />
 
-                {isActive && (
-                    <button
-                        type="button"
-                        onClick={handleAddColumnAfter}
-                        title="Spalte hinzufügen"
-                        aria-label="Spalte hinzufügen"
-                        disabled={!canMutateTable}
-                        className="no-print flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    {isActive && (
+                        <button
+                            type="button"
+                            onClick={handleAddColumnAfter}
+                            title="Spalte hinzufügen"
+                            aria-label="Spalte hinzufügen"
+                            disabled={!canMutateTable}
+                            className="no-print flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <Plus className={ICON_SIZES[14]} />
+                        </button>
+                    )}
+                </div>
+
+                {isActive && columnHandles.map((handle) => (
+                    <div
+                        key={handle.index}
+                        onPointerDown={(event) => handleColumnDragStart(event, handle.index)}
+                        className="no-print absolute z-20 flex justify-center cursor-col-resize group/handle"
+                        style={{ left: handle.left - 7, top: handle.top, height: handle.height, width: 14 }}
+                        title="Spaltenbreite ziehen"
                     >
-                        <Plus className={ICON_SIZES[14]} />
-                    </button>
-                )}
+                        <div className="h-full w-[2px] bg-blue-400/40 group-hover/handle:bg-blue-500 transition-colors" />
+                    </div>
+                ))}
             </div>
 
             {isActive && (
