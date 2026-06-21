@@ -41,6 +41,7 @@ import type { ExportVariant } from '../../types/export';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { ColorPickerButton } from '../ui/ColorPickerButton';
 import { SaveAsModal } from '../ui/SaveAsModal';
+import { TableRibbonControls } from '../editor/shared/TableRibbonControls';
 
 /* ══════════════════════════════════════════════════
    RibbonToolbar – Zentrale Ribbon-Toolbar (MS-Word-Stil)
@@ -835,11 +836,9 @@ export function RibbonToolbar({
                     </div>
                 )}
 
-                {/* ── Tabellen Tab (Platzhalter) ── */}
+                {/* ── Tabellen Tab ── */}
                 {activeTab === 'Tabellen' && (
-                    <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
-                        {t('ribbon.tablesPlaceholder')}
-                    </div>
+                    <TableRibbonControls editor={activeEditor} />
                 )}
 
                 {/* ── Sonderzeichen Tab (Platzhalter) ── */}
