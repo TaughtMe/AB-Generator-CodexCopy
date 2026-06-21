@@ -15,6 +15,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { StyledTableCell, StyledTableHeader } from './tiptapTableStyling';
 import { FontSize } from './tiptapFontSize';
 import { TextAlign } from './tiptapTextAlign';
+import { LineHeight } from './tiptapLineHeight';
 import { TiptapImage } from './tiptapImage';
 import { EditorErrorBoundary } from './EditorErrorBoundary';
 import { TextEditorBubbleMenu } from './shared/TextEditorBubbleMenu';
@@ -105,6 +106,9 @@ function RichTextEditorInner({
             }),
             FontSize,
             TextAlign.configure({
+                types: ['heading', 'paragraph', 'tableCell', 'tableHeader'],
+            }),
+            LineHeight.configure({
                 types: ['heading', 'paragraph', 'tableCell', 'tableHeader'],
             }),
             TiptapImage,

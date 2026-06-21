@@ -42,6 +42,8 @@ import { ICON_SIZES } from '../ui/iconSizes';
 import { ColorPickerButton } from '../ui/ColorPickerButton';
 import { SaveAsModal } from '../ui/SaveAsModal';
 import { TableRibbonControls } from '../editor/shared/TableRibbonControls';
+import { LineSpacingControl } from '../editor/shared/LineSpacingControl';
+import { getCurrentLineHeight } from '../editor/tiptapLineHeight';
 
 /* ══════════════════════════════════════════════════
    RibbonToolbar – Zentrale Ribbon-Toolbar (MS-Word-Stil)
@@ -198,6 +200,8 @@ export function RibbonToolbar({
     const selectedFontFamily = activeEditor
         ? ((activeEditor.getAttributes('textStyle') as { fontFamily?: string }).fontFamily ?? '')
         : '';
+
+    const selectedLineHeight = getCurrentLineHeight(activeEditor);
 
     const imageAttributes = activeEditor
         ? (activeEditor.getAttributes('image') as { align?: 'left' | 'center' | 'right' })
@@ -542,6 +546,8 @@ export function RibbonToolbar({
                             <Outdent className={ICON_SIZES[14]} />
                         </RibbonBtn>
                     </div>
+
+                    <LineSpacingControl editor={activeEditor} value={selectedLineHeight} disabled={editorDisabled} />
                 </div>
             ),
         },
@@ -657,6 +663,7 @@ export function RibbonToolbar({
         handleSaveAsClick,
         selectedFontFamily,
         selectedFontSize,
+        selectedLineHeight,
         showAiDropdown,
         isExportMenuOpen,
         isSaveMenuOpen,

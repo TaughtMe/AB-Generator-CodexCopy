@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ICON_SIZES } from '../../ui/iconSizes';
+import { LineSpacingControl } from './LineSpacingControl';
 
 /* ══════════════════════════════════════════════════
    TableRibbonControls – Tabellen-Werkzeuge im Ribbon
@@ -266,6 +267,11 @@ export function TableRibbonControls({ editor }: TableRibbonControlsProps) {
                 <TBtn title="Kopfspalte an/aus" disabled={!canHeaderColumn} onClick={() => run((c) => c.toggleHeaderColumn())}>
                     <PanelLeft className={ICON_SIZES[16]} />
                 </TBtn>
+            </RibbonGroup>
+
+            {/* ── Zeilenabstand ── */}
+            <RibbonGroup label="Abstand">
+                <LineSpacingControl editor={editor} />
             </RibbonGroup>
 
             {/* ── Zeilen ── */}
