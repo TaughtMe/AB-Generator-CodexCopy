@@ -7,6 +7,7 @@ import TextStyle from '@tiptap/extension-text-style';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import Table from '@tiptap/extension-table';
+import { FitTableView } from './FitTableView';
 import TableRow from '@tiptap/extension-table-row';
 import { CellSelection, deleteColumn, deleteRow } from '@tiptap/pm/tables';
 import { clsx } from 'clsx';
@@ -113,7 +114,10 @@ function RichTextEditorInner({
             // lastColumnResizable=false: die Tabelle bleibt auf 100 % der Editorbreite (kein Ziehen über den Rand);
             // interne Trenner verteilen die Breite zwischen den beiden angrenzenden Spalten (Word-Verhalten).
             // cellMinWidth verhindert das Zerquetschen einer Spalte auf ~1 Zeichen.
-            Table.configure({ resizable: true, lastColumnResizable: false, cellMinWidth: 48 }),
+            // View: FitTableView rendert Spaltenbreiten als Prozent → die Tabelle
+            // bleibt immer auf Container-/Seitenbreite (passt im Druck), beim Ziehen
+            // geben die anderen Spalten proportional mit.
+            Table.configure({ resizable: true, lastColumnResizable: false, cellMinWidth: 48, View: FitTableView }),
             TableRow,
             StyledTableHeader,
             StyledTableCell,
