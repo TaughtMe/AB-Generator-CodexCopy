@@ -38,8 +38,11 @@ export function LineSpacingControl({ editor, disabled, value: valueProp }: LineS
             aria-label="Zeilenabstand"
             className="h-8 min-w-[120px] rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 text-xs text-slate-600 dark:text-slate-300 disabled:opacity-50"
         >
+            {/* "1,5" entspricht Word's "1,5 Zeilen": der Blatt-Standard ist bereits
+                ~1,43, daher mappt 1,5 auf line-height 1,8 für einen klar sichtbaren,
+                gleichmäßigen Effekt in Editor, PDF und Word. */}
             <option value="">Zeilen: Standard</option>
-            <option value="1.5">Zeilen: 1,5</option>
+            <option value="1.8">Zeilen: 1,5</option>
         </select>
     );
 }
