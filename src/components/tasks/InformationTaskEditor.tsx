@@ -161,9 +161,7 @@ const HeadingEditor = memo(function HeadingEditor({
             ],
             content: value || '',
             onUpdate: ({ editor: e }) => onChange(e.getHTML()),
-            onFocus: ({ editor: e }) => setActiveEditor(e),
-            onBlur: () => setActiveEditor(null),
-            editorProps: {
+            onFocus: ({ editor: e }) => setActiveEditor(e),            editorProps: {
                 attributes: {
                     class: `tiptap outline-none${isItalic ? ' italic' : ''}`,
                 },
@@ -228,9 +226,7 @@ const ChunkEditor = memo(function ChunkEditor({ chunk, task, onChange }: ChunkEd
             onFocus: ({ editor: e }) => {
                 setActiveEditor(e);
                 setActiveTask(task.id);
-            },
-            onBlur: () => setActiveEditor(null),
-            editorProps: {
+            },            editorProps: {
                 attributes: {
                     class: 'tiptap rich-text-content outline-none min-h-[4rem] print:min-h-0 print:overflow-visible',
                 },
@@ -304,9 +300,6 @@ export function InformationTaskEditor({ task, isActive = true }: Props) {
             onFocus: ({ editor: currentEditor }) => {
                 setActiveEditor(currentEditor);
                 setActiveTask(task.id);
-            },
-            onBlur: () => {
-                setActiveEditor(null);
             },
             editorProps: {
                 attributes: {
