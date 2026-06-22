@@ -26,22 +26,46 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* ──── Scrollbar Styling ──── */
-.custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-}
+/* ──── Scrollbar Styling ────
+   Schlanke, dezente Scrollbars app-weit (ersetzt die klobige System-/Win95-
+   Scrollbar). Nur am Bildschirm – Druck/PDF bleiben unberührt.
+   Chromium/Safari/Edge via ::-webkit-scrollbar, Firefox via scrollbar-color. */
+@media screen {
+    html {
+        scrollbar-width: thin;
+        scrollbar-color: rgb(148 163 184 / 0.5) transparent;
+    }
+    .dark {
+        scrollbar-color: rgb(100 116 139 / 0.6) transparent;
+    }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-}
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background-color: rgb(148 163 184 / 0.5);
+        border-radius: 9999px;
+        /* 2px transparenter Rand + padding-box → schmaler, „schwebender" Balken mit Luft */
+        border: 2px solid transparent;
+        background-clip: padding-box;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: rgb(100 116 139 / 0.75);
+    }
+    ::-webkit-scrollbar-corner {
+        background: transparent;
+    }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    .dark ::-webkit-scrollbar-thumb {
+        background-color: rgb(100 116 139 / 0.6);
+    }
+    .dark ::-webkit-scrollbar-thumb:hover {
+        background-color: rgb(148 163 184 / 0.85);
+    }
 }
 
 /* ──── A4 Page System ──── */
