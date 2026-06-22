@@ -157,7 +157,7 @@ export function TableRibbonControls({ editor }: TableRibbonControlsProps) {
     const canHeaderColumn = Boolean(editor.can().chain().focus().toggleHeaderColumn().run());
 
     return (
-        <div ref={containerRef} className="flex flex-wrap items-stretch justify-start px-1 pt-2 pb-1">
+        <div ref={containerRef} className="flex flex-nowrap items-stretch justify-start px-1 pt-2 pb-1 overflow-x-auto">
             {/* ── Zellen: Farbe & Rahmen ── */}
             <RibbonGroup label="Zellen">
                 <div className="relative">
@@ -315,7 +315,7 @@ export function TableRibbonControls({ editor }: TableRibbonControlsProps) {
 
 function RibbonGroup({ label, children }: { label: string; children: ReactNode }) {
     return (
-        <div className="flex flex-col items-center justify-start gap-y-1 self-stretch pr-4 mr-2 border-r border-slate-300 dark:border-slate-700 last:border-r-0 last:pr-0 last:mr-0">
+        <div className="flex shrink-0 flex-col items-center justify-start gap-y-1 self-stretch pr-4 mr-2 border-r border-slate-300 dark:border-slate-700 last:border-r-0 last:pr-0 last:mr-0">
             <div className="flex items-center gap-1">{children}</div>
             <span className="text-[10px] text-slate-400 text-center uppercase tracking-wider mt-auto pt-1">{label}</span>
         </div>

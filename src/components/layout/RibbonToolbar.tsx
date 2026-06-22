@@ -820,12 +820,12 @@ export function RibbonToolbar({
 
                 {/* ── Ribbon Body (Allgemein / Bildformat) ── */}
                 {(activeTab === 'Allgemein' || activeTab === 'Bildformat') && (
-                    <div className="flex flex-wrap items-stretch justify-start px-1 pt-2 pb-1">
+                    <div className="flex flex-nowrap items-stretch justify-start px-1 pt-2 pb-1 overflow-x-auto">
                         {activeBlocks.map(({ label, content, hideLabel, disabled, className }) => (
                             <div
                                 key={label}
                                 className={clsx(
-                                    'flex flex-col items-center justify-start gap-y-1 self-stretch pr-4 mr-2 border-r border-slate-300 dark:border-slate-700 last:border-r-0 last:pr-0 last:mr-0',
+                                    'flex shrink-0 flex-col items-center justify-start gap-y-1 self-stretch pr-4 mr-2 border-r border-slate-300 dark:border-slate-700 last:border-r-0 last:pr-0 last:mr-0',
                                     className,
                                     disabled && 'opacity-50 pointer-events-none',
                                 )}
