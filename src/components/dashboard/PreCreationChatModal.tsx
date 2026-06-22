@@ -12,6 +12,7 @@ import { useWorksheetStore } from '../../store/worksheetStore';
 import type { ChatMessage } from '../../types/ai';
 import { ICON_SIZES } from '../ui/iconSizes';
 import { Modal } from '../ui/Modal';
+import { useAutoResizeTextarea } from '../../hooks/useAutoResizeTextarea';
 
 interface PreCreationChatModalProps {
     isOpen: boolean;
@@ -55,10 +56,11 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
 
     const providerReady = isActiveProviderConfigured();
     const historyRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLTextAreaElement>(null);
 
     const [messages, setMessages] = useState<ChatMessage[]>(getInitialPlanningMessages);
     const [input, setInput] = useState('');
+    // Eingabefeld wächst wie bei GPT mit dem Inhalt (bis maxHeight, dann Scrollbar).
+    const inputRef = useAutoResizeTextarea(input, { maxHeight: 200 });
     const [isChatLoading, setIsChatLoading] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export const PreCreationChatModal: React.FC<PreCreationChatModalProps> = ({ isOp
         setIsGenerating(false);
         setError(null);
         queueMicrotask(() => inputRef.current?.focus());
-    }, [isOpen]);
+    }, [isOpen, inputRef]);
 
     useEffect(() => {
         if (!isOpen) return;

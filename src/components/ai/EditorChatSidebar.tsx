@@ -6,6 +6,7 @@ import {
 } from '../../services/aiService';
 import { PROVIDER_MODEL_OPTIONS } from '../../services/ai/modelCatalog';
 import { useProviderModels } from '../../hooks/useProviderModels';
+import { useAutoResizeTextarea } from '../../hooks/useAutoResizeTextarea';
 import { useWorkspaceStore, type ChatActivity } from '../../store/workspaceStore';
 import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -83,12 +84,13 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
     const [variantInstruction, setVariantInstruction] = useState('');
     const [variantLabelInput, setVariantLabelInput] = useState('');
     const historyRef = useRef<HTMLDivElement>(null);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    /** Fokus zurück ins Eingabefeld holen, sobald es nach dem Senden wieder aktiv ist. */
-    const refocusInput = () => requestAnimationFrame(() => textareaRef.current?.focus());
     const submitOnEnter = useSettingsStore((s) => s.submitOnEnter);
     const input = aiSidebarDraft;
     const setInput = setAiSidebarDraft;
+    // Eingabefeld wächst wie bei GPT mit dem Inhalt (bis maxHeight, dann Scrollbar).
+    const textareaRef = useAutoResizeTextarea(input, { maxHeight: 200 });
+    /** Fokus zurück ins Eingabefeld holen, sobald es nach dem Senden wieder aktiv ist. */
+    const refocusInput = () => requestAnimationFrame(() => textareaRef.current?.focus());
 
     const providerReady = isActiveProviderConfigured();
     /** §7.1/7.2: Heuristische Token-Schätzung (Chat + Entwurf + Arbeitsblatt-JSON). */
@@ -457,7 +459,7 @@ export const EditorChatSidebar: React.FC<EditorChatSidebarProps> = ({ onOpenSour
                         rows={1}
                         placeholder="Nachricht an den KI-Assistenten..."
                         disabled={!providerReady || isChatLoading || isChatGenerating}
-                        className="flex-1 min-h-[40px] max-h-24 resize-none rounded-xl bg-transparent px-3 py-2 text-sm leading-5 text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
+                        className="flex-1 min-h-[40px] resize-none rounded-xl bg-transparent px-3 py-2 text-sm leading-5 text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                     />
                     <button
                         type="submit"

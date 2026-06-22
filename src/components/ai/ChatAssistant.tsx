@@ -12,6 +12,7 @@ import { useWorksheetStore } from '../../store/worksheetStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useSourceStore } from '../../store/sourceStore';
 import { ICON_SIZES } from '../ui/iconSizes';
+import { useAutoResizeTextarea } from '../../hooks/useAutoResizeTextarea';
 import { SourcesManagerModal } from '../editor/SourcesManagerModal';
 import type { AIProvider } from '../../store/settingsStore';
 
@@ -44,6 +45,8 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
     const abortChat = useWorkspaceStore((s) => s.abortChat);
 
     const [input, setInput] = useState('');
+    // Eingabefeld wächst wie bei GPT mit dem Inhalt (bis maxHeight, dann Scrollbar).
+    const inputRef = useAutoResizeTextarea(input, { maxHeight: 180 });
     const [showSourcesManager, setShowSourcesManager] = useState(false);
     const historyRef = useRef<HTMLDivElement>(null);
     const submitOnEnter = useSettingsStore((s) => s.submitOnEnter);
@@ -267,15 +270,16 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ onBack }) => {
                         </div>
                     )}
 
-                    <form onSubmit={handleSend} className="flex items-center gap-2 rounded-full bg-white/85 dark:bg-slate-800/85 backdrop-blur px-2 py-2">
+                    <form onSubmit={handleSend} className="flex items-end gap-2 rounded-3xl bg-white/85 dark:bg-slate-800/85 backdrop-blur px-2 py-2">
                         <textarea
+                            ref={inputRef}
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={handleInputKeyDown}
                             rows={1}
                             placeholder="Nachricht an den KI-Assistenten..."
                             disabled={!providerReady || isChatLoading || isChatGenerating}
-                            className="flex-1 h-10 max-h-24 resize-none rounded-full bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
+                            className="flex-1 min-h-[40px] resize-none rounded-3xl bg-transparent px-3 py-2 text-sm text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                         />
                         <button
                             type="submit"
