@@ -140,11 +140,6 @@ export function TableRibbonControls({ editor }: TableRibbonControlsProps) {
         fn(editor.chain().focus()).run();
     };
 
-    const canMerge = Boolean(editor?.can().chain().focus().mergeCells().run());
-    const canSplit = Boolean(editor?.can().chain().focus().splitCell().run());
-    const canHeaderRow = Boolean(editor?.can().chain().focus().toggleHeaderRow().run());
-    const canHeaderColumn = Boolean(editor?.can().chain().focus().toggleHeaderColumn().run());
-
     if (!editor || !inTable) {
         return (
             <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
@@ -152,6 +147,14 @@ export function TableRibbonControls({ editor }: TableRibbonControlsProps) {
             </div>
         );
     }
+
+    // Erst hier sicher: editor ist in einer Tabelle, also existieren die Tabellenbefehle.
+    // (Vorher berechnet, warf z. B. auf dem Informationstext-Editor ohne Table-Extension
+    // "mergeCells is not a function".)
+    const canMerge = Boolean(editor.can().chain().focus().mergeCells().run());
+    const canSplit = Boolean(editor.can().chain().focus().splitCell().run());
+    const canHeaderRow = Boolean(editor.can().chain().focus().toggleHeaderRow().run());
+    const canHeaderColumn = Boolean(editor.can().chain().focus().toggleHeaderColumn().run());
 
     return (
         <div ref={containerRef} className="flex flex-wrap items-stretch justify-start px-1 pt-2 pb-1">
