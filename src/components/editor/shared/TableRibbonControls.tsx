@@ -157,7 +157,7 @@ export function TableRibbonControls({ editor }: TableRibbonControlsProps) {
     const canHeaderColumn = Boolean(editor.can().chain().focus().toggleHeaderColumn().run());
 
     return (
-        <div ref={containerRef} className="flex flex-nowrap items-stretch justify-start px-1 pt-2 pb-1 overflow-x-auto">
+        <div ref={containerRef} className="flex flex-wrap items-stretch justify-start gap-y-2 px-1 pt-2 pb-1">
             {/* ── Zellen: Farbe & Rahmen ── */}
             <RibbonGroup label="Zellen">
                 <div className="relative">

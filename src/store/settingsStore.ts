@@ -54,6 +54,8 @@ interface SettingsState {
     availableLocalModels: string[];
     isFetchingModels: boolean;
     submitOnEnter: boolean;
+    /** Editor-Menüband (Ribbon) ein- oder ausgeklappt (Word-artig). */
+    ribbonExpanded: boolean;
     hasSeenOnboarding: boolean;
     // Design Settings
     schoolName: string;
@@ -84,6 +86,8 @@ interface SettingsActions {
     setAiConnectionStatus: (provider: AIProvider, status: AIConnectionStatus, error?: string | null) => void;
     refreshLocalModels: () => Promise<string[]>;
     setSubmitOnEnter: (value: boolean) => void;
+    toggleRibbonExpanded: () => void;
+    setRibbonExpanded: (value: boolean) => void;
     completeOnboarding: () => void;
     restartOnboarding: () => void;
     // Design Actions
@@ -152,6 +156,7 @@ function toPersistedSettingsSlice(state: SettingsStore): PersistedSettingsSlice 
         subject: state.subject,
         curriculumContext: state.curriculumContext,
         submitOnEnter: state.submitOnEnter,
+        ribbonExpanded: state.ribbonExpanded,
         hasSeenOnboarding: state.hasSeenOnboarding,
         schoolName: state.schoolName,
         logoImageId: state.logoImageId,
@@ -347,6 +352,7 @@ export const useSettingsStore = create<SettingsStore>()(
             availableLocalModels: [],
             isFetchingModels: false,
             submitOnEnter: true,
+            ribbonExpanded: true,
             hasSeenOnboarding: false,
             // Design defaults
             schoolName: '',
@@ -483,6 +489,8 @@ export const useSettingsStore = create<SettingsStore>()(
                 }
             },
             setSubmitOnEnter: (value) => set({ submitOnEnter: value }),
+            toggleRibbonExpanded: () => set((s) => ({ ribbonExpanded: !s.ribbonExpanded })),
+            setRibbonExpanded: (value) => set({ ribbonExpanded: value }),
             completeOnboarding: () => set({ hasSeenOnboarding: true }),
             restartOnboarding: () => set({ hasSeenOnboarding: false }),
             // Design Actions
@@ -581,6 +589,7 @@ export const useSettingsStore = create<SettingsStore>()(
                     return sanitizeModelState({
                         ...rest,
                         submitOnEnter: typeof rest.submitOnEnter === 'boolean' ? rest.submitOnEnter : true,
+                        ribbonExpanded: typeof rest.ribbonExpanded === 'boolean' ? rest.ribbonExpanded : true,
                         hasSeenOnboarding: typeof rest.hasSeenOnboarding === 'boolean' ? rest.hasSeenOnboarding : false,
                     } as SettingsStore);
                 }

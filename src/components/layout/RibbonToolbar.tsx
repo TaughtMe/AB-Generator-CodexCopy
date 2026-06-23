@@ -4,6 +4,7 @@ import {
     Home,
     Save,
     ChevronDown,
+    ChevronUp,
     Undo2,
     Redo2,
     Bold,
@@ -111,6 +112,8 @@ export function RibbonToolbar({
     const tasksById = useWorksheetStore((s) => s.tasksById);
     const themeMode = useSettingsStore((s) => s.themeMode);
     const toggleThemeMode = useSettingsStore((s) => s.toggleThemeMode);
+    const ribbonExpanded = useSettingsStore((s) => s.ribbonExpanded);
+    const toggleRibbonExpanded = useSettingsStore((s) => s.toggleRibbonExpanded);
     const customFonts = useFontStore((s) => s.customFonts);
     const canUndo = useStore(useWorksheetStore.temporal, (state) => state.pastStates.length > 0);
     const canRedo = useStore(useWorksheetStore.temporal, (state) => state.futureStates.length > 0);
@@ -646,7 +649,6 @@ export function RibbonToolbar({
                 </div>
             ),
         },
-        systemBlock,
     ], [
         activeEditor,
         activeTextColor,
@@ -668,7 +670,6 @@ export function RibbonToolbar({
         isExportMenuOpen,
         isSaveMenuOpen,
         handleExport,
-        systemBlock,
     ]);
 
     const imageToolbarBlocks = useMemo<ToolbarBlock[]>(() => [
@@ -755,7 +756,6 @@ export function RibbonToolbar({
                 </div>
             ),
         },
-        systemBlock,
     ], [
         activeEditor,
         activeImageTask,
@@ -765,7 +765,6 @@ export function RibbonToolbar({
         activeTaskId,
         updateTask,
         selectedToolbarImageAlign,
-        systemBlock,
         t,
     ]);
 
@@ -816,11 +815,29 @@ export function RibbonToolbar({
                             {tabLabelMap[tab]}
                         </button>
                     ))}
+
+                    {/* ── Rechts: Theme-Schalter + Menüband ein-/ausklappen (Word-artig) ── */}
+                    <div className="ml-auto flex items-center gap-1 pl-2">
+                        {systemBlock.content}
+                        <button
+                            type="button"
+                            onClick={toggleRibbonExpanded}
+                            onMouseDown={(e) => e.preventDefault()}
+                            title={ribbonExpanded ? 'Menüband ausblenden' : 'Menüband anzeigen'}
+                            aria-label={ribbonExpanded ? 'Menüband ausblenden' : 'Menüband anzeigen'}
+                            aria-expanded={ribbonExpanded}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+                        >
+                            {ribbonExpanded
+                                ? <ChevronUp className={ICON_SIZES[16]} />
+                                : <ChevronDown className={ICON_SIZES[16]} />}
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Ribbon Body (Allgemein / Bildformat) ── */}
-                {(activeTab === 'Allgemein' || activeTab === 'Bildformat') && (
-                    <div className="flex flex-nowrap items-stretch justify-start px-1 pt-2 pb-1 overflow-x-auto">
+                {ribbonExpanded && (activeTab === 'Allgemein' || activeTab === 'Bildformat') && (
+                    <div className="flex flex-wrap items-stretch justify-start gap-y-2 px-1 pt-2 pb-1">
                         {activeBlocks.map(({ label, content, hideLabel, disabled, className }) => (
                             <div
                                 key={label}
@@ -844,12 +861,12 @@ export function RibbonToolbar({
                 )}
 
                 {/* ── Tabellen Tab ── */}
-                {activeTab === 'Tabellen' && (
+                {ribbonExpanded && activeTab === 'Tabellen' && (
                     <TableRibbonControls editor={activeEditor} />
                 )}
 
                 {/* ── Sonderzeichen Tab (Platzhalter) ── */}
-                {activeTab === 'Sonderzeich.' && (
+                {ribbonExpanded && activeTab === 'Sonderzeich.' && (
                     <div className="flex items-center px-4 py-3 text-xs text-slate-400 dark:text-slate-500 min-h-[60px]">
                         {t('ribbon.specialCharsPlaceholder')}
                     </div>
