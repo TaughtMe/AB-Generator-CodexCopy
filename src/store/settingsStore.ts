@@ -56,6 +56,8 @@ interface SettingsState {
     submitOnEnter: boolean;
     /** Editor-Menüband (Ribbon) ein- oder ausgeklappt (Word-artig). */
     ribbonExpanded: boolean;
+    /** Symbolleiste auf schmalen Bildschirmen kompakt (ohne Beschriftungen) darstellen. */
+    compactRibbonOnNarrow: boolean;
     hasSeenOnboarding: boolean;
     // Design Settings
     schoolName: string;
@@ -88,6 +90,7 @@ interface SettingsActions {
     setSubmitOnEnter: (value: boolean) => void;
     toggleRibbonExpanded: () => void;
     setRibbonExpanded: (value: boolean) => void;
+    setCompactRibbonOnNarrow: (value: boolean) => void;
     completeOnboarding: () => void;
     restartOnboarding: () => void;
     // Design Actions
@@ -157,6 +160,7 @@ function toPersistedSettingsSlice(state: SettingsStore): PersistedSettingsSlice 
         curriculumContext: state.curriculumContext,
         submitOnEnter: state.submitOnEnter,
         ribbonExpanded: state.ribbonExpanded,
+        compactRibbonOnNarrow: state.compactRibbonOnNarrow,
         hasSeenOnboarding: state.hasSeenOnboarding,
         schoolName: state.schoolName,
         logoImageId: state.logoImageId,
@@ -353,6 +357,7 @@ export const useSettingsStore = create<SettingsStore>()(
             isFetchingModels: false,
             submitOnEnter: true,
             ribbonExpanded: true,
+            compactRibbonOnNarrow: true,
             hasSeenOnboarding: false,
             // Design defaults
             schoolName: '',
@@ -491,6 +496,7 @@ export const useSettingsStore = create<SettingsStore>()(
             setSubmitOnEnter: (value) => set({ submitOnEnter: value }),
             toggleRibbonExpanded: () => set((s) => ({ ribbonExpanded: !s.ribbonExpanded })),
             setRibbonExpanded: (value) => set({ ribbonExpanded: value }),
+            setCompactRibbonOnNarrow: (value) => set({ compactRibbonOnNarrow: value }),
             completeOnboarding: () => set({ hasSeenOnboarding: true }),
             restartOnboarding: () => set({ hasSeenOnboarding: false }),
             // Design Actions
@@ -590,6 +596,7 @@ export const useSettingsStore = create<SettingsStore>()(
                         ...rest,
                         submitOnEnter: typeof rest.submitOnEnter === 'boolean' ? rest.submitOnEnter : true,
                         ribbonExpanded: typeof rest.ribbonExpanded === 'boolean' ? rest.ribbonExpanded : true,
+                        compactRibbonOnNarrow: typeof rest.compactRibbonOnNarrow === 'boolean' ? rest.compactRibbonOnNarrow : true,
                         hasSeenOnboarding: typeof rest.hasSeenOnboarding === 'boolean' ? rest.hasSeenOnboarding : false,
                     } as SettingsStore);
                 }

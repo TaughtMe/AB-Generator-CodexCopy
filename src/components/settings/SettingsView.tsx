@@ -56,6 +56,8 @@ export const SettingsView: React.FC = () => {
     const submitOnEnter = useSettingsStore((state) => state.submitOnEnter);
 
     const setThemeMode = useSettingsStore((state) => state.setThemeMode);
+    const compactRibbonOnNarrow = useSettingsStore((state) => state.compactRibbonOnNarrow);
+    const setCompactRibbonOnNarrow = useSettingsStore((state) => state.setCompactRibbonOnNarrow);
     const setChatModelPreference = useSettingsStore((state) => state.setChatModelPreference);
     const setSubmitOnEnter = useSettingsStore((state) => state.setSubmitOnEnter);
     const restartOnboarding = useSettingsStore((state) => state.restartOnboarding);
@@ -251,6 +253,29 @@ export const SettingsView: React.FC = () => {
                                         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Dark Mode</p>
                                         <p className="text-xs text-slate-500 dark:text-slate-400">Dunkler Hintergrund</p>
                                     </div>
+                                </button>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-white dark:bg-slate-800/40 flex items-center justify-between gap-4">
+                                <div>
+                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Kompakte Symbolleiste</p>
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        Blendet auf schmalen Bildschirmen die Beschriftungen aus und rückt die Werkzeuge enger zusammen. Deaktivieren, um die Beschriftungen immer anzuzeigen.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={compactRibbonOnNarrow}
+                                    onClick={() => setCompactRibbonOnNarrow(!compactRibbonOnNarrow)}
+                                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                                        compactRibbonOnNarrow ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
+                                    }`}
+                                    title={compactRibbonOnNarrow ? 'Kompaktmodus deaktivieren' : 'Kompaktmodus aktivieren'}
+                                >
+                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                                        compactRibbonOnNarrow ? 'translate-x-5' : 'translate-x-1'
+                                    }`} />
                                 </button>
                             </div>
 

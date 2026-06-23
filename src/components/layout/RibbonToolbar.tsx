@@ -114,6 +114,23 @@ export function RibbonToolbar({
     const toggleThemeMode = useSettingsStore((s) => s.toggleThemeMode);
     const ribbonExpanded = useSettingsStore((s) => s.ribbonExpanded);
     const toggleRibbonExpanded = useSettingsStore((s) => s.toggleRibbonExpanded);
+    const compactRibbonOnNarrow = useSettingsStore((s) => s.compactRibbonOnNarrow);
+
+    // Breite der Symbolleiste beobachten → bei schmalen Bildschirmen kompakt
+    // (Beschriftungen aus, engere Abstände), sofern in den Einstellungen aktiv.
+    const headerRef = useRef<HTMLDivElement>(null);
+    const [isNarrow, setIsNarrow] = useState(false);
+    useEffect(() => {
+        const el = headerRef.current;
+        if (!el) return;
+        const COMPACT_BELOW = 1200;
+        const observer = new ResizeObserver((entries) => {
+            setIsNarrow(entries[0].contentRect.width < COMPACT_BELOW);
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+    const compact = compactRibbonOnNarrow && isNarrow;
     const customFonts = useFontStore((s) => s.customFonts);
     const canUndo = useStore(useWorksheetStore.temporal, (state) => state.pastStates.length > 0);
     const canRedo = useStore(useWorksheetStore.temporal, (state) => state.futureStates.length > 0);
@@ -787,7 +804,7 @@ export function RibbonToolbar({
 
     return (
         <>
-            <div className="no-print print:hidden sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm select-none">
+            <div ref={headerRef} className="no-print print:hidden sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm select-none">
             {/* ── Tab-Header ── */}
                 <div className="flex items-center gap-0 border-b border-slate-200 dark:border-slate-700 px-2">
                     {tabs.map((tab) => (
@@ -837,12 +854,16 @@ export function RibbonToolbar({
 
                 {/* ── Ribbon Body (Allgemein / Bildformat) ── */}
                 {ribbonExpanded && (activeTab === 'Allgemein' || activeTab === 'Bildformat') && (
-                    <div className="flex flex-wrap items-stretch justify-start gap-y-2 px-1 pt-2 pb-1">
+                    <div className={clsx(
+                        'flex flex-wrap items-stretch justify-start px-1',
+                        compact ? 'gap-y-1 pt-1 pb-1' : 'gap-y-2 pt-2 pb-1',
+                    )}>
                         {activeBlocks.map(({ label, content, hideLabel, disabled, className }) => (
                             <div
                                 key={label}
                                 className={clsx(
-                                    'flex shrink-0 flex-col items-center justify-start gap-y-1 self-stretch pr-4 mr-2 border-r border-slate-300 dark:border-slate-700 last:border-r-0 last:pr-0 last:mr-0',
+                                    'flex shrink-0 flex-col items-center justify-start gap-y-1 self-stretch border-r border-slate-300 dark:border-slate-700 last:border-r-0 last:pr-0 last:mr-0',
+                                    compact ? 'pr-2 mr-1' : 'pr-4 mr-2',
                                     className,
                                     disabled && 'opacity-50 pointer-events-none',
                                 )}
@@ -850,7 +871,7 @@ export function RibbonToolbar({
                                 <div className="flex flex-col gap-y-2">
                                     {content}
                                 </div>
-                                {!hideLabel && (
+                                {!hideLabel && !compact && (
                                     <span className="text-[10px] text-slate-400 text-center uppercase tracking-wider mt-auto pt-1">
                                         {label}
                                     </span>
@@ -862,7 +883,7 @@ export function RibbonToolbar({
 
                 {/* ── Tabellen Tab ── */}
                 {ribbonExpanded && activeTab === 'Tabellen' && (
-                    <TableRibbonControls editor={activeEditor} />
+                    <TableRibbonControls editor={activeEditor} compact={compact} />
                 )}
 
                 {/* ── Sonderzeichen Tab (Platzhalter) ── */}
