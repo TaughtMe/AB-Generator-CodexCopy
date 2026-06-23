@@ -42,6 +42,7 @@ export function RecentList(props: RecentListProps) {
   );
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showAll, setShowAll] = useState(false);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -53,7 +54,7 @@ export function RecentList(props: RecentListProps) {
     setSortDirection('asc');
   };
 
-  const sortedFiles = [...items]
+  const sorted = [...items]
     .sort((a, b) => {
       let valA: string | number = '';
       let valB: string | number = '';
@@ -88,8 +89,12 @@ export function RecentList(props: RecentListProps) {
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
-    })
-    .slice(0, 6);
+    });
+
+  // Standardmäßig nur die 6 neuesten; "Weitere anzeigen" klappt ALLE auf.
+  const COLLAPSED_COUNT = 6;
+  const sortedFiles = showAll ? sorted : sorted.slice(0, COLLAPSED_COUNT);
+  const hasMore = sorted.length > COLLAPSED_COUNT;
 
   const toggleSelectionMode = () => {
     setIsSelectionMode(!isSelectionMode);
@@ -148,12 +153,19 @@ export function RecentList(props: RecentListProps) {
     <section>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-4xl font-semibold text-slate-900 dark:text-white">Zuletzt erstellt</h2>
-        <button
-          type="button"
-          className="rounded-lg bg-slate-200 dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-300 dark:hover:bg-slate-700"
-        >
-          Weitere anzeigen &gt;
-        </button>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setShowAll((prev) => !prev)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-300 dark:hover:bg-slate-700"
+          >
+            {showAll ? (
+              <>Weniger anzeigen <ChevronUp size={16} /></>
+            ) : (
+              <>Alle anzeigen ({sorted.length}) <ChevronDown size={16} /></>
+            )}
+          </button>
+        )}
       </div>
 
       <div className="mb-4 flex items-center justify-end">
